@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bidmate-rag"
+version = "0.1.0"
+description = "RAG system scaffold for public and enterprise RFP analysis."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bidmate_rag"]

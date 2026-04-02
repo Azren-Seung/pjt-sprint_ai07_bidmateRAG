@@ -1,0 +1,1 @@
+"""OpenAI embedding adapter placeholder."""

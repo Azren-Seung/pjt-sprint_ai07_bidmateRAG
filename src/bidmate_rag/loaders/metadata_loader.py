@@ -1,0 +1,1 @@
+"""Metadata loading logic placeholder."""

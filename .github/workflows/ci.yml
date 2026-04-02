@@ -1,0 +1,11 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "TODO: add lint, test, and evaluation checks."

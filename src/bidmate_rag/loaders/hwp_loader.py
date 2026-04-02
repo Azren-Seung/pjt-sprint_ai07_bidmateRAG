@@ -1,0 +1,1 @@
+"""HWP loading logic placeholder."""

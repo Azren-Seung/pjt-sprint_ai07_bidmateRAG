@@ -1,0 +1,1 @@
+"""Structured metadata storage placeholder."""

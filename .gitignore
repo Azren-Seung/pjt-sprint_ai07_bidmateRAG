@@ -1,3 +1,21 @@
+# data
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/**/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/eval/*
+!data/eval/.gitkeep
+
+# build artifacts
+artifacts/*
+!artifacts/**/
+!artifacts/**/.gitkeep
+
+# git worktrees
+.worktrees/
+worktrees/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
