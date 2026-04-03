@@ -12,6 +12,7 @@
 
 - 새로운 기능 개발, 리팩토링, 실험 브랜치 작업은 기본적으로 `git worktree`를 사용합니다.
 - 메인 작업 디렉터리는 기준선 유지용으로 사용합니다.
+- 공통 기준 브랜치는 `develop`입니다.
 - worktree는 프로젝트 루트 아래 숨김 디렉터리인 `.worktrees/`에 생성합니다.
 - `.worktrees/`는 Git에서 추적하지 않습니다.
 
@@ -28,30 +29,30 @@ bidmate-rag/
 
 ## Branch Naming
 
-- 기능 개발: `feature/<topic>`
-- 실험 작업: `experiment/<topic>`
-- 버그 수정: `fix/<topic>`
-- 문서 작업: `docs/<topic>`
+- 기능 개발: `feat/<initial>/<topic>`
+- 실험 작업: `experiment/<initial>/<topic>`
+- 버그 수정: `fix/<initial>/<topic>`
+- 문서 작업: `docs/<initial>/<topic>`
 
 worktree 폴더명은 브랜치명을 파일 경로에 맞게 바꿔 사용하면 됩니다.
 
 예시:
 
-- 브랜치: `feature/hwp-loader`
-- worktree 경로: `.worktrees/feature-hwp-loader`
+- 브랜치: `feat/ay/hwp-loader`
+- worktree 경로: `.worktrees/feat-ay-hwp-loader`
 
 ## Basic Workflow
 
 ### 1. 새 브랜치용 worktree 생성
 
 ```bash
-git worktree add .worktrees/feature-hwp-loader -b feature/hwp-loader
+git worktree add .worktrees/feat-ay-hwp-loader -b feat/ay/hwp-loader develop
 ```
 
 ### 2. 생성된 worktree로 이동
 
 ```bash
-cd .worktrees/feature-hwp-loader
+cd .worktrees/feat-ay-hwp-loader
 ```
 
 ### 3. 필요한 환경 세팅
@@ -62,7 +63,7 @@ cd .worktrees/feature-hwp-loader
 
 ```bash
 uv sync
-python3 main.py
+uv run pytest
 ```
 
 ### 4. 작업 후 커밋 및 푸시
@@ -70,7 +71,7 @@ python3 main.py
 ```bash
 git add .
 git commit -m "feat: add hwp loader baseline"
-git push -u origin feature/hwp-loader
+git push -u origin feat/ay/hwp-loader
 ```
 
 ### 5. 브랜치 정리 후 worktree 제거
@@ -78,13 +79,13 @@ git push -u origin feature/hwp-loader
 작업이 끝나고 더 이상 해당 worktree가 필요 없으면 메인 디렉터리에서 제거합니다.
 
 ```bash
-git worktree remove .worktrees/feature-hwp-loader
+git worktree remove .worktrees/feat-ay-hwp-loader
 ```
 
 필요하면 로컬 브랜치도 정리합니다.
 
 ```bash
-git branch -d feature/hwp-loader
+git branch -d feat/ay/hwp-loader
 ```
 
 ## When Direct Work on `main` Is Allowed

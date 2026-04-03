@@ -125,6 +125,8 @@ RAG 시스템은 로더, 청킹, 검색, 생성이 모두 연결되기 때문에
   전체 시스템 구조 설명
 - `docs/decision-log.md`
   주요 기술 선택 이유 기록
+- `docs/collaboration/branch-strategy.md`
+  팀 브랜치 전략과 네이밍 규칙
 - `docs/collaboration/git-worktree-workflow.md`
   팀의 worktree 기반 브랜치 작업 규칙
 - `docs/plans/`
