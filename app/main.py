@@ -543,6 +543,7 @@ def _render_streamlit_app() -> None:
                         project = doc.get("사업명", "")
                         if st.button(f"💬 이 문서에 대해 질문하기", key="ask_doc"):
                             st.session_state["pending_example"] = f"{agency} {project} 사업 요구사항을 정리해 줘"
+                            st.toast("💬 라이브 데모 탭으로 이동하세요", icon="👆")
                             st.rerun()
 
     # ── 탭 3: 평가 ──
