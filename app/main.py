@@ -57,17 +57,69 @@ def _render_streamlit_app() -> None:
     with st.sidebar:
         st.header("⚙️ 설정")
 
-        # 1) Provider 선택
+        # 1) 시나리오 + Provider 선택
         provider_configs = list_provider_configs()
         if not provider_configs:
             st.warning("Provider config가 없습니다.")
             st.stop()
 
+        # 시나리오 체크박스
+        st.subheader("🔬 시나리오")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            show_a = st.checkbox("A (로컬)", value=False)
+        with col_b:
+            show_b = st.checkbox("B (API)", value=True)
+
+        # 시나리오별 필터링 + 정렬
+        import yaml as _yaml
+        def _get_scenario(path):
+            try:
+                return _yaml.safe_load(path.read_text()).get("scenario", "")
+            except Exception:
+                return ""
+
+        def _get_model(path):
+            try:
+                return _yaml.safe_load(path.read_text()).get("model", "")
+            except Exception:
+                return ""
+
+        # B 시나리오 정렬: gpt-5 → gpt-5-mini → gpt-5-nano
+        B_ORDER = {"gpt-5": 0, "gpt-5-mini": 1, "gpt-5-nano": 2}
+
+        filtered_configs = []
+        for p in provider_configs:
+            scenario = _get_scenario(p)
+            if scenario == "scenario_a" and show_a:
+                filtered_configs.append(p)
+            elif scenario == "scenario_b" and show_b:
+                filtered_configs.append(p)
+            elif scenario not in ("scenario_a", "scenario_b"):
+                if show_a or show_b:
+                    filtered_configs.append(p)
+
+        # 정렬: B(gpt-5 순서) → A(이름순)
+        filtered_configs.sort(key=lambda p: (
+            0 if _get_scenario(p) == "scenario_b" else 1,
+            B_ORDER.get(_get_model(p), 99),
+            p.stem,
+        ))
+
+        if not filtered_configs:
+            st.warning("선택한 시나리오에 해당하는 Provider가 없습니다.")
+            st.stop()
+
+        def _format_provider(p):
+            scenario = _get_scenario(p)
+            model = _get_model(p)
+            tag = "🅰️" if scenario == "scenario_a" else "🅱️"
+            return f"{tag} {model}"
+
         selected_provider = st.selectbox(
             "LLM Provider",
-            provider_configs,
-            format_func=lambda p: p.stem,
-            help="configs/providers/ 안의 YAML 파일",
+            filtered_configs,
+            format_func=_format_provider,
         )
 
         # 2) 검색 설정

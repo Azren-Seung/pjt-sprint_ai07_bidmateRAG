@@ -8,7 +8,55 @@ from uuid import uuid4
 
 import pandas as pd
 
+import yaml as _yaml
+
 EVAL_DIR = Path("data/eval")
+
+# Provider 정렬/필터 공통 유틸
+B_ORDER = {"gpt-5": 0, "gpt-5-mini": 1, "gpt-5-nano": 2}
+
+def _get_provider_info(path):
+    try:
+        cfg = _yaml.safe_load(path.read_text())
+        return cfg.get("scenario", ""), cfg.get("model", "")
+    except Exception:
+        return "", ""
+
+def _format_provider(p):
+    scenario, model = _get_provider_info(p)
+    tag = "🅰️" if scenario == "scenario_a" else "🅱️"
+    return f"{tag} {model}"
+
+def _sort_providers(configs):
+    """B 시나리오(gpt-5→mini→nano) 우선, A 시나리오 이름순."""
+    return sorted(configs, key=lambda p: (
+        0 if _get_provider_info(p)[0] == "scenario_b" else 1,
+        B_ORDER.get(_get_provider_info(p)[1], 99),
+        p.stem,
+    ))
+
+def _render_scenario_provider_selector(st, list_provider_configs, key_prefix=""):
+    """시나리오 체크박스 + Provider selectbox. 평가실행/디버깅 공통."""
+    provider_configs = list_provider_configs()
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        show_a = st.checkbox("🅰️ 시나리오 A", value=False, key=f"{key_prefix}_sa")
+    with col_s2:
+        show_b = st.checkbox("🅱️ 시나리오 B", value=True, key=f"{key_prefix}_sb")
+
+    filtered = []
+    for p in provider_configs:
+        scenario, _ = _get_provider_info(p)
+        if scenario == "scenario_a" and show_a:
+            filtered.append(p)
+        elif scenario == "scenario_b" and show_b:
+            filtered.append(p)
+    filtered = _sort_providers(filtered)
+
+    if not filtered:
+        st.warning("선택한 시나리오에 Provider가 없습니다.")
+        return None
+    return st.selectbox("Provider", filtered, format_func=_format_provider, key=f"{key_prefix}_provider")
 EVAL_SET_PATH = EVAL_DIR / "eval_set.json"
 RUNS_DIR = Path("artifacts/logs/runs")
 BENCHMARKS_DIR = Path("artifacts/logs/benchmarks")
@@ -127,13 +175,14 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
         st.warning("평가셋이 비어있습니다. '평가셋 편집' 탭에서 질문을 추가하세요.")
         return
 
-    provider_configs = list_provider_configs()
-    col1, col2, col3 = st.columns(3)
+    provider = _render_scenario_provider_selector(st, list_provider_configs, key_prefix="run")
+    if provider is None:
+        return
+
+    col1, col2 = st.columns(2)
     with col1:
-        provider = st.selectbox("Provider", provider_configs, format_func=lambda p: p.stem, key="run_provider")
-    with col2:
         top_k = st.slider("Top-K", 1, 20, 5, key="run_topk")
-    with col3:
+    with col2:
         run_scope = st.selectbox("실행 범위", ["전체", "유형별", "난이도별"], key="run_scope")
 
     # 필터
@@ -248,12 +297,10 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
         return
 
     # 설정
-    provider_configs = list_provider_configs()
-    col1, col2 = st.columns(2)
-    with col1:
-        provider = st.selectbox("Provider", provider_configs, format_func=lambda p: p.stem, key="debug_provider")
-    with col2:
-        top_k = st.slider("Top-K", 1, 20, 5, key="debug_topk")
+    provider = _render_scenario_provider_selector(st, list_provider_configs, key_prefix="debug")
+    if provider is None:
+        return
+    top_k = st.slider("Top-K", 1, 20, 5, key="debug_topk")
 
     if st.button("🔍 이 질문 실행", type="primary", key="debug_run_btn"):
         with st.status("디버깅 실행 중...", expanded=True) as status:
