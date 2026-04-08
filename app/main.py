@@ -231,7 +231,7 @@ def _render_streamlit_app() -> None:
                 st.session_state.pop("pending_example", None)
                 st.rerun()
         with col2:
-            if st.session_state.messages and st.button("💾 내보내기", use_container_width=True):
+            if st.session_state.messages:
                 export = []
                 for msg in st.session_state.messages:
                     entry = {"role": msg["role"], "content": msg["content"]}
@@ -241,7 +241,7 @@ def _render_streamlit_app() -> None:
                         }
                     export.append(entry)
                 st.download_button(
-                    "⬇️ JSON 다운로드",
+                    "💾 내보내기",
                     data=json.dumps(export, ensure_ascii=False, indent=2),
                     file_name="bidmate_rag_chat.json",
                     mime="application/json",
@@ -433,51 +433,70 @@ def _render_streamlit_app() -> None:
         st.subheader("RFP 문서 목록")
         chunks_path = Path("data/processed/cleaned_documents.parquet")
         if not chunks_path.exists():
-            st.info("문서 데이터가 없습니다. `02_preprocessing` → `03_cleaning`을 실행해주세요.")
+            st.info("문서 데이터가 없습니다. 파이프라인을 실행해주세요:\n\n"
+                    "`uv run python scripts/ingest_data.py`")
         else:
             import pandas as pd
             docs_df = pd.read_parquet(chunks_path)
 
-            # 검색 필터
-            search_term = st.text_input("문서 검색 (사업명, 발주기관)", placeholder="키워드 입력...")
+            # 필터 영역
+            filter_col1, filter_col2, filter_col3 = st.columns([2, 1, 1])
+            with filter_col1:
+                search_term = st.text_input("🔍 검색", placeholder="사업명 또는 발주기관 키워드...")
+            with filter_col2:
+                domain_options = ["전체"] + sorted(docs_df["사업도메인"].dropna().unique().tolist()) if "사업도메인" in docs_df.columns else ["전체"]
+                doc_domain = st.selectbox("도메인", domain_options, key="doc_domain")
+            with filter_col3:
+                type_options = ["전체"] + sorted(docs_df["기관유형"].dropna().unique().tolist()) if "기관유형" in docs_df.columns else ["전체"]
+                doc_type = st.selectbox("기관유형", type_options, key="doc_type")
+
+            # 필터 적용
             if search_term:
-                mask = (
+                docs_df = docs_df[
                     docs_df["사업명"].str.contains(search_term, case=False, na=False) |
                     docs_df["발주 기관"].str.contains(search_term, case=False, na=False)
-                )
-                docs_df = docs_df[mask]
+                ]
+            if doc_domain != "전체" and "사업도메인" in docs_df.columns:
+                docs_df = docs_df[docs_df["사업도메인"] == doc_domain]
+            if doc_type != "전체" and "기관유형" in docs_df.columns:
+                docs_df = docs_df[docs_df["기관유형"] == doc_type]
 
             st.caption(f"총 {len(docs_df)}건")
 
-            display_cols = ["사업명", "발주 기관", "사업 금액", "공개 일자", "파일형식", "정제_글자수"]
+            display_cols = ["사업명", "발주 기관", "사업 금액", "기관유형", "사업도메인", "정제_글자수"]
             available_cols = [c for c in display_cols if c in docs_df.columns]
             display = docs_df[available_cols].copy()
             if "사업 금액" in display.columns:
                 display["사업 금액"] = display["사업 금액"].apply(
                     lambda x: f"{x/1e8:.1f}억" if x and x > 0 else "-"
                 )
-            st.dataframe(display, use_container_width=True, height=500)
+            st.dataframe(display, use_container_width=True, height=400)
 
             # 문서 상세 보기
             if len(docs_df) > 0:
-                selected_doc = st.selectbox(
-                    "문서 상세 보기",
-                    docs_df["사업명"].tolist(),
-                )
+                selected_doc = st.selectbox("문서 상세 보기", docs_df["사업명"].tolist())
                 if selected_doc:
                     doc = docs_df[docs_df["사업명"] == selected_doc].iloc[0]
                     with st.expander(f"📄 {selected_doc}", expanded=True):
-                        col1, col2, col3 = st.columns(3)
+                        col1, col2, col3, col4 = st.columns(4)
                         col1.metric("발주기관", doc.get("발주 기관", "-"))
                         budget = doc.get("사업 금액", 0)
                         col2.metric("사업금액", f"{budget/1e8:.1f}억" if budget and budget > 0 else "-")
                         col3.metric("본문 글자수", f"{doc.get('정제_글자수', 0):,}자")
+                        col4.metric("도메인", doc.get("사업도메인", "-"))
 
-                        if "사업 요약" in doc.index:
+                        if "사업 요약" in doc.index and doc["사업 요약"]:
                             st.markdown(f"**사업 요약**: {doc['사업 요약']}")
 
                         if "본문_정제" in doc.index:
-                            st.text_area("본문 미리보기 (앞 2000자)", doc["본문_정제"][:2000], height=300)
+                            st.text_area("본문 미리보기 (앞 2000자)", doc["본문_정제"][:2000], height=300, key="doc_preview")
+
+                        # 이 문서에 대해 질문하기
+                        agency = doc.get("발주 기관", "")
+                        project = doc.get("사업명", "")
+                        if st.button(f"💬 이 문서에 대해 질문하기", key="ask_doc"):
+                            st.session_state["pending_example"] = f"{agency} {project} 사업 요구사항을 정리해 줘"
+                            st.rerun()
 
     # ── 탭 3: 평가 ──
     with eval_tab:
@@ -515,6 +534,8 @@ def _render_debug_panel(st_module, meta: dict) -> None:
             st_module.caption("검색 결과 없음")
 
     # 3단계: 컨텍스트 + 프롬프트
+    import hashlib
+    _uid = hashlib.md5(str(meta).encode()).hexdigest()[:8]
     with st_module.expander("3️⃣ 컨텍스트 & 프롬프트", expanded=False):
         if meta.get("context_preview"):
             st_module.text_area(
@@ -522,7 +543,7 @@ def _render_debug_panel(st_module, meta: dict) -> None:
                 meta["context_preview"][:2000],
                 height=200,
                 disabled=True,
-                key=f"ctx_{meta.get('latency', 0)}",
+                key=f"ctx_{_uid}",
             )
         if meta.get("system_prompt"):
             st_module.text_area(
@@ -530,7 +551,7 @@ def _render_debug_panel(st_module, meta: dict) -> None:
                 meta["system_prompt"],
                 height=150,
                 disabled=True,
-                key=f"sys_{meta.get('latency', 0)}",
+                key=f"sys_{_uid}",
             )
 
     # 4단계: LLM 응답 메타
