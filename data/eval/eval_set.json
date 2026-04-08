@@ -1,0 +1,122 @@
+[
+  {
+    "id": "Q001",
+    "type": "A",
+    "difficulty": "하",
+    "question": "국민연금공단이 발주한 이러닝시스템 관련 사업 요구사항을 정리해 줘",
+    "ground_truth_answer": "교육운영(FUR-001~005), 시스템기능(SFR-001~008), 학사관리(LMR-001~002), 콘텐츠 개발(DER-001~003), 유지관리(MAR-001~002), 보안(SER-001), 프로젝트관리(PMR-001~006) 등의 요구사항이 있음",
+    "ground_truth_docs": ["이러닝시스템 운영 용역"],
+    "metadata_filter": {"발주기관": "국민연금공단"},
+    "history": null
+  },
+  {
+    "id": "Q002",
+    "type": "A",
+    "difficulty": "하",
+    "question": "한국 원자력 연구원에서 선량 평가 시스템 고도화 사업의 목적을 알려 줘",
+    "ground_truth_answer": "규제요건 준수(ICRP60 기반 평가장기 개선, 액체유출물 선량평가), 업무생산성 향상(UI 개선, 출력 기능 고도화), K-RADAC 시스템 고도화",
+    "ground_truth_docs": ["선량평가시스템 고도화"],
+    "metadata_filter": {"발주기관": "한국원자력연구원"},
+    "history": null
+  },
+  {
+    "id": "Q003",
+    "type": "A",
+    "difficulty": "중",
+    "question": "봉화군 재난통합관리시스템 고도화 사업의 사업 범위를 알려줘",
+    "ground_truth_answer": "GIS기반 계측/관측정보 통합, 재난예경보시설 연계, 통합상황전파시스템, 모바일 앱 연계, 홍수모형분석 서비스",
+    "ground_truth_docs": ["재난통합관리시스템 고도화"],
+    "metadata_filter": {"발주기관": "경상북도 봉화군"},
+    "history": null
+  },
+  {
+    "id": "Q004",
+    "type": "B",
+    "difficulty": "상",
+    "question": "고려대학교 차세대 포털 시스템 사업이랑 광주과학기술원의 학사 시스템 기능개선 사업을 비교해 줄래?",
+    "ground_truth_answer": "고려대(112.7억, 24개월, 차세대 통합 구축) vs 광주과기원(1.57억, 5개월, 기능개선). 규모/기간/범위에서 큰 차이",
+    "ground_truth_docs": ["차세대 포털", "학사시스템 기능개선"],
+    "metadata_filter": null,
+    "history": null
+  },
+  {
+    "id": "Q005",
+    "type": "B",
+    "difficulty": "상",
+    "question": "고려대학교랑 광주과학기술원 각각 응답 시간에 대한 요구사항이 있나?",
+    "ground_truth_answer": "고려대: 성능 요구사항에 응답시간 관련 기준 있음. 광주과기원: 제공된 문서에서 응답시간 요구사항 확인 불가",
+    "ground_truth_docs": ["차세대 포털", "학사시스템 기능개선"],
+    "metadata_filter": null,
+    "history": null
+  },
+  {
+    "id": "Q006",
+    "type": "C",
+    "difficulty": "중",
+    "question": "콘텐츠 개발 관리 요구 사항에 대해서 더 자세히 알려 줘",
+    "ground_truth_answer": "DER-001(개발 범위: 신규 60차시, 부서별 10차시), DER-002(개발 요건: 동영상 30~40분, 모바일 연동), DER-003(검수: 전수 검사, 원본/완성본 제출)",
+    "ground_truth_docs": ["이러닝시스템 운영 용역"],
+    "metadata_filter": {"발주기관": "국민연금공단"},
+    "history": [{"role": "user", "content": "국민연금공단이 발주한 이러닝시스템 관련 사업 요구사항을 정리해 줘"}]
+  },
+  {
+    "id": "Q007",
+    "type": "C",
+    "difficulty": "상",
+    "question": "교육이나 학습 관련해서 다른 기관이 발주한 사업은 없나?",
+    "ground_truth_answer": "인천광역시(교육훈련계획), 한국재정정보원(운영자 교육), 한국교육과정평가원(NCIC) 등의 교육 관련 사업이 있음",
+    "ground_truth_docs": [],
+    "metadata_filter": null,
+    "history": [{"role": "user", "content": "국민연금공단이 발주한 이러닝시스템 관련 사업 요구사항을 정리해 줘"}]
+  },
+  {
+    "id": "Q008",
+    "type": "C",
+    "difficulty": "중",
+    "question": "그럼 모니터링 업무에 대한 요청사항이 있는지 찾아보고 알려 줘",
+    "ground_truth_answer": "알람 메시지 확인, 주요 센서 트렌드(온도/압력/유량/속도) 확인, 비정상 상황 감지, 제어로직 확인, 현장 순찰 등 8개 모니터링 항목",
+    "ground_truth_docs": ["극저온시스템 운전 용역"],
+    "metadata_filter": {"발주기관": "기초과학연구원"},
+    "history": [{"role": "user", "content": "기초과학연구원 극저온시스템 사업 요구에서 AI 기반 예측에 대한 요구사항이 있나?"}]
+  },
+  {
+    "id": "Q009",
+    "type": "D",
+    "difficulty": "하",
+    "question": "국민연금공단 이러닝시스템 사업의 낙찰 업체가 어디야?",
+    "ground_truth_answer": "제공된 문서에서 낙찰 업체 정보를 찾을 수 없습니다",
+    "ground_truth_docs": ["이러닝시스템 운영 용역"],
+    "metadata_filter": {"발주기관": "국민연금공단"},
+    "history": null
+  },
+  {
+    "id": "Q010",
+    "type": "D",
+    "difficulty": "하",
+    "question": "2025년 서울시 AI 챗봇 구축 사업에 대해 알려줘",
+    "ground_truth_answer": "제공된 문서에서 해당 사업에 대한 정보를 찾을 수 없습니다",
+    "ground_truth_docs": [],
+    "metadata_filter": null,
+    "history": null
+  },
+  {
+    "id": "Q011",
+    "type": "E",
+    "difficulty": "중",
+    "question": "기초과학연구원 극저온시스템 사업 요구에서 AI 기반 예측에 대한 요구사항이 있나?",
+    "ground_truth_answer": "AI 기반 예측 요구사항은 없음. 모니터링/알람/센서 트렌드 확인 등 비-AI 요구사항만 존재",
+    "ground_truth_docs": ["극저온시스템 운전 용역"],
+    "metadata_filter": {"발주기관": "기초과학연구원"},
+    "history": null
+  },
+  {
+    "id": "Q012",
+    "type": "E",
+    "difficulty": "상",
+    "question": "교육 관련 시스템 사업 중에 예산이 가장 큰 거는 뭐야?",
+    "ground_truth_answer": "교육/학습 도메인 사업 중 예산 비교 결과 제시",
+    "ground_truth_docs": [],
+    "metadata_filter": {"사업도메인": "교육/학습"},
+    "history": null
+  }
+]

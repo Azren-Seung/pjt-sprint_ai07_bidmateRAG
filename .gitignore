@@ -6,6 +6,7 @@ data/processed/*
 !data/processed/.gitkeep
 data/eval/*
 !data/eval/.gitkeep
+!data/eval/eval_set.json
 
 # build artifacts
 artifacts/*

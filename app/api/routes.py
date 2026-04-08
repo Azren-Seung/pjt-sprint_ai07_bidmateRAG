@@ -44,12 +44,66 @@ def load_run_records(run_file: str | Path) -> list[dict]:
     ]
 
 
+def load_metadata_options(parquet_path: str | Path = "data/processed/cleaned_documents.parquet") -> dict:
+    """사이드바 필터용 메타데이터 옵션을 로딩한다."""
+    path = Path(parquet_path)
+    if not path.exists():
+        return {"agencies": [], "domains": [], "agency_types": []}
+    df = pd.read_parquet(path)
+    return {
+        "agencies": sorted(df["발주 기관"].dropna().unique().tolist()),
+        "domains": sorted(
+            df.apply(
+                lambda r: _classify_domain_simple(r.get("사업명", "")), axis=1
+            ).unique().tolist()
+        ) if "사업명" in df.columns else [],
+        "agency_types": sorted(
+            df.apply(
+                lambda r: _classify_agency_simple(r.get("발주 기관", "")), axis=1
+            ).unique().tolist()
+        ) if "발주 기관" in df.columns else [],
+    }
+
+
+def _classify_agency_simple(name: str) -> str:
+    name = str(name)
+    if any(k in name for k in ["대학", "학교"]):
+        return "대학교"
+    if any(k in name for k in ["공사", "공단", "진흥원", "진흥회", "평가원", "정보원"]):
+        return "공기업/준정부기관"
+    if any(k in name for k in ["시", "도", "군", "구", "광역"]):
+        return "지방자치단체"
+    if any(k in name for k in ["연구원", "연구소", "과학"]):
+        return "연구기관"
+    if any(k in name for k in ["부 ", "처 ", "청 ", "위원회"]):
+        return "중앙행정기관"
+    return "기타"
+
+
+def _classify_domain_simple(name: str) -> str:
+    name = str(name)
+    if any(k in name for k in ["교육", "이러닝", "학습", "학사"]):
+        return "교육/학습"
+    if any(k in name for k in ["안전", "재난", "관제", "선량"]):
+        return "안전/재난"
+    if any(k in name for k in ["홈페이지", "포털", "웹"]):
+        return "웹/포털"
+    if any(k in name for k in ["ERP", "그룹웨어", "경영"]):
+        return "경영/행정"
+    if any(k in name for k in ["GIS", "지도", "수문"]):
+        return "공간정보/GIS"
+    if any(k in name for k in ["의료", "바이오", "병원"]):
+        return "의료/바이오"
+    return "기타 정보시스템"
+
+
 def run_live_query(
     question: str,
     provider_config_path: str | Path,
     base_config_path: str | Path = "configs/base.yaml",
     experiment_config_path: str | Path | None = None,
     top_k: int = 5,
+    manual_filters: dict | None = None,
 ):
     pipeline, runtime, embedder, _ = build_runtime_pipeline(
         base_config_path=base_config_path,
@@ -57,6 +111,12 @@ def run_live_query(
         experiment_config_path=experiment_config_path,
     )
     run_id = f"live-{uuid4().hex[:8]}"
+
+    # 수동 필터가 있으면 retriever에 전달하기 위해 generation_config에 포함
+    gen_config = {}
+    if manual_filters:
+        gen_config["manual_filters"] = manual_filters
+
     return pipeline.answer(
         question,
         top_k=top_k,
@@ -64,6 +124,7 @@ def run_live_query(
         run_id=run_id,
         embedding_provider=embedder.provider_name,
         embedding_model=embedder.model_name,
+        generation_config=gen_config,
     )
 
 
