@@ -269,7 +269,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
                     평균토큰=("tokens", "mean"),
                     평균응답ms=("latency_ms", "mean"),
                 ).round(0)
-                st.dataframe(type_summary, use_container_width=True)
+                st.dataframe(type_summary, width="stretch")
         with col2:
             st.markdown("**난이도별 요약**")
             if len(df) > 0:
@@ -278,9 +278,9 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
                     평균토큰=("tokens", "mean"),
                     평균응답ms=("latency_ms", "mean"),
                 ).round(0)
-                st.dataframe(diff_summary, use_container_width=True)
+                st.dataframe(diff_summary, width="stretch")
 
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width="stretch")
 
 
 def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
@@ -357,7 +357,7 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
                         }
                         for c in result.retrieved_chunks
                     ]
-                    st.dataframe(chunks_data, use_container_width=True)
+                    st.dataframe(chunks_data, width="stretch")
 
                     # 정답 문서 포함 여부
                     retrieved_docs = [c.chunk.metadata.get("사업명", "") for c in result.retrieved_chunks]
@@ -418,7 +418,7 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
             st.caption(f"현재 결과: {len(all_sources)}개")
             for name, df in all_sources.items():
                 with st.expander(name):
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width="stretch")
         return
 
     col1, col2 = st.columns(2)
@@ -437,15 +437,15 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
     if "id" in left_df.columns and "id" in right_df.columns:
         merged = left_df.merge(right_df, on="id", suffixes=("_좌", "_우"), how="outer")
         display_cols = [c for c in merged.columns if "id" in c or "answer" in c or "tokens" in c or "latency" in c]
-        st.dataframe(merged[display_cols] if display_cols else merged, use_container_width=True)
+        st.dataframe(merged[display_cols] if display_cols else merged, width="stretch")
     else:
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"**{left}**")
-            st.dataframe(left_df, use_container_width=True)
+            st.dataframe(left_df, width="stretch")
         with col2:
             st.markdown(f"**{right}**")
-            st.dataframe(right_df, use_container_width=True)
+            st.dataframe(right_df, width="stretch")
 
     # 집계 비교
     st.markdown("### 집계 비교")
@@ -454,11 +454,11 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
         with col1:
             st.markdown(f"**{left}** — 유형별")
             if "tokens" in left_df.columns:
-                st.dataframe(left_df.groupby("type")["tokens"].mean().round(0), use_container_width=True)
+                st.dataframe(left_df.groupby("type")["tokens"].mean().round(0), width="stretch")
         with col2:
             st.markdown(f"**{right}** — 유형별")
             if "tokens" in right_df.columns:
-                st.dataframe(right_df.groupby("type")["tokens"].mean().round(0), use_container_width=True)
+                st.dataframe(right_df.groupby("type")["tokens"].mean().round(0), width="stretch")
 
 
 def _render_edit_tab(st, eval_set):
@@ -477,7 +477,7 @@ def _render_edit_tab(st, eval_set):
             }
             for q in eval_set
         ]
-        st.dataframe(table_data, use_container_width=True)
+        st.dataframe(table_data, width="stretch")
 
     # 편집할 질문 선택 또는 새로 추가
     action = st.radio("작업", ["기존 질문 편집", "새 질문 추가", "질문 삭제"], horizontal=True, key="edit_action")

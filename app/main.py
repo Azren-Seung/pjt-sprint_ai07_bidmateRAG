@@ -284,7 +284,7 @@ def _render_streamlit_app() -> None:
                     data=json.dumps(export, ensure_ascii=False, indent=2),
                     file_name="bidmate_rag_chat.json",
                     mime="application/json",
-                    use_container_width=True,
+                    width="stretch",
                 )
 
         st.caption("BidMate RAG v0.1 — 시나리오 B Baseline")
@@ -517,7 +517,7 @@ def _render_streamlit_app() -> None:
                 display["사업 금액"] = display["사업 금액"].apply(
                     lambda x: f"{x/1e8:.1f}억" if x and x > 0 else "-"
                 )
-            st.dataframe(display, use_container_width=True, height=400)
+            st.dataframe(display, width="stretch", height=400)
 
             # 문서 상세 보기
             if len(docs_df) > 0:
@@ -577,7 +577,7 @@ def _render_debug_panel(st_module, meta: dict) -> None:
     # 2단계: 검색 결과
     with st_module.expander("2️⃣ 검색 결과", expanded=False):
         if meta.get("retrieved"):
-            st_module.dataframe(meta["retrieved"], use_container_width=True)
+            st_module.dataframe(meta["retrieved"], width="stretch")
         else:
             st_module.caption("검색 결과 없음")
 
