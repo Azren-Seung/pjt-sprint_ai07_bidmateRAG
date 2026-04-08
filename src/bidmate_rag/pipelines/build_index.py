@@ -48,8 +48,16 @@ def build_index_from_parquet(
     frame = pd.read_parquet(chunks_path)
     filtered = frame[frame["char_count"] >= min_chars].copy()
     chunks = [_row_to_chunk(row) for row in filtered.to_dict(orient="records")]
-    embeddings = embedder.embed_documents([chunk.text_with_meta for chunk in chunks])
-    vector_store.upsert(chunks, embeddings)
+
+    # 배치 임베딩 (API 토큰 한도 대응, 100개씩)
+    batch_size = 100
+    all_embeddings: list[list[float]] = []
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i : i + batch_size]
+        batch_embeddings = embedder.embed_documents([c.text_with_meta for c in batch])
+        all_embeddings.extend(batch_embeddings)
+
+    vector_store.upsert(chunks, all_embeddings)
     return {
         "input_chunks": int(len(frame)),
         "indexed_chunks": len(chunks),

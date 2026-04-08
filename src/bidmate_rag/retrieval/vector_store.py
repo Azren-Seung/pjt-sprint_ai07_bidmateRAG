@@ -27,24 +27,27 @@ class ChromaVectorStore:
             name=collection_name, metadata={"hnsw:space": "cosine"}
         )
 
-    def upsert(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:
-        self.collection.upsert(
-            ids=[chunk.chunk_id for chunk in chunks],
-            embeddings=embeddings,
-            documents=[chunk.text for chunk in chunks],
-            metadatas=[
-                _primitive_metadata(
-                    chunk.metadata
-                    | {
-                        "doc_id": chunk.doc_id,
-                        "section": chunk.section,
-                        "content_type": chunk.content_type,
-                        "chunk_index": chunk.chunk_index,
-                    }
-                )
-                for chunk in chunks
-            ],
-        )
+    def upsert(self, chunks: list[Chunk], embeddings: list[list[float]], batch_size: int = 5000) -> None:
+        for i in range(0, len(chunks), batch_size):
+            batch_chunks = chunks[i : i + batch_size]
+            batch_embs = embeddings[i : i + batch_size]
+            self.collection.upsert(
+                ids=[chunk.chunk_id for chunk in batch_chunks],
+                embeddings=batch_embs,
+                documents=[chunk.text for chunk in batch_chunks],
+                metadatas=[
+                    _primitive_metadata(
+                        chunk.metadata
+                        | {
+                            "doc_id": chunk.doc_id,
+                            "section": chunk.section,
+                            "content_type": chunk.content_type,
+                            "chunk_index": chunk.chunk_index,
+                        }
+                    )
+                    for chunk in batch_chunks
+                ],
+            )
 
     def query(
         self,
