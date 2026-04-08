@@ -73,49 +73,49 @@ def _render_streamlit_app() -> None:
         # 2) 검색 설정
         st.subheader("🔍 검색 설정")
         top_k = st.slider("Top-K (검색 청크 수)", min_value=1, max_value=20, value=5)
+
         search_mode = st.radio(
             "검색 모드",
-            ["자동 필터", "수동 필터", "필터 없음"],
-            help="자동: 질문에서 필터 추출 | 수동: 아래 설정 사용 | 필터 없음: 벡터 검색만",
+            ["🤖 자동", "🎛️ 수동", "🔓 필터 없음"],
+            captions=[
+                "질문에서 발주기관/도메인 자동 감지",
+                "아래에서 직접 필터 조합 선택",
+                "벡터 유사도만 사용 (디버깅용)",
+            ],
         )
 
-        # 3) 메타데이터 필터 수동 설정
+        # 3) 메타데이터 필터
         manual_filters = {}
-        if search_mode == "수동 필터":
-            st.subheader("🏷️ 메타데이터 필터")
+        if search_mode == "🎛️ 수동":
+            st.subheader("🏷️ 필터 조합")
+            st.caption("여러 필터를 동시에 적용할 수 있습니다.")
 
             # 발주기관
             if meta_options["agencies"]:
-                selected_agency = st.selectbox(
-                    "발주기관",
-                    ["전체"] + meta_options["agencies"],
-                )
+                selected_agency = st.selectbox("발주기관", ["전체"] + meta_options["agencies"])
                 if selected_agency != "전체":
                     manual_filters["발주기관"] = selected_agency
 
-            # 사업도메인
+            # 사업도메인 (multiselect)
             if meta_options["domains"]:
-                selected_domain = st.selectbox(
-                    "사업도메인",
-                    ["전체"] + meta_options["domains"],
-                )
-                if selected_domain != "전체":
-                    manual_filters["사업도메인"] = selected_domain
+                selected_domains = st.multiselect("사업도메인 (복수 선택 가능)", meta_options["domains"])
+                if selected_domains:
+                    if len(selected_domains) == 1:
+                        manual_filters["사업도메인"] = selected_domains[0]
+                    else:
+                        manual_filters["사업도메인"] = {"$in": selected_domains}
 
-            # 기관유형
+            # 기관유형 (multiselect)
             if meta_options["agency_types"]:
-                selected_type = st.selectbox(
-                    "기관유형",
-                    ["전체"] + meta_options["agency_types"],
-                )
-                if selected_type != "전체":
-                    manual_filters["기관유형"] = selected_type
+                selected_types = st.multiselect("기관유형 (복수 선택 가능)", meta_options["agency_types"])
+                if selected_types:
+                    if len(selected_types) == 1:
+                        manual_filters["기관유형"] = selected_types[0]
+                    else:
+                        manual_filters["기관유형"] = {"$in": selected_types}
 
             # 사업금액 범위
-            budget_filter = st.selectbox(
-                "사업금액",
-                ["전체", "1억 이하", "1~5억", "5~10억", "10억 이상"],
-            )
+            budget_filter = st.selectbox("사업금액", ["전체", "1억 이하", "1~5억", "5~10억", "10억 이상"])
             if budget_filter == "1억 이하":
                 manual_filters["사업금액"] = {"$lte": 100_000_000}
             elif budget_filter == "1~5억":
@@ -125,11 +125,21 @@ def _render_streamlit_app() -> None:
             elif budget_filter == "10억 이상":
                 manual_filters["사업금액"] = {"$gte": 1_000_000_000}
 
+            # 적용된 필터 뱃지 표시
             if manual_filters:
-                st.caption(f"적용 필터: {manual_filters}")
+                tags = []
+                for k, v in manual_filters.items():
+                    if isinstance(v, dict):
+                        tags.append(f"`{k}: {v}`")
+                    else:
+                        tags.append(f"`{k}: {v}`")
+                st.markdown(f"**적용 필터 ({len(manual_filters)}개):** " + " · ".join(tags))
+            else:
+                st.info("필터를 선택하면 여기에 표시됩니다.")
 
-        elif search_mode == "필터 없음":
-            manual_filters = {"_no_filter": True}  # 필터 해제 신호
+        elif search_mode == "🔓 필터 없음":
+            manual_filters = {"_no_filter": True}
+            st.caption("메타데이터 필터 없이 순수 벡터 유사도로만 검색합니다.")
 
         # 4) 모델 정보
         st.subheader("📊 모델 정보")
@@ -320,8 +330,19 @@ def _render_streamlit_app() -> None:
                         "chunks": len(result.retrieved_chunks),
                         "context_chars": len(result.context) if result.context else 0,
                         "tokens": result.token_usage.get("total", 0),
+                        "prompt_tokens": result.token_usage.get("prompt", 0),
+                        "completion_tokens": result.token_usage.get("completion", 0),
                         "latency": round(result.latency_ms),
+                        "model": getattr(result, "llm_model", "-"),
                         "retrieved": retrieved_records,
+                        "applied_filter": getattr(result, "metadata_filter", None) or filters_to_pass,
+                        "filter_info": {
+                            "검색 모드": search_mode,
+                            "적용 필터": str(filters_to_pass) if filters_to_pass else "자동 추출",
+                            "Top-K": top_k,
+                        },
+                        "context_preview": result.context if hasattr(result, "context") else "",
+                        "system_prompt": getattr(result, "system_prompt", ""),
                     }
 
                     _render_metadata_expander(st, meta)
@@ -411,16 +432,66 @@ def _render_streamlit_app() -> None:
         render_eval_tabs(st, run_live_query, list_provider_configs, load_benchmark_frames, load_run_records)
 
 
-def _render_metadata_expander(st_module, meta: dict) -> None:
-    """검색 상세 메타데이터를 expander로 렌더링한다."""
-    with st_module.expander("📋 검색 상세", expanded=False):
-        cols = st_module.columns(4)
-        cols[0].metric("검색 청크", f"{meta.get('chunks', '-')}개")
-        cols[1].metric("컨텍스트", f"{meta.get('context_chars', 0):,}자")
-        cols[2].metric("토큰", f"{meta.get('tokens', 0):,}")
-        cols[3].metric("응답 시간", f"{meta.get('latency', '-')}ms")
+def _render_debug_panel(st_module, meta: dict) -> None:
+    """4단계 파이프라인 디버그 패널."""
+
+    # 요약 메트릭 (항상 표시)
+    cols = st_module.columns(4)
+    cols[0].metric("검색 청크", f"{meta.get('chunks', '-')}개")
+    cols[1].metric("컨텍스트", f"{meta.get('context_chars', 0):,}자")
+    cols[2].metric("토큰", f"{meta.get('tokens', 0):,}")
+    cols[3].metric("응답 시간", f"{meta.get('latency', '-')}ms")
+
+    # 1단계: 필터 추출
+    with st_module.expander("1️⃣ 필터 추출", expanded=False):
+        filter_info = meta.get("filter_info", {})
+        if filter_info:
+            for k, v in filter_info.items():
+                st_module.markdown(f"- **{k}**: `{v}`")
+        else:
+            applied = meta.get("applied_filter")
+            if applied:
+                st_module.json(applied)
+            else:
+                st_module.caption("필터 없음 (벡터 검색만 사용)")
+
+    # 2단계: 검색 결과
+    with st_module.expander("2️⃣ 검색 결과", expanded=False):
         if meta.get("retrieved"):
             st_module.dataframe(meta["retrieved"], use_container_width=True)
+        else:
+            st_module.caption("검색 결과 없음")
+
+    # 3단계: 컨텍스트 + 프롬프트
+    with st_module.expander("3️⃣ 컨텍스트 & 프롬프트", expanded=False):
+        if meta.get("context_preview"):
+            st_module.text_area(
+                "컨텍스트 (앞 2000자)",
+                meta["context_preview"][:2000],
+                height=200,
+                disabled=True,
+                key=f"ctx_{meta.get('latency', 0)}",
+            )
+        if meta.get("system_prompt"):
+            st_module.text_area(
+                "시스템 프롬프트",
+                meta["system_prompt"],
+                height=150,
+                disabled=True,
+                key=f"sys_{meta.get('latency', 0)}",
+            )
+
+    # 4단계: LLM 응답 메타
+    with st_module.expander("4️⃣ LLM 응답 상세", expanded=False):
+        detail_cols = st_module.columns(3)
+        detail_cols[0].markdown(f"**모델**: `{meta.get('model', '-')}`")
+        detail_cols[1].markdown(f"**입력 토큰**: `{meta.get('prompt_tokens', '-')}`")
+        detail_cols[2].markdown(f"**출력 토큰**: `{meta.get('completion_tokens', '-')}`")
+
+
+def _render_metadata_expander(st_module, meta: dict) -> None:
+    """디버그 패널 래퍼 (호환성 유지)."""
+    _render_debug_panel(st_module, meta)
 
 
 def main() -> None:
