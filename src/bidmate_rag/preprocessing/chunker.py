@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass, field
+from pathlib import Path
 
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
@@ -11,6 +13,63 @@ from bidmate_rag.schema import Chunk
 
 HEADERS_TO_SPLIT = [("#", "h1")]
 MIN_SECTION_SIZE = 500
+
+# ── 청킹 전략 설정 ──
+
+CHUNKING_PRESETS = {
+    "small": {"chunk_size": 500, "chunk_overlap": 100, "min_section_size": 300,
+              "max_table_size": 1000, "description": "작은 청크 — 팩토이드/단답형 질문에 유리"},
+    "medium": {"chunk_size": 1000, "chunk_overlap": 150, "min_section_size": 500,
+               "max_table_size": 1500, "description": "기본 설정 — baseline"},
+    "large": {"chunk_size": 1500, "chunk_overlap": 200, "min_section_size": 700,
+              "max_table_size": 2000, "description": "큰 청크 — 분석형/비교 질문에 유리"},
+}
+
+
+@dataclass
+class ChunkingConfig:
+    """청킹 전략 설정. preset 또는 커스텀 값으로 생성."""
+    chunk_size: int = 1000
+    chunk_overlap: int = 150
+    min_section_size: int = 500
+    max_table_size: int = 1500
+    headers_to_split: list[tuple[str, str]] = field(default_factory=lambda: [("#", "h1")])
+    separators: list[str] = field(default_factory=lambda: ["\n\n", "\n", ". ", " ", ""])
+    description: str = "기본 설정"
+
+    @classmethod
+    def from_preset(cls, name: str) -> "ChunkingConfig":
+        """preset 이름으로 생성. small / medium / large"""
+        if name not in CHUNKING_PRESETS:
+            raise ValueError(f"Unknown preset: {name}. Available: {list(CHUNKING_PRESETS.keys())}")
+        return cls(**{k: v for k, v in CHUNKING_PRESETS[name].items() if k != "description"},
+                    description=CHUNKING_PRESETS[name]["description"])
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> "ChunkingConfig":
+        """YAML 파일에서 로딩."""
+        import yaml
+        cfg = yaml.safe_load(Path(path).read_text())
+        return cls(
+            chunk_size=cfg.get("chunk_size", 1000),
+            chunk_overlap=cfg.get("chunk_overlap", 150),
+            min_section_size=cfg.get("min_section_size", 500),
+            max_table_size=cfg.get("max_table_size", 1500),
+            description=cfg.get("description", cfg.get("name", "")),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "chunk_size": self.chunk_size,
+            "chunk_overlap": self.chunk_overlap,
+            "min_section_size": self.min_section_size,
+            "max_table_size": self.max_table_size,
+            "description": self.description,
+        }
+
+    @staticmethod
+    def list_presets() -> dict[str, dict]:
+        return CHUNKING_PRESETS
 TECH_STACK_KEYWORDS = {
     "AI": ["AI", "인공지능", "머신러닝", "딥러닝"],
     "클라우드": ["클라우드", "cloud", "SaaS"],
@@ -206,12 +265,17 @@ def chunk_document(
     chunk_size: int = 1000,
     chunk_overlap: int = 150,
     max_table_size: int = 1500,
+    config: ChunkingConfig | None = None,
 ) -> list[Chunk]:
-    sections = split_by_headers(text)
+    if config is not None:
+        chunk_size = config.chunk_size
+        chunk_overlap = config.chunk_overlap
+        max_table_size = config.max_table_size
+    sections = split_by_headers(text, min_size=config.min_section_size if config else MIN_SECTION_SIZE)
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
-        separators=["\n\n", "\n", ". ", " ", ""],
+        separators=config.separators if config else ["\n\n", "\n", ". ", " ", ""],
     )
     chunks: list[Chunk] = []
     chunk_index = 0
@@ -253,13 +317,18 @@ def chunk_document(
 
 
 def chunk_dataframe(
-    rows: Iterable[dict], chunk_size: int = 1000, chunk_overlap: int = 150
+    rows: Iterable[dict],
+    chunk_size: int = 1000,
+    chunk_overlap: int = 150,
+    config: ChunkingConfig | None = None,
 ) -> list[Chunk]:
     all_chunks: list[Chunk] = []
     for row in rows:
         all_chunks.extend(
             chunk_document(
-                row["본문_정제"], row, chunk_size=chunk_size, chunk_overlap=chunk_overlap
+                row["본문_정제"], row,
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+                config=config,
             )
         )
     return all_chunks
