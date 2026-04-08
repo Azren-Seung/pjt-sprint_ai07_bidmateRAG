@@ -193,20 +193,78 @@ def _render_streamlit_app() -> None:
 
     # ── 탭 1: 채팅 UI ──
     with demo_tab:
-        st.subheader("RFP 문서 질의응답")
+        # 채팅 스타일 CSS 주입
+        st.markdown("""
+        <style>
+        /* 채팅 메시지 영역 — 고정 높이 + 스크롤 */
+        section[data-testid="stChatFlow"] {
+            height: 65vh;
+            overflow-y: auto;
+            padding-bottom: 1rem;
+        }
+
+        /* 채팅 입력창 — 하단 고정 강화 */
+        .stChatInput {
+            position: sticky;
+            bottom: 0;
+            background: var(--background-color);
+            z-index: 100;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(128, 128, 128, 0.2);
+        }
+
+        /* 사용자 메시지 — 오른쪽 정렬감 */
+        [data-testid="stChatMessage"][data-testid-type="user"] {
+            background-color: rgba(59, 130, 246, 0.08);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+        }
+
+        /* 어시스턴트 메시지 */
+        [data-testid="stChatMessage"][data-testid-type="assistant"] {
+            background-color: rgba(128, 128, 128, 0.05);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+        }
+
+        /* 메시지 간 간격 */
+        .stChatMessage {
+            margin-bottom: 0.75rem;
+        }
+
+        /* 예시 질문 버튼 스타일 */
+        .example-container .stButton > button {
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+            transition: all 0.15s ease;
+        }
+        .example-container .stButton > button:hover {
+            border-color: rgba(59, 130, 246, 0.6);
+            background-color: rgba(59, 130, 246, 0.08);
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
         # 빈 상태: 예시 질문
         if not st.session_state.messages:
-            st.caption("아래 예시를 클릭하거나 직접 질문을 입력하세요.")
+            st.markdown("#### 📄 RFP 문서 질의응답")
+            st.caption("RFP 문서 내용에 대해 질문하세요. 사업명이나 발주기관을 언급하면 더 정확합니다.")
+            st.markdown("")
+
+            # 예시 질문 칩 — 2행 3열
+            st.markdown('<div class="example-container">', unsafe_allow_html=True)
             cols = st.columns(3)
             for i, q in enumerate(EXAMPLE_QUESTIONS):
-                if cols[i % 3].button(
-                    q[:30] + "..." if len(q) > 30 else q,
-                    key=f"example_{i}",
-                    use_container_width=True,
-                ):
+                label = q[:28] + "..." if len(q) > 28 else q
+                if cols[i % 3].button(label, key=f"example_{i}", use_container_width=True):
                     st.session_state["pending_example"] = q
                     st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            # 메시지가 있을 때 — 간결한 헤더
+            st.caption(f"💬 대화 {len([m for m in st.session_state.messages if m['role']=='user'])}회")
 
         # 기존 메시지 렌더링
         for msg in st.session_state.messages:
@@ -217,7 +275,7 @@ def _render_streamlit_app() -> None:
 
         # 예시 질문 처리
         pending = st.session_state.pop("pending_example", None)
-        prompt = pending or st.chat_input("질문을 입력하세요...")
+        prompt = pending or st.chat_input("질문을 입력하세요 (예: 국민연금공단 이러닝시스템 요구사항)")
 
         if prompt:
             st.session_state.messages.append({"role": "user", "content": prompt})
