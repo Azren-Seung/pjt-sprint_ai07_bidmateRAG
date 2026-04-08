@@ -56,7 +56,7 @@ def extract_metadata_filters(
     if len(matched_agencies) >= 2:
         return None
     if len(matched_agencies) == 1:
-        return {"발주기관": matched_agencies[0]}
+        return {"발주 기관": matched_agencies[0]}
     where: dict[str, str] = {}
     for domain, keywords in DOMAIN_KEYWORDS.items():
         if any(keyword in query for keyword in keywords):
@@ -80,10 +80,10 @@ def extract_range_filters(query: str) -> dict | None:
     where: dict[str, object] = {}
     lower = re.search(r"(\d+)억\s*이상", query)
     if lower:
-        where["사업금액"] = {"$gte": int(lower.group(1)) * 100_000_000}
+        where["사업 금액"] = {"$gte": int(lower.group(1)) * 100_000_000}
     upper = re.search(r"(\d+)억\s*이하", query)
     if upper:
-        where["사업금액"] = {"$lte": int(upper.group(1)) * 100_000_000}
+        where["사업 금액"] = {"$lte": int(upper.group(1)) * 100_000_000}
     year = re.search(r"(202[0-9])년", query)
     if year:
         where["공개연도"] = int(year.group(1))

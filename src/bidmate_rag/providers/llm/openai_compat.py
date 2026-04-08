@@ -62,7 +62,7 @@ class OpenAICompatibleLLM(BaseLLMProvider):
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=messages,
-            max_completion_tokens=generation_config.get("max_completion_tokens", 4000),
+            max_completion_tokens=generation_config.get("max_completion_tokens", 16000),
         )
         usage = getattr(response, "usage", None)
         return GenerationResult(
