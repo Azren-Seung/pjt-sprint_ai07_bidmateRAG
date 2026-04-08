@@ -8,22 +8,84 @@ from uuid import uuid4
 
 import pandas as pd
 
-EVAL_SET_PATH = Path("data/eval/eval_set.json")
+EVAL_DIR = Path("data/eval")
+EVAL_SET_PATH = EVAL_DIR / "eval_set.json"
 RUNS_DIR = Path("artifacts/logs/runs")
 BENCHMARKS_DIR = Path("artifacts/logs/benchmarks")
 
 
+def _parse_json_field(value) -> object:
+    """CSV에서 읽은 JSON 문자열 필드를 파싱한다."""
+    if pd.isna(value) or value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    s = str(value).strip()
+    if not s or s == "[]" or s == "{}":
+        return None
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, ValueError):
+        return s
+
+
+def load_eval_set_from_csv(path: Path) -> list[dict]:
+    """CSV 파일에서 평가셋을 로딩한다."""
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    records = []
+    for _, row in df.iterrows():
+        q = {
+            "id": str(row.get("id", "")),
+            "type": str(row.get("type", "A")),
+            "difficulty": str(row.get("difficulty", "중")),
+            "question": str(row.get("question", "")),
+            "ground_truth_answer": str(row.get("ground_truth_answer", "")),
+            "ground_truth_docs": _parse_json_field(row.get("ground_truth_docs")) or [],
+            "metadata_filter": _parse_json_field(row.get("metadata_filter")),
+            "history": _parse_json_field(row.get("history")),
+        }
+        records.append(q)
+    return records
+
+
 def load_eval_set() -> list[dict]:
-    if not EVAL_SET_PATH.exists():
-        return []
-    return json.loads(EVAL_SET_PATH.read_text(encoding="utf-8"))
+    """평가셋을 로딩한다. CSV가 있으면 CSV 우선, 없으면 JSON."""
+    csv_files = sorted(EVAL_DIR.glob("eval_batch_*.csv"))
+    if csv_files:
+        # 가장 최신 CSV 로딩
+        all_records = []
+        for csv_path in csv_files:
+            all_records.extend(load_eval_set_from_csv(csv_path))
+        return all_records
+    if EVAL_SET_PATH.exists():
+        return json.loads(EVAL_SET_PATH.read_text(encoding="utf-8"))
+    return []
 
 
-def save_eval_set(data: list[dict]) -> None:
-    EVAL_SET_PATH.parent.mkdir(parents=True, exist_ok=True)
-    EVAL_SET_PATH.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+def save_eval_set(data: list[dict], fmt: str = "csv") -> Path:
+    """평가셋을 저장한다."""
+    EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    if fmt == "csv":
+        save_path = EVAL_DIR / "eval_set_edited.csv"
+        rows = []
+        for q in data:
+            rows.append({
+                "id": q["id"],
+                "type": q["type"],
+                "difficulty": q.get("difficulty", "중"),
+                "question": q["question"],
+                "ground_truth_answer": q.get("ground_truth_answer", ""),
+                "ground_truth_docs": json.dumps(q.get("ground_truth_docs", []), ensure_ascii=False),
+                "metadata_filter": json.dumps(q.get("metadata_filter") or {}, ensure_ascii=False),
+                "history": json.dumps(q.get("history") or [], ensure_ascii=False),
+            })
+        pd.DataFrame(rows).to_csv(save_path, index=False, encoding="utf-8-sig")
+        return save_path
+    else:
+        EVAL_SET_PATH.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return EVAL_SET_PATH
 
 
 def render_eval_tabs(st, run_live_query, list_provider_configs, load_benchmark_frames, load_run_records):
@@ -387,17 +449,49 @@ def _render_edit_tab(st, eval_set):
             st.toast(f"질문 삭제됨", icon="🗑️")
             st.rerun()
 
-    # 파일 저장
+    # 파일 저장/로딩
     st.divider()
-    col1, col2 = st.columns(2)
+
+    # 소스 파일 선택
+    csv_files = sorted(EVAL_DIR.glob("eval_batch_*.csv"))
+    source_options = [f.name for f in csv_files]
+    if EVAL_SET_PATH.exists():
+        source_options.append(EVAL_SET_PATH.name)
+
+    if source_options:
+        st.caption(f"사용 가능한 평가 파일: {', '.join(source_options)}")
+
+    col1, col2, col3 = st.columns(3)
     with col1:
+        save_fmt = st.selectbox("저장 형식", ["csv", "json"], key="save_fmt")
         if st.button("💾 파일에 저장", type="primary", use_container_width=True, key="save_eval"):
-            save_eval_set(st.session_state.eval_set)
-            st.success(f"저장 완료: {EVAL_SET_PATH} ({len(st.session_state.eval_set)}개)")
+            path = save_eval_set(st.session_state.eval_set, fmt=save_fmt)
+            st.success(f"저장 완료: {path} ({len(st.session_state.eval_set)}개)")
     with col2:
         if st.button("🔄 파일에서 다시 로딩", use_container_width=True, key="reload_eval"):
             st.session_state.eval_set = load_eval_set()
-            st.toast("파일에서 다시 로딩됨", icon="🔄")
+            st.toast(f"로딩 완료: {len(st.session_state.eval_set)}개 질문", icon="🔄")
+            st.rerun()
+    with col3:
+        # CSV 업로드
+        uploaded = st.file_uploader("CSV 업로드", type=["csv"], key="upload_csv", label_visibility="collapsed")
+        if uploaded:
+            import io
+            df = pd.read_csv(io.StringIO(uploaded.read().decode("utf-8-sig")))
+            new_records = []
+            for _, row in df.iterrows():
+                new_records.append({
+                    "id": str(row.get("id", "")),
+                    "type": str(row.get("type", "A")),
+                    "difficulty": str(row.get("difficulty", "중")),
+                    "question": str(row.get("question", "")),
+                    "ground_truth_answer": str(row.get("ground_truth_answer", "")),
+                    "ground_truth_docs": _parse_json_field(row.get("ground_truth_docs")) or [],
+                    "metadata_filter": _parse_json_field(row.get("metadata_filter")),
+                    "history": _parse_json_field(row.get("history")),
+                })
+            st.session_state.eval_set = new_records
+            st.toast(f"업로드 완료: {len(new_records)}개 질문", icon="📤")
             st.rerun()
 
 
