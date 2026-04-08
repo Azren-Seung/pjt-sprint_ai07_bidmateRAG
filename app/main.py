@@ -193,7 +193,46 @@ def _render_streamlit_app() -> None:
             manual_filters = {"_no_filter": True}
             st.caption("메타데이터 필터 없이 순수 벡터 유사도로만 검색합니다.")
 
-        # 4) 모델 정보
+        # 4) 생성 설정
+        st.subheader("✏️ 생성 설정")
+        max_context_chars = st.slider(
+            "컨텍스트 최대 길이",
+            min_value=2000, max_value=16000, value=8000, step=1000,
+            help="검색된 청크를 LLM에 보낼 때 최대 글자 수",
+        )
+
+        # 시스템 프롬프트 편집
+        from bidmate_rag.config.prompts import SYSTEM_PROMPT as DEFAULT_PROMPT
+        with st.expander("📝 시스템 프롬프트", expanded=False):
+            custom_prompt = st.text_area(
+                "프롬프트 편집",
+                value=st.session_state.get("custom_prompt", DEFAULT_PROMPT),
+                height=250,
+                key="prompt_editor",
+                help="수정 후 질문하면 변경된 프롬프트가 적용됩니다",
+            )
+            st.session_state["custom_prompt"] = custom_prompt
+
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                if st.button("↩️ 기본값 복원", use_container_width=True, key="reset_prompt"):
+                    st.session_state["custom_prompt"] = DEFAULT_PROMPT
+                    st.rerun()
+            with col_p2:
+                prompt_changed = custom_prompt.strip() != DEFAULT_PROMPT.strip()
+                if prompt_changed:
+                    st.caption("✏️ 수정됨")
+
+        # 청킹 preset (참고 정보)
+        from bidmate_rag.preprocessing.chunker import CHUNKING_PRESETS
+        with st.expander("📦 청킹 전략 (참고)", expanded=False):
+            for name, preset in CHUNKING_PRESETS.items():
+                st.markdown(f"**{name}**: {preset['chunk_size']}자 / {preset['chunk_overlap']} 오버랩")
+                st.caption(preset["description"])
+            st.info("청킹 변경은 인덱스 재구축이 필요합니다:\n"
+                    "`uv run python scripts/run_experiment.py --experiment-config configs/chunking/chunking_500_100.yaml`")
+
+        # 5) 모델 정보
         st.subheader("📊 모델 정보")
         try:
             import yaml
@@ -352,11 +391,17 @@ def _render_streamlit_app() -> None:
                     # 수동 필터 전달
                     filters_to_pass = manual_filters if manual_filters else None
 
+                    # 시스템 프롬프트 (수정된 경우만 전달)
+                    active_prompt = st.session_state.get("custom_prompt", "")
+                    prompt_override = active_prompt if active_prompt.strip() != DEFAULT_PROMPT.strip() else None
+
                     result = run_live_query(
                         question=prompt,
                         provider_config_path=selected_provider,
                         top_k=top_k,
                         manual_filters=filters_to_pass,
+                        system_prompt=prompt_override,
+                        max_context_chars=max_context_chars,
                     )
                     status.write("✏️ 답변 생성 완료")
                     status.update(label="완료", state="complete", expanded=False)
@@ -392,6 +437,8 @@ def _render_streamlit_app() -> None:
                             "검색 모드": search_mode,
                             "적용 필터": str(filters_to_pass) if filters_to_pass else "자동 추출",
                             "Top-K": top_k,
+                            "컨텍스트 길이": f"{max_context_chars:,}자",
+                            "프롬프트": "커스텀" if prompt_override else "기본",
                         },
                         "context_preview": result.context if hasattr(result, "context") else "",
                         "system_prompt": getattr(result, "system_prompt", ""),

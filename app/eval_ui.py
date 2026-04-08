@@ -139,6 +139,27 @@ def save_eval_set(data: list[dict], fmt: str = "csv") -> Path:
 def render_eval_tabs(st, run_live_query, list_provider_configs, load_benchmark_frames, load_run_records):
     """평가 탭 메인 렌더러."""
 
+    # 평가셋 파일 선택
+    csv_files = sorted(EVAL_DIR.glob("eval_batch_*.csv"))
+    all_eval_files = csv_files
+    if EVAL_SET_PATH.exists():
+        all_eval_files = list(all_eval_files) + [EVAL_SET_PATH]
+
+    if all_eval_files:
+        selected_file = st.selectbox(
+            "📄 평가셋 파일",
+            all_eval_files,
+            format_func=lambda p: f"{p.name} ({p.stat().st_size // 1024}KB)",
+            key="eval_file_select",
+        )
+        if selected_file and selected_file != st.session_state.get("_loaded_eval_file"):
+            if selected_file.suffix == ".csv":
+                st.session_state.eval_set = load_eval_set_from_csv(selected_file)
+            else:
+                st.session_state.eval_set = json.loads(selected_file.read_text(encoding="utf-8"))
+            st.session_state["_loaded_eval_file"] = selected_file
+            st.toast(f"{selected_file.name} 로딩: {len(st.session_state.eval_set)}개", icon="📄")
+
     run_tab, debug_tab, compare_tab, edit_tab = st.tabs(
         ["🏃 평가 실행", "🔍 질문 디버깅", "⚖️ 결과 비교", "✏️ 평가셋 편집"]
     )
