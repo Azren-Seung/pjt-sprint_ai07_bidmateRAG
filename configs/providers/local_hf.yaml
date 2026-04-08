@@ -1,6 +1,5 @@
-provider: local-openai-compat
+provider: huggingface
 scenario: scenario_a
-model: local-model
+model: Qwen/Qwen2.5-3B-Instruct
 embedding_model: BAAI/bge-m3
-api_base: http://localhost:8000/v1
 collection_name: bidmate-scenario-a-bge-m3

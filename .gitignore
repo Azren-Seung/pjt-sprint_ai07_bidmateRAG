@@ -11,6 +11,11 @@ data/eval/*
 artifacts/*
 !artifacts/**/
 !artifacts/**/.gitkeep
+artifacts/chroma_db/*
+artifacts/logs/*
+artifacts/vector_db/*
+artifacts/cache/*
+!artifacts/**/.gitkeep
 
 # git worktrees
 .worktrees/
