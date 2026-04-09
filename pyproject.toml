@@ -27,6 +27,7 @@ dependencies = [
 
 [project.scripts]
 bidmate-eval = "bidmate_rag.cli.eval:main"
+bidmate-report = "bidmate_rag.cli.report:main"
 
 [dependency-groups]
 dev = [
