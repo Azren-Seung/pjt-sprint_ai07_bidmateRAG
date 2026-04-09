@@ -85,4 +85,5 @@ def build_index_from_parquet(
         "indexed_chunks": len(chunks),
         "embedding_provider": getattr(embedder, "provider_name", ""),
         "embedding_model": getattr(embedder, "model_name", ""),
+        "embedding_total_tokens": int(getattr(embedder, "cumulative_tokens", 0) or 0),
     }
