@@ -71,13 +71,23 @@ def build_index_from_parquet(
     filtered = frame[frame["char_count"] >= min_chars].copy()
     chunks = [_row_to_chunk(row) for row in filtered.to_dict(orient="records")]
 
-    # 배치 임베딩 (API 토큰 한도 대응, 100개씩)
+    # 배치 임베딩 (토큰 한도 초과 시 배치 크기를 절반으로 줄여 재시도)
     batch_size = 100
     all_embeddings: list[list[float]] = []
-    for i in range(0, len(chunks), batch_size):
+    i = 0
+    while i < len(chunks):
         batch = chunks[i : i + batch_size]
-        batch_embeddings = embedder.embed_documents([c.text_with_meta for c in batch])
-        all_embeddings.extend(batch_embeddings)
+        print(f"임베딩 중: [{i + 1}~{i + len(batch)}/{len(chunks)}] (배치={batch_size})")
+        try:
+            batch_embeddings = embedder.embed_documents([c.text_with_meta for c in batch])
+            all_embeddings.extend(batch_embeddings)
+            i += batch_size
+        except Exception as exc:
+            if "300000" in str(exc) and batch_size > 5:
+                batch_size = batch_size // 2
+                print(f"  → 토큰 한도 초과, 배치 {batch_size}로 축소 후 재시도")
+            else:
+                raise
 
     vector_store.upsert(chunks, all_embeddings)
     return {
