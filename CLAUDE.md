@@ -50,41 +50,13 @@ git checkout develop && git merge feat/dm/my-feature --no-edit && git push origi
 ## 프로젝트 구조
 
 ```
-src/bidmate_rag/          # 메인 패키지
-├── loaders/              # 문서 파싱 (kordoc, pdfplumber)
-├── preprocessing/        # 정제 (cleaner) + 청킹 (chunker, ChunkingConfig)
-├── providers/            # 임베딩 + LLM (OpenAI, HF)
-├── retrieval/            # 벡터 검색 + 필터 (ChromaDB)
-├── evaluation/           # 평가 러너 + 메트릭
-├── pipelines/            # 파이프라인 (ingest, build_index, chat, runtime)
-├── config/               # 설정 + 프롬프트
-└── schema.py             # 공통 데이터 모델
-
-app/                      # Streamlit UI
-├── main.py               # 메인 앱 (채팅 + 문서 + 평가)
-├── eval_ui.py            # 평가 탭 (실행/디버깅/비교/편집)
-└── api/routes.py         # UI 헬퍼 함수
-
+src/bidmate_rag/          # 메인 패키지 → src/CLAUDE.md 참조
+app/                      # Streamlit UI → app/CLAUDE.md 참조
 scripts/                  # CLI 스크립트
-├── ingest_data.py        # 파싱→정제→청킹
-├── build_index.py        # 임베딩→ChromaDB
-├── run_rag.py            # 단일 질문
-├── run_eval.py           # 평가 실행
-└── run_experiment.py     # 실험 전체 (ingest→index→eval)
-
-configs/
-├── base.yaml             # 기본 설정
-├── providers/            # 모델 설정 (openai, hf)
-└── chunking/             # 청킹 전략 (500/1000/1500)
-
-data/
-├── raw/rfp/              # 원본 RFP 문서 (gitignore)
-├── raw/metadata/         # data_list.csv
-├── processed/            # parquet 산출물 (gitignore)
-└── eval/                 # 평가셋 CSV
-
+configs/                  # 설정 파일 (base, providers, chunking)
+data/                     # 원본/처리된 데이터 + 평가셋
 experiments/notebooks/    # 실험 노트북 01~08
-docs/                     # 아키텍처, 의사결정 로그
+docs/                     # 문서 → docs/CLAUDE.md 참조
 ```
 
 ## 주요 명령어
@@ -95,20 +67,11 @@ uv sync --group dev
 cp .env.example .env    # OPENAI_API_KEY 입력
 
 # 파이프라인 실행
-uv run python scripts/ingest_data.py          # 문서 파싱→정제→청킹
-uv run python scripts/build_index.py \
-    --provider-config configs/providers/openai_gpt5mini.yaml  # 임베딩
-
-# RAG 질문
-uv run python scripts/run_rag.py \
-    --provider-config configs/providers/openai_gpt5mini.yaml \
-    --question "국민연금공단 이러닝시스템 요구사항 정리해줘"
+uv run python scripts/ingest_data.py
+uv run python scripts/build_index.py --provider-config configs/providers/openai_gpt5mini.yaml
 
 # Streamlit UI
 PYTHONPATH=. uv run streamlit run app/main.py --server.port 8501 --server.address 0.0.0.0
-
-# 테스트
-uv run pytest
 ```
 
 ## 주의사항
@@ -116,12 +79,5 @@ uv run pytest
 - **ChromaDB 메타데이터 키에 공백 있음**: `발주 기관`, `사업 금액` (공백 포함)
 - **gpt-5-mini는 temperature 미지원**: 기본값(1)으로 동작, 프롬프트로 제어
 - **gpt-5 계열은 reasoning 토큰 사용**: `max_completion_tokens`을 넉넉하게 (16000+)
-- **원본 RFP 문서는 비공개**: git에 올리지 말 것 (.gitignore로 제외됨)
+- **원본 RFP 문서는 비공개**: git에 올리지 말 것
 - **API 키는 .env에서 관리**: 절대 커밋하지 말 것
-
-## 문서
-
-- [아키텍처](docs/architecture.md) — 전체 파이프라인 Mermaid 차트
-- [의사결정 로그](docs/decision-log.md) — 10개 핵심 설계 결정 근거
-- [브랜치 전략](docs/collaboration/branch-strategy.md) — Git 규칙
-- [노트북 재현 가이드](experiments/notebooks/README.md) — 01~08 실행 순서
