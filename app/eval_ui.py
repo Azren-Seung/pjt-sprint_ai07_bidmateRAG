@@ -236,7 +236,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
                     "id": q["id"],
                     "type": q["type"],
                     "difficulty": q.get("difficulty", "중"),
-                    "question": q["question"][:40],
+                    "question": q["question"],
                     "answer_preview": result.answer[:100] if result.answer else "",
                     "chunks": len(result.retrieved_chunks),
                     "tokens": result.token_usage.get("total", 0),
@@ -247,7 +247,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
                 results.append({
                     "id": q["id"], "type": q["type"],
                     "difficulty": q.get("difficulty", "중"),
-                    "question": q["question"][:40],
+                    "question": q["question"],
                     "answer_preview": f"오류: {str(e)[:60]}",
                     "chunks": 0, "tokens": 0, "latency_ms": 0,
                     "ground_truth": "",
