@@ -1,0 +1,24 @@
+# 모델별 단가 (USD per 1M tokens 기준)
+#
+# 가격이 바뀌면 이 파일만 수정하면 모든 실험 리포트의 cost가 갱신됩니다.
+# 등록되지 않은 모델은 cost 0.0 + 리포트에 "(단가 미등록)" 경고가 표시됩니다.
+#
+# 출처 단가는 OpenAI 공식 가격을 참고해 사용자가 직접 채워주세요.
+# 아래 값은 placeholder이므로 실제 단가로 갱신 필요.
+
+llm:
+  gpt-5-mini:
+    input_per_1m: 0.25
+    output_per_1m: 2.00
+  gpt-4o-mini:
+    input_per_1m: 0.15
+    output_per_1m: 0.60
+  gpt-4o:
+    input_per_1m: 2.50
+    output_per_1m: 10.00
+
+embedding:
+  text-embedding-3-small:
+    per_1m: 0.02
+  text-embedding-3-large:
+    per_1m: 0.13
