@@ -13,6 +13,16 @@ def parse_with_kordoc(
     kordoc_bin: str | Path | None = None,
     timeout: int = 120,
 ) -> dict:
+    """kordoc CLI로 문서 파일을 파싱하여 텍스트를 추출
+
+    Args:
+        file_path: 파싱할 문서 파일 경로.
+        kordoc_bin: kordoc 바이너리 경로.
+        timeout: 프로세스 타임아웃(초).
+
+    Returns:
+        파싱 결과 딕셔너리 (파일명, 파서, 텍스트, 글자수, 성공, 에러).
+    """
     path = Path(file_path)
     binary = Path(kordoc_bin) if kordoc_bin else DEFAULT_KORDOC_BIN
     try:

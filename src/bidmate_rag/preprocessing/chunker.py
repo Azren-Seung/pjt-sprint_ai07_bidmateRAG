@@ -17,18 +17,34 @@ MIN_SECTION_SIZE = 500
 # ── 청킹 전략 설정 ──
 
 CHUNKING_PRESETS = {
-    "small": {"chunk_size": 500, "chunk_overlap": 100, "min_section_size": 300,
-              "max_table_size": 1000, "description": "작은 청크 — 팩토이드/단답형 질문에 유리"},
-    "medium": {"chunk_size": 1000, "chunk_overlap": 150, "min_section_size": 500,
-               "max_table_size": 1500, "description": "기본 설정 — baseline"},
-    "large": {"chunk_size": 1500, "chunk_overlap": 200, "min_section_size": 700,
-              "max_table_size": 2000, "description": "큰 청크 — 분석형/비교 질문에 유리"},
+    "small": {
+        "chunk_size": 500,
+        "chunk_overlap": 100,
+        "min_section_size": 300,
+        "max_table_size": 1000,
+        "description": "작은 청크 — 팩토이드/단답형 질문에 유리",
+    },
+    "medium": {
+        "chunk_size": 1000,
+        "chunk_overlap": 150,
+        "min_section_size": 500,
+        "max_table_size": 1500,
+        "description": "기본 설정 — baseline",
+    },
+    "large": {
+        "chunk_size": 1500,
+        "chunk_overlap": 200,
+        "min_section_size": 700,
+        "max_table_size": 2000,
+        "description": "큰 청크 — 분석형/비교 질문에 유리",
+    },
 }
 
 
 @dataclass
 class ChunkingConfig:
     """청킹 전략 설정. preset 또는 커스텀 값으로 생성."""
+
     chunk_size: int = 1000
     chunk_overlap: int = 150
     min_section_size: int = 500
@@ -39,16 +55,33 @@ class ChunkingConfig:
 
     @classmethod
     def from_preset(cls, name: str) -> "ChunkingConfig":
-        """preset 이름으로 생성. small / medium / large"""
+        """프리셋 이름으로 ChunkingConfig를 생성
+
+        Args:
+            name: 프리셋 이름 (small / medium / large).
+
+        Returns:
+            해당 프리셋의 ChunkingConfig.
+        """
         if name not in CHUNKING_PRESETS:
             raise ValueError(f"Unknown preset: {name}. Available: {list(CHUNKING_PRESETS.keys())}")
-        return cls(**{k: v for k, v in CHUNKING_PRESETS[name].items() if k != "description"},
-                    description=CHUNKING_PRESETS[name]["description"])
+        return cls(
+            **{k: v for k, v in CHUNKING_PRESETS[name].items() if k != "description"},
+            description=CHUNKING_PRESETS[name]["description"],
+        )
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "ChunkingConfig":
-        """YAML 파일에서 로딩."""
+        """YAML 파일에서 ChunkingConfig를 로드
+
+        Args:
+            path: YAML 설정 파일 경로.
+
+        Returns:
+            YAML 값으로 생성된 ChunkingConfig.
+        """
         import yaml
+
         cfg = yaml.safe_load(Path(path).read_text())
         return cls(
             chunk_size=cfg.get("chunk_size", 1000),
@@ -59,6 +92,11 @@ class ChunkingConfig:
         )
 
     def to_dict(self) -> dict:
+        """설정값을 딕셔너리로 변환
+
+        Returns:
+            청킹 설정 딕셔너리.
+        """
         return {
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
@@ -69,7 +107,14 @@ class ChunkingConfig:
 
     @staticmethod
     def list_presets() -> dict[str, dict]:
+        """사용 가능한 프리셋 목록을 반환
+
+        Returns:
+            프리셋 이름-설정 딕셔너리.
+        """
         return CHUNKING_PRESETS
+
+
 TECH_STACK_KEYWORDS = {
     "AI": ["AI", "인공지능", "머신러닝", "딥러닝"],
     "클라우드": ["클라우드", "cloud", "SaaS"],
@@ -80,7 +125,16 @@ TECH_STACK_KEYWORDS = {
 
 
 def classify_agency(name: str) -> str:
+    """발주기관명으로 기관유형을 분류
+
+    Args:
+        name: 발주기관 이름.
+
+    Returns:
+        기관유형 문자열.
+    """
     name = str(name)
+    # 키워드 매칭으로 기관유형 판별
     if any(keyword in name for keyword in ["부 ", "처 ", "청 ", "위원회", "대검찰청", "선거관리"]):
         return "중앙행정기관"
     if any(keyword in name for keyword in ["대학", "학교"]):
@@ -118,6 +172,16 @@ def classify_agency(name: str) -> str:
 
 
 def classify_domain(name: str, text: str = "") -> str:
+    """사업명과 본문으로 사업 도메인을 분류
+
+    Args:
+        name: 사업명.
+        text: 본문 텍스트.
+
+    Returns:
+        도메인 문자열.
+    """
+    # 사업명 + 본문 앞부분을 결합하여 키워드 매칭
     combined = f"{name} {text[:5000]}"
     rules = [
         ("교육/학습", ["교육", "이러닝", "학습", "학사", "LMS", "LRS", "연수", "아카데미"]),
@@ -135,6 +199,7 @@ def classify_domain(name: str, text: str = "") -> str:
         ("조달/계약", ["조달", "입찰", "계약관리"]),
     ]
     for domain, keywords in rules:
+        # 일부 도메인은 사업명만으로 판별, 나머지는 본문까지 포함하여 판별
         target = (
             name
             if domain
@@ -156,6 +221,14 @@ def classify_domain(name: str, text: str = "") -> str:
 
 
 def extract_tech_stack(text: str) -> str:
+    """본문에서 기술스택 키워드를 추출
+
+    Args:
+        text: 본문 텍스트.
+
+    Returns:
+        쉼표로 구분된 기술스택 문자열.
+    """
     matches = [
         label
         for label, keywords in TECH_STACK_KEYWORDS.items()
@@ -165,11 +238,21 @@ def extract_tech_stack(text: str) -> str:
 
 
 def split_by_headers(text: str, min_size: int = MIN_SECTION_SIZE) -> list[dict]:
+    """마크다운 헤더 기준으로 텍스트를 섹션 분할
+
+    Args:
+        text: 마크다운 텍스트.
+        min_size: 섹션 최소 글자수 (미만이면 다음 섹션과 병합).
+
+    Returns:
+        섹션 딕셔너리(text, section, char_count) 리스트.
+    """
     splitter = MarkdownHeaderTextSplitter(headers_to_split_on=HEADERS_TO_SPLIT, strip_headers=False)
     docs = splitter.split_text(text)
     merged: list[dict] = []
     buffer_text = ""
     buffer_headers: list[str] = []
+    # 최소 크기 미만인 섹션은 다음 섹션과 병합
     for doc in docs:
         header = doc.metadata.get("h1", "")
         buffer_text = (
@@ -199,6 +282,14 @@ def split_by_headers(text: str, min_size: int = MIN_SECTION_SIZE) -> list[dict]:
 
 
 def is_table_block(text: str) -> bool:
+    """텍스트가 마크다운 테이블 블록인지 판별
+
+    Args:
+        text: 판별할 텍스트.
+
+    Returns:
+        파이프(|)로 시작하는 줄이 50% 초과이면 True.
+    """
     lines = [line for line in text.strip().split("\n") if line.strip()]
     if not lines:
         return False
@@ -207,7 +298,17 @@ def is_table_block(text: str) -> bool:
 
 
 def split_table_with_headers(text: str, max_size: int) -> list[str]:
+    """큰 테이블을 헤더를 보존하며 여러 청크로 분할
+
+    Args:
+        text: 테이블을 포함한 텍스트.
+        max_size: 청크 최대 글자수.
+
+    Returns:
+        분할된 테이블 청크 문자열 리스트.
+    """
     lines = text.split("\n")
+    # 테이블 전후 텍스트 분리
     pre_table: list[str] = []
     table_lines: list[str] = []
     in_table = False
@@ -221,6 +322,7 @@ def split_table_with_headers(text: str, max_size: int) -> list[str]:
             pre_table.append(line)
     if not table_lines or len(text) <= max_size:
         return [text]
+    # 테이블 헤더(컬럼명 + 구분선) 추출
     header_lines: list[str] = []
     for table_line in table_lines:
         header_lines.append(table_line)
@@ -230,6 +332,7 @@ def split_table_with_headers(text: str, max_size: int) -> list[str]:
     preamble = "\n".join(pre_table).strip()
     prefix = f"{preamble}\n{header_text}".strip()
     data_rows = table_lines[len(header_lines) :]
+    # 각 청크에 헤더를 붙여서 max_size 이내로 분할
     chunks: list[str] = []
     current_rows: list[str] = []
     for row in data_rows:
@@ -245,6 +348,14 @@ def split_table_with_headers(text: str, max_size: int) -> list[str]:
 
 
 def _chunk_doc_id(doc_metadata: dict) -> str:
+    """메타데이터에서 문서 ID를 추출
+
+    Args:
+        doc_metadata: 문서 메타데이터.
+
+    Returns:
+        문서 ID 문자열.
+    """
     return str(
         doc_metadata.get("doc_id")
         or doc_metadata.get("공고 번호")
@@ -254,6 +365,14 @@ def _chunk_doc_id(doc_metadata: dict) -> str:
 
 
 def _meta_prefix(doc_metadata: dict) -> str:
+    """청크에 붙일 메타데이터 접두어를 생성
+
+    Args:
+        doc_metadata: 문서 메타데이터.
+
+    Returns:
+        "[발주기관: ... | 사업명: ...]" 형식 문자열.
+    """
     agency = doc_metadata.get("발주 기관", "")
     project = doc_metadata.get("사업명", "")
     return f"[발주기관: {agency} | 사업명: {project}]"
@@ -267,11 +386,28 @@ def chunk_document(
     max_table_size: int = 1500,
     config: ChunkingConfig | None = None,
 ) -> list[Chunk]:
+    """문서 텍스트를 섹션 분할 후 청크 리스트로 변환
+
+    Args:
+        text: 문서 전체 텍스트.
+        doc_metadata: 문서 메타데이터.
+        chunk_size: 청크 최대 글자수.
+        chunk_overlap: 청크 간 겹침 글자수.
+        max_table_size: 테이블 청크 최대 글자수.
+        config: ChunkingConfig (지정 시 개별 파라미터 무시).
+
+    Returns:
+        Chunk 리스트.
+    """
+    # config가 있으면 개별 파라미터를 덮어씀
     if config is not None:
         chunk_size = config.chunk_size
         chunk_overlap = config.chunk_overlap
         max_table_size = config.max_table_size
-    sections = split_by_headers(text, min_size=config.min_section_size if config else MIN_SECTION_SIZE)
+    # 헤더 기준 섹션 분할 → 각 섹션을 텍스트/테이블 유형별로 청킹
+    sections = split_by_headers(
+        text, min_size=config.min_section_size if config else MIN_SECTION_SIZE
+    )
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -322,12 +458,25 @@ def chunk_dataframe(
     chunk_overlap: int = 150,
     config: ChunkingConfig | None = None,
 ) -> list[Chunk]:
+    """DataFrame 행들을 순회하며 각 문서를 청킹
+
+    Args:
+        rows: 문서 메타데이터 + 본문_정제 키를 가진 딕셔너리 이터러블.
+        chunk_size: 청크 최대 글자수.
+        chunk_overlap: 청크 간 겹침 글자수.
+        config: ChunkingConfig (지정 시 개별 파라미터 무시).
+
+    Returns:
+        전체 문서의 Chunk 리스트.
+    """
     all_chunks: list[Chunk] = []
     for row in rows:
         all_chunks.extend(
             chunk_document(
-                row["본문_정제"], row,
-                chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+                row["본문_정제"],
+                row,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
                 config=config,
             )
         )

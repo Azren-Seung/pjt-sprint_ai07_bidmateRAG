@@ -10,12 +10,31 @@ from bidmate_rag.retrieval.filters import (
 
 
 class RAGRetriever:
+    """메타데이터 필터와 벡터 검색을 결합하는 RAG 리트리버."""
+
     def __init__(self, vector_store, embedder, metadata_store=None) -> None:
+        """RAGRetriever를 초기화
+
+        Args:
+            vector_store: 벡터 검색에 사용할 벡터 스토어.
+            embedder: 쿼리 임베딩 생성기.
+            metadata_store: 메타데이터 기반 문서 필터링 스토어.
+        """
         self.vector_store = vector_store
         self.embedder = embedder
         self.metadata_store = metadata_store
 
     def retrieve(self, query: str, chat_history=None, top_k: int = 5):
+        """쿼리에 대해 메타데이터 필터링 후 벡터 검색을 수행
+
+        Args:
+            query: 사용자 질의 문자열.
+            chat_history: 이전 대화 이력.
+            top_k: 반환할 최대 결과 수.
+
+        Returns:
+            RetrievedChunk 리스트.
+        """
         agency_list = getattr(self.metadata_store, "agency_list", [])
         where = extract_metadata_filters(query, agency_list, chat_history=chat_history)
         range_filter = extract_range_filters(query)
