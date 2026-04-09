@@ -1,4 +1,8 @@
-"""Ingestion pipeline."""
+"""문서 수집 파이프라인.
+
+원본 RFP 문서(HWP/PDF)를 파싱 → 텍스트 정제 → 청킹하여
+parquet 파일로 저장하는 end-to-end 인제스트 파이프라인.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +23,14 @@ from bidmate_rag.preprocessing.cleaner import clean_text
 
 
 def _default_parse(file_path: Path) -> dict:
+    """파일 확장자에 따라 적절한 파서를 선택하여 문서를 파싱한다.
+
+    Args:
+        file_path: 원본 문서 경로.
+
+    Returns:
+        파싱 결과 딕셔너리 (텍스트, 글자수, 성공 여부 등).
+    """
     suffix = file_path.suffix.lower()
     if suffix == ".pdf":
         return parse_pdf(file_path)
@@ -26,6 +38,14 @@ def _default_parse(file_path: Path) -> dict:
 
 
 def _public_year(value) -> int:
+    """공개 일자 값에서 연도(4자리)를 추출한다.
+
+    Args:
+        value: 공개 일자 문자열 또는 숫자.
+
+    Returns:
+        연도 정수. 파싱 실패 시 0.
+    """
     text = str(value or "")
     return int(text[:4]) if len(text) >= 4 and text[:4].isdigit() else 0
 
@@ -38,6 +58,24 @@ def run_ingest_pipeline(
     chunk_size: int = 1000,
     chunk_overlap: int = 150,
 ) -> dict[str, Path]:
+    """인제스트 파이프라인 전체를 실행한다.
+
+    1. 메타데이터 CSV 로딩
+    2. 원본 문서 파싱 (HWP/PDF → 마크다운)
+    3. 텍스트 정제 및 메타데이터 보강 (기관유형, 도메인, 기술스택)
+    4. 청킹 → chunks.parquet 저장
+
+    Args:
+        metadata_path: 메타데이터 CSV 경로.
+        raw_dir: 원본 RFP 문서 디렉터리.
+        output_dir: parquet 산출물 저장 디렉터리.
+        parse_fn: 커스텀 파서 함수 (기본: HWP/PDF 자동 선택).
+        chunk_size: 청크 최대 글자수.
+        chunk_overlap: 청크 간 겹침 글자수.
+
+    Returns:
+        산출물 이름-경로 딕셔너리 (parsed, cleaned, chunks).
+    """
     parser = parse_fn or _default_parse
     raw_root = Path(raw_dir)
     processed_root = Path(output_dir)
@@ -46,9 +84,23 @@ def run_ingest_pipeline(
     metadata_df = load_metadata_frame(metadata_path)
 
     parsed_rows: list[dict] = []
-    for _, row in metadata_df.iterrows():
+    total = len(metadata_df)
+    for i, (_, row) in enumerate(metadata_df.iterrows(), 1):
         file_path = raw_root / row["파일명"]
-        parsed = parser(file_path)
+        print(f"[{i}/{total}] 파싱 중: {row['파일명']}", end=" ... ")
+        try:
+            parsed = parser(file_path)
+        except Exception as exc:
+            parsed = {
+                "파일명": row["파일명"],
+                "파서": "error",
+                "텍스트": "",
+                "글자수": 0,
+                "성공": False,
+                "에러": str(exc),
+            }
+        status = "OK" if parsed.get("성공") else f"실패({parsed.get('에러', '?')})"
+        print(f"{status} ({parsed.get('글자수', 0):,}자)")
         parsed_rows.append(parsed)
 
     parsed_df = metadata_df.copy()
