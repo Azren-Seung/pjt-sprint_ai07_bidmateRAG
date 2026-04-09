@@ -81,8 +81,12 @@ def run_ingest_pipeline(
     processed_root = Path(output_dir)
     processed_root.mkdir(parents=True, exist_ok=True)
 
+    # ── 1단계: 메타데이터 CSV 로딩 ──
+    # data_list.csv에서 사업명, 발주기관, 파일명 등 기본 정보를 읽어온다
     metadata_df = load_metadata_frame(metadata_path)
 
+    # ── 2단계: 원본 문서 파싱 (HWP/PDF → 마크다운 텍스트) ──
+    # 각 문서를 kordoc(HWP) 또는 pdfplumber(PDF)로 텍스트 추출
     parsed_rows: list[dict] = []
     total = len(metadata_df)
     for i, (_, row) in enumerate(metadata_df.iterrows(), 1):
@@ -91,6 +95,7 @@ def run_ingest_pipeline(
         try:
             parsed = parser(file_path)
         except Exception as exc:
+            # 파서 크래시 시 빈 결과로 대체하고 다음 파일로 진행
             parsed = {
                 "파일명": row["파일명"],
                 "파서": "error",
@@ -103,6 +108,7 @@ def run_ingest_pipeline(
         print(f"{status} ({parsed.get('글자수', 0):,}자)")
         parsed_rows.append(parsed)
 
+    # 파싱 결과를 메타데이터에 합쳐서 parsed_documents.parquet로 저장
     parsed_df = metadata_df.copy()
     parsed_map = {row["파일명"]: row for row in parsed_rows}
     parsed_df["본문_마크다운"] = parsed_df["파일명"].map(lambda name: parsed_map[name]["텍스트"])
@@ -111,23 +117,33 @@ def run_ingest_pipeline(
     parsed_path = processed_root / "parsed_documents.parquet"
     parsed_df.to_parquet(parsed_path, index=False)
 
+    # ── 3단계: 텍스트 정제 + 메타데이터 보강 ──
+    # 노이즈 제거, 기관유형/도메인/기술스택 자동 분류
     cleaned_df = parsed_df.copy()
     cleaned_df["본문_정제"] = cleaned_df["본문_마크다운"].fillna("").map(clean_text)
     cleaned_df["정제_글자수"] = cleaned_df["본문_정제"].str.len()
-    cleaned_df["기관유형"] = cleaned_df["발주 기관"].map(classify_agency)
-    cleaned_df["사업도메인"] = [
+    cleaned_df["기관유형"] = cleaned_df["발주 기관"].map(classify_agency)       # 대학교, 공기업 등
+    cleaned_df["사업도메인"] = [                                                # 교육, 안전, 의료 등
         classify_domain(name, text)
         for name, text in zip(cleaned_df["사업명"], cleaned_df["본문_정제"], strict=False)
     ]
-    cleaned_df["기술스택"] = cleaned_df["본문_정제"].map(extract_tech_stack)
+    cleaned_df["기술스택"] = cleaned_df["본문_정제"].map(extract_tech_stack)     # AI, 클라우드 등
     cleaned_df["공개연도"] = cleaned_df["공개 일자"].map(_public_year)
 
+    # 정제된 문서 전체를 cleaned_documents.parquet에 저장 (원문 보관용)
     cleaned_path = processed_root / "cleaned_documents.parquet"
     cleaned_df.to_parquet(cleaned_path, index=False)
 
+    # ── 4단계: 청킹 → chunks.parquet ──
+    # 정제된 본문을 검색 가능한 작은 조각(청크)으로 분할
+    # 본문 전체(본문_마크다운, 본문_정제)는 청크에 넣지 않음
+    # → 이미 cleaned_documents.parquet에 보관되어 있고,
+    #   청크마다 복사하면 파일 크기가 수 GB로 커져 임베딩 시 메모리/토큰 한도 초과
+    skip_cols = {"본문_마크다운", "본문_정제", "본문_글자수", "정제_글자수"}
     all_chunks = []
     for _, row in cleaned_df.iterrows():
-        metadata = row.to_dict()
+        # 가벼운 메타데이터만 청크에 포함 (사업명, 발주기관, 도메인 등)
+        metadata = {k: v for k, v in row.to_dict().items() if k not in skip_cols}
         metadata["doc_id"] = str(metadata.get("공고 번호") or metadata.get("파일명"))
         chunks = chunk_document(
             row["본문_정제"],
