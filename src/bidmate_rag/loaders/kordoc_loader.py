@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
-DEFAULT_KORDOC_BIN = Path.home() / ".npm-global" / "bin" / "kordoc"
+DEFAULT_KORDOC_BIN = shutil.which("kordoc") or Path.home() / ".npm-global" / "bin" / "kordoc"
 
 
 def parse_with_kordoc(
@@ -30,6 +31,8 @@ def parse_with_kordoc(
             [str(binary), str(path)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             check=False,
         )
