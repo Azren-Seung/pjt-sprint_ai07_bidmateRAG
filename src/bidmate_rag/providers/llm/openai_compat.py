@@ -59,11 +59,14 @@ class OpenAICompatibleLLM(BaseLLMProvider):
             messages.append({"role": "user", "content": item["user"]})
             messages.append({"role": "assistant", "content": item["assistant"]})
         messages.append({"role": "user", "content": build_rag_user_prompt(question, context)})
+        import time as _time
+        _start = _time.time()
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=messages,
-            max_completion_tokens=generation_config.get("max_completion_tokens", 4000),
+            max_completion_tokens=generation_config.get("max_completion_tokens", 16000),
         )
+        _elapsed_ms = (_time.time() - _start) * 1000
         usage = getattr(response, "usage", None)
         return GenerationResult(
             question_id=generation_config.get("question_id", f"q-{uuid4().hex[:8]}"),
@@ -78,7 +81,7 @@ class OpenAICompatibleLLM(BaseLLMProvider):
             retrieved_chunk_ids=[chunk.chunk.chunk_id for chunk in context_chunks],
             retrieved_doc_ids=[chunk.chunk.doc_id for chunk in context_chunks],
             retrieved_chunks=context_chunks,
-            latency_ms=float(generation_config.get("latency_ms", 0.0)),
+            latency_ms=round(_elapsed_ms, 1),
             token_usage={
                 "prompt": getattr(usage, "prompt_tokens", 0),
                 "completion": getattr(usage, "completion_tokens", 0),

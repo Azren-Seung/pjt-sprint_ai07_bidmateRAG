@@ -8,7 +8,55 @@ from uuid import uuid4
 
 import pandas as pd
 
+import yaml as _yaml
+
 EVAL_DIR = Path("data/eval")
+
+# Provider 정렬/필터 공통 유틸
+B_ORDER = {"gpt-5": 0, "gpt-5-mini": 1, "gpt-5-nano": 2}
+
+def _get_provider_info(path):
+    try:
+        cfg = _yaml.safe_load(path.read_text())
+        return cfg.get("scenario", ""), cfg.get("model", "")
+    except Exception:
+        return "", ""
+
+def _format_provider(p):
+    scenario, model = _get_provider_info(p)
+    tag = "🅰️" if scenario == "scenario_a" else "🅱️"
+    return f"{tag} {model}"
+
+def _sort_providers(configs):
+    """B 시나리오(gpt-5→mini→nano) 우선, A 시나리오 이름순."""
+    return sorted(configs, key=lambda p: (
+        0 if _get_provider_info(p)[0] == "scenario_b" else 1,
+        B_ORDER.get(_get_provider_info(p)[1], 99),
+        p.stem,
+    ))
+
+def _render_scenario_provider_selector(st, list_provider_configs, key_prefix=""):
+    """시나리오 체크박스 + Provider selectbox. 평가실행/디버깅 공통."""
+    provider_configs = list_provider_configs()
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        show_a = st.checkbox("🅰️ 시나리오 A", value=False, key=f"{key_prefix}_sa")
+    with col_s2:
+        show_b = st.checkbox("🅱️ 시나리오 B", value=True, key=f"{key_prefix}_sb")
+
+    filtered = []
+    for p in provider_configs:
+        scenario, _ = _get_provider_info(p)
+        if scenario == "scenario_a" and show_a:
+            filtered.append(p)
+        elif scenario == "scenario_b" and show_b:
+            filtered.append(p)
+    filtered = _sort_providers(filtered)
+
+    if not filtered:
+        st.warning("선택한 시나리오에 Provider가 없습니다.")
+        return None
+    return st.selectbox("Provider", filtered, format_func=_format_provider, key=f"{key_prefix}_provider")
 EVAL_SET_PATH = EVAL_DIR / "eval_set.json"
 RUNS_DIR = Path("artifacts/logs/runs")
 BENCHMARKS_DIR = Path("artifacts/logs/benchmarks")
@@ -91,6 +139,27 @@ def save_eval_set(data: list[dict], fmt: str = "csv") -> Path:
 def render_eval_tabs(st, run_live_query, list_provider_configs, load_benchmark_frames, load_run_records):
     """평가 탭 메인 렌더러."""
 
+    # 평가셋 파일 선택
+    csv_files = sorted(EVAL_DIR.glob("eval_batch_*.csv"))
+    all_eval_files = csv_files
+    if EVAL_SET_PATH.exists():
+        all_eval_files = list(all_eval_files) + [EVAL_SET_PATH]
+
+    if all_eval_files:
+        selected_file = st.selectbox(
+            "📄 평가셋 파일",
+            all_eval_files,
+            format_func=lambda p: f"{p.name} ({p.stat().st_size // 1024}KB)",
+            key="eval_file_select",
+        )
+        if selected_file and selected_file != st.session_state.get("_loaded_eval_file"):
+            if selected_file.suffix == ".csv":
+                st.session_state.eval_set = load_eval_set_from_csv(selected_file)
+            else:
+                st.session_state.eval_set = json.loads(selected_file.read_text(encoding="utf-8"))
+            st.session_state["_loaded_eval_file"] = selected_file
+            st.toast(f"{selected_file.name} 로딩: {len(st.session_state.eval_set)}개", icon="📄")
+
     run_tab, debug_tab, compare_tab, edit_tab = st.tabs(
         ["🏃 평가 실행", "🔍 질문 디버깅", "⚖️ 결과 비교", "✏️ 평가셋 편집"]
     )
@@ -127,13 +196,14 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
         st.warning("평가셋이 비어있습니다. '평가셋 편집' 탭에서 질문을 추가하세요.")
         return
 
-    provider_configs = list_provider_configs()
-    col1, col2, col3 = st.columns(3)
+    provider = _render_scenario_provider_selector(st, list_provider_configs, key_prefix="run")
+    if provider is None:
+        return
+
+    col1, col2 = st.columns(2)
     with col1:
-        provider = st.selectbox("Provider", provider_configs, format_func=lambda p: p.stem, key="run_provider")
-    with col2:
         top_k = st.slider("Top-K", 1, 20, 5, key="run_topk")
-    with col3:
+    with col2:
         run_scope = st.selectbox("실행 범위", ["전체", "유형별", "난이도별"], key="run_scope")
 
     # 필터
@@ -199,7 +269,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
                     평균토큰=("tokens", "mean"),
                     평균응답ms=("latency_ms", "mean"),
                 ).round(0)
-                st.dataframe(type_summary, use_container_width=True)
+                st.dataframe(type_summary, width="stretch")
         with col2:
             st.markdown("**난이도별 요약**")
             if len(df) > 0:
@@ -208,9 +278,9 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
                     평균토큰=("tokens", "mean"),
                     평균응답ms=("latency_ms", "mean"),
                 ).round(0)
-                st.dataframe(diff_summary, use_container_width=True)
+                st.dataframe(diff_summary, width="stretch")
 
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width="stretch")
 
 
 def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
@@ -248,12 +318,10 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
         return
 
     # 설정
-    provider_configs = list_provider_configs()
-    col1, col2 = st.columns(2)
-    with col1:
-        provider = st.selectbox("Provider", provider_configs, format_func=lambda p: p.stem, key="debug_provider")
-    with col2:
-        top_k = st.slider("Top-K", 1, 20, 5, key="debug_topk")
+    provider = _render_scenario_provider_selector(st, list_provider_configs, key_prefix="debug")
+    if provider is None:
+        return
+    top_k = st.slider("Top-K", 1, 20, 5, key="debug_topk")
 
     if st.button("🔍 이 질문 실행", type="primary", key="debug_run_btn"):
         with st.status("디버깅 실행 중...", expanded=True) as status:
@@ -289,7 +357,7 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
                         }
                         for c in result.retrieved_chunks
                     ]
-                    st.dataframe(chunks_data, use_container_width=True)
+                    st.dataframe(chunks_data, width="stretch")
 
                     # 정답 문서 포함 여부
                     retrieved_docs = [c.chunk.metadata.get("사업명", "") for c in result.retrieved_chunks]
@@ -350,7 +418,7 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
             st.caption(f"현재 결과: {len(all_sources)}개")
             for name, df in all_sources.items():
                 with st.expander(name):
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width="stretch")
         return
 
     col1, col2 = st.columns(2)
@@ -369,15 +437,15 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
     if "id" in left_df.columns and "id" in right_df.columns:
         merged = left_df.merge(right_df, on="id", suffixes=("_좌", "_우"), how="outer")
         display_cols = [c for c in merged.columns if "id" in c or "answer" in c or "tokens" in c or "latency" in c]
-        st.dataframe(merged[display_cols] if display_cols else merged, use_container_width=True)
+        st.dataframe(merged[display_cols] if display_cols else merged, width="stretch")
     else:
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"**{left}**")
-            st.dataframe(left_df, use_container_width=True)
+            st.dataframe(left_df, width="stretch")
         with col2:
             st.markdown(f"**{right}**")
-            st.dataframe(right_df, use_container_width=True)
+            st.dataframe(right_df, width="stretch")
 
     # 집계 비교
     st.markdown("### 집계 비교")
@@ -386,11 +454,11 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
         with col1:
             st.markdown(f"**{left}** — 유형별")
             if "tokens" in left_df.columns:
-                st.dataframe(left_df.groupby("type")["tokens"].mean().round(0), use_container_width=True)
+                st.dataframe(left_df.groupby("type")["tokens"].mean().round(0), width="stretch")
         with col2:
             st.markdown(f"**{right}** — 유형별")
             if "tokens" in right_df.columns:
-                st.dataframe(right_df.groupby("type")["tokens"].mean().round(0), use_container_width=True)
+                st.dataframe(right_df.groupby("type")["tokens"].mean().round(0), width="stretch")
 
 
 def _render_edit_tab(st, eval_set):
@@ -409,7 +477,7 @@ def _render_edit_tab(st, eval_set):
             }
             for q in eval_set
         ]
-        st.dataframe(table_data, use_container_width=True)
+        st.dataframe(table_data, width="stretch")
 
     # 편집할 질문 선택 또는 새로 추가
     action = st.radio("작업", ["기존 질문 편집", "새 질문 추가", "질문 삭제"], horizontal=True, key="edit_action")

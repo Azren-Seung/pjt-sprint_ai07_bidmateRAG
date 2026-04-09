@@ -104,6 +104,8 @@ def run_live_query(
     experiment_config_path: str | Path | None = None,
     top_k: int = 5,
     manual_filters: dict | None = None,
+    system_prompt: str | None = None,
+    max_context_chars: int = 8000,
 ):
     pipeline, runtime, embedder, _ = build_runtime_pipeline(
         base_config_path=base_config_path,
@@ -112,10 +114,15 @@ def run_live_query(
     )
     run_id = f"live-{uuid4().hex[:8]}"
 
+    # 시스템 프롬프트 오버라이드
+    if system_prompt:
+        pipeline.system_prompt = system_prompt
+
     # 수동 필터가 있으면 retriever에 전달하기 위해 generation_config에 포함
     gen_config = {}
     if manual_filters:
         gen_config["manual_filters"] = manual_filters
+    gen_config["max_context_chars"] = max_context_chars
 
     return pipeline.answer(
         question,
