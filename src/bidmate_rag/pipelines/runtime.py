@@ -1,4 +1,8 @@
-"""Runtime assembly helpers shared by CLI and UI."""
+"""런타임 조립 헬퍼.
+
+CLI 스크립트와 Streamlit UI가 공유하는 파이프라인 조립 로직.
+설정 파일 → 프로바이더/리트리버/LLM 생성 → RAGChatPipeline 반환.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,14 @@ from bidmate_rag.storage.metadata_store import MetadataStore
 
 
 def collection_name_for_config(runtime: RuntimeConfig) -> str:
+    """RuntimeConfig에서 ChromaDB 컬렉션 이름을 생성한다.
+
+    Args:
+        runtime: 런타임 설정.
+
+    Returns:
+        'bidmate-{provider}-{model}' 형식의 컬렉션 이름.
+    """
     if runtime.provider.collection_name:
         return runtime.provider.collection_name
     model = (
@@ -32,6 +44,18 @@ def build_runtime_pipeline(
     persist_dir: str | Path = "artifacts/chroma_db",
     metadata_path: str | Path = "data/processed/cleaned_documents.parquet",
 ):
+    """설정 파일들로부터 RAGChatPipeline을 조립한다.
+
+    Args:
+        base_config_path: 기본 설정 YAML 경로.
+        provider_config_path: 프로바이더 설정 YAML 경로.
+        experiment_config_path: 실험 설정 YAML 경로 (선택).
+        persist_dir: ChromaDB 저장 디렉터리.
+        metadata_path: 정제된 문서 메타데이터 parquet 경로.
+
+    Returns:
+        (pipeline, runtime, embedder, llm) 튜플.
+    """
     runtime = load_runtime_config(base_config_path, provider_config_path, experiment_config_path)
     embedder = build_embedding_provider(runtime.provider)
     llm = build_llm_provider(runtime.provider)
