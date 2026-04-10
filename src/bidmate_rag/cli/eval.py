@@ -26,7 +26,7 @@ from bidmate_rag.evaluation.schema_validator import (
     render_validation_report,
     validate_eval_samples,
 )
-from bidmate_rag.pipelines.runtime import build_runtime_pipeline
+from bidmate_rag.pipelines.runtime import _resolve_metadata_path, build_runtime_pipeline
 from bidmate_rag.schema import EvalSample, GenerationResult
 
 
@@ -202,7 +202,11 @@ def main() -> None:
     all_samples = load_eval_samples(args.evaluation_path)
 
     if not args.no_validate:
-        report = validate_eval_samples(all_samples)
+        # 검증도 실행과 동일한 metadata 파일을 봐야 drift가 생기지 않음
+        metadata_path = _resolve_metadata_path(runtime, None)
+        report = validate_eval_samples(
+            all_samples, cleaned_documents_path=metadata_path
+        )
         print(render_validation_report(report))
         if not report.is_valid(strict=args.strict):
             raise SystemExit(
