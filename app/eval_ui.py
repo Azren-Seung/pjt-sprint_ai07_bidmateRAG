@@ -10,6 +10,9 @@ import pandas as pd
 
 import yaml as _yaml
 
+from app.api.routes import run_benchmark_experiment
+from bidmate_rag.tracking.markdown_report import load_report_data, write_report
+
 EVAL_DIR = Path("data/eval")
 
 # Provider 정렬/필터 공통 유틸
@@ -190,97 +193,194 @@ def render_eval_tabs(st, run_live_query, list_provider_configs, load_benchmark_f
 
 
 def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
+    """평가셋 일괄 실행 탭. CLI(``bidmate-eval``)와 정확히 같은 코드 경로를 호출한다.
+
+    UX 단순화 원칙:
+    - top_k/필터링 등 옵션은 CLI 인자와 같은 것만 제공
+    - 평가셋 파일 자체를 디스크 경로 기반으로 사용 (session 편집은 '편집' 탭에서
+      먼저 저장 후 실행)
+    - 비즈니스 로직은 0줄 — ``run_benchmark_experiment``가 모든 일을 처리
+    """
     st.subheader("평가셋 일괄 실행")
 
     if not eval_set:
         st.warning("평가셋이 비어있습니다. '평가셋 편집' 탭에서 질문을 추가하세요.")
         return
 
+    eval_file: Path | None = st.session_state.get("_loaded_eval_file")
+    if eval_file is None:
+        st.info("위쪽에서 평가셋 파일을 먼저 선택하세요.")
+        return
+
+    st.caption(
+        f"실행 대상: `{eval_file.name}` (총 {len(eval_set)}개 — 편집한 내용을 평가하려면 "
+        "'평가셋 편집' 탭에서 저장 후 다시 로딩하세요)"
+    )
+
     provider = _render_scenario_provider_selector(st, list_provider_configs, key_prefix="run")
     if provider is None:
         return
 
-    col1, col2 = st.columns(2)
-    with col1:
-        top_k = st.slider("Top-K", 1, 20, 5, key="run_topk")
-    with col2:
-        run_scope = st.selectbox("실행 범위", ["전체", "유형별", "난이도별"], key="run_scope")
+    opt_col1, opt_col2 = st.columns(2)
+    with opt_col1:
+        skip_judge = st.checkbox(
+            "Judge 끄기 (faithfulness 등)",
+            value=False,
+            key="run_skip_judge",
+            help="LLM judge는 추가 API 호출이라 비용/시간이 늘어납니다. 빠른 실행에 사용",
+        )
+    with opt_col2:
+        judge_model = st.selectbox(
+            "Judge 모델",
+            ["gpt-4o-mini", "gpt-5-mini"],
+            disabled=skip_judge,
+            key="run_judge_model",
+        )
 
-    # 필터
-    filtered = eval_set
-    if run_scope == "유형별":
-        types = sorted(set(q["type"] for q in eval_set))
-        selected_type = st.multiselect("유형 선택", types, default=types, key="run_types")
-        filtered = [q for q in eval_set if q["type"] in selected_type]
-    elif run_scope == "난이도별":
-        diffs = sorted(set(q.get("difficulty", "중") for q in eval_set))
-        selected_diff = st.multiselect("난이도 선택", diffs, default=diffs, key="run_diffs")
-        filtered = [q for q in eval_set if q.get("difficulty", "중") in selected_diff]
+    if not st.button("▶️ 평가 실행", type="primary", key="run_eval_btn"):
+        return
 
-    st.caption(f"실행 대상: {len(filtered)}개 질문")
+    progress_bar = st.progress(0, text="평가 실행 중...")
 
-    if st.button("▶️ 평가 실행", type="primary", key="run_eval_btn"):
-        run_id = f"eval-{uuid4().hex[:8]}"
-        results = []
-        progress = st.progress(0, text="평가 실행 중...")
+    def _on_progress(done: int, total: int, sample) -> None:
+        progress_bar.progress(
+            done / total, text=f"[{done}/{total}] {sample.question[:40]}..."
+        )
 
-        for i, q in enumerate(filtered):
-            progress.progress((i + 1) / len(filtered), text=f"[{i+1}/{len(filtered)}] {q['question'][:40]}...")
-            try:
-                result = run_live_query(
-                    question=q["question"],
-                    provider_config_path=provider,
-                    top_k=top_k,
-                )
-                results.append({
-                    "id": q["id"],
-                    "type": q["type"],
-                    "difficulty": q.get("difficulty", "중"),
-                    "question": q["question"][:40],
-                    "answer_preview": result.answer[:100] if result.answer else "",
-                    "chunks": len(result.retrieved_chunks),
-                    "tokens": result.token_usage.get("total", 0),
-                    "latency_ms": round(result.latency_ms),
-                    "ground_truth": q.get("ground_truth_answer", "")[:50],
-                })
-            except Exception as e:
-                results.append({
-                    "id": q["id"], "type": q["type"],
-                    "difficulty": q.get("difficulty", "중"),
-                    "question": q["question"][:40],
-                    "answer_preview": f"오류: {str(e)[:60]}",
-                    "chunks": 0, "tokens": 0, "latency_ms": 0,
-                    "ground_truth": "",
-                })
+    try:
+        artifacts = run_benchmark_experiment(
+            evaluation_path=eval_file,
+            provider_config_path=provider,
+            skip_judge=skip_judge,
+            judge_model=judge_model,
+            progress_callback=_on_progress,
+        )
+    except Exception as exc:
+        progress_bar.empty()
+        st.error(f"평가 실행 실패: {exc}")
+        return
 
-        progress.empty()
-        st.session_state.eval_results[run_id] = results
+    progress_bar.empty()
 
-        # 요약
-        df = pd.DataFrame(results)
-        st.success(f"실행 완료: {len(results)}건 (run_id: {run_id})")
+    # compare_tab은 list[dict]를 기대하므로 legacy 호환 형식으로 저장
+    legacy_rows = [
+        {
+            "id": r.question_id,
+            "type": "",
+            "difficulty": "",
+            "question": r.question,
+            "answer_preview": (r.answer or "")[:100],
+            "chunks": len(r.retrieved_chunks),
+            "tokens": int((r.token_usage or {}).get("total", 0) or 0),
+            "latency_ms": round(r.latency_ms),
+            "ground_truth": "",
+        }
+        for r in artifacts.benchmark.results
+    ]
+    st.session_state.eval_results[artifacts.run_id] = legacy_rows
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**유형별 요약**")
-            if len(df) > 0:
-                type_summary = df.groupby("type").agg(
-                    질문수=("id", "count"),
-                    평균토큰=("tokens", "mean"),
-                    평균응답ms=("latency_ms", "mean"),
-                ).round(0)
-                st.dataframe(type_summary, width="stretch")
-        with col2:
-            st.markdown("**난이도별 요약**")
-            if len(df) > 0:
-                diff_summary = df.groupby("difficulty").agg(
-                    질문수=("id", "count"),
-                    평균토큰=("tokens", "mean"),
-                    평균응답ms=("latency_ms", "mean"),
-                ).round(0)
-                st.dataframe(diff_summary, width="stretch")
+    st.success(
+        f"실행 완료: {len(artifacts.benchmark.results)}건 (run_id: `{artifacts.run_id}`)"
+    )
 
-        st.dataframe(df, width="stretch")
+    _render_run_artifacts(st, artifacts)
+
+
+def _render_run_artifacts(st, artifacts) -> None:
+    """평가 실행 결과를 메트릭 카드 + 표 + 리포트 다운로드로 렌더링."""
+    metrics = artifacts.metrics or {}
+    results = artifacts.benchmark.results
+
+    # 비용/토큰/지연 집계
+    generation_cost = sum(float(r.cost_usd or 0.0) for r in results)
+    judge_cost = float(artifacts.judge_total_cost_usd or 0.0)
+    prompt_tokens = sum(int((r.token_usage or {}).get("prompt", 0) or 0) for r in results)
+    completion_tokens = sum(
+        int((r.token_usage or {}).get("completion", 0) or 0) for r in results
+    )
+    total_tokens = prompt_tokens + completion_tokens
+    latencies_ms = [float(r.latency_ms or 0.0) for r in results]
+    avg_latency_s = sum(latencies_ms) / len(latencies_ms) / 1000 if latencies_ms else 0.0
+
+    # ── 검색 메트릭 카드 ──
+    st.markdown("#### 🔍 검색 품질")
+    cols = st.columns(3)
+    cols[0].metric("Hit Rate@5", _fmt_metric(metrics.get("hit_rate@5")))
+    cols[1].metric("MRR", _fmt_metric(metrics.get("mrr")))
+    cols[2].metric("nDCG@5", _fmt_metric(metrics.get("ndcg@5")))
+
+    # ── Judge 메트릭 카드 ──
+    if not artifacts.judge_skipped:
+        st.markdown("#### 🤖 답변 품질 (LLM Judge)")
+        cols = st.columns(4)
+        cols[0].metric("Faithfulness", _fmt_metric(metrics.get("faithfulness")))
+        cols[1].metric("Answer Relevance", _fmt_metric(metrics.get("answer_relevance")))
+        cols[2].metric("Context Precision", _fmt_metric(metrics.get("context_precision")))
+        cols[3].metric("Context Recall", _fmt_metric(metrics.get("context_recall")))
+    else:
+        st.info("Judge가 꺼져 있어 답변 품질 메트릭은 계산하지 않았습니다.")
+
+    # ── 비용/토큰/지연 카드 ──
+    st.markdown("#### 💰 비용·토큰·지연")
+    cols = st.columns(4)
+    cols[0].metric("생성 비용", f"${generation_cost:.4f}")
+    cols[1].metric("Judge 비용", f"${judge_cost:.4f}" if not artifacts.judge_skipped else "—")
+    cols[2].metric("총 토큰", f"{total_tokens:,}")
+    cols[3].metric("평균 지연", f"{avg_latency_s:.2f}초")
+
+    # ── 질문별 결과 표 ──
+    st.markdown("#### 📋 질문별 결과")
+    rows = []
+    for r in results:
+        judge = r.judge_scores or {}
+        rows.append(
+            {
+                "id": r.question_id,
+                "answer_preview": (r.answer or "")[:80],
+                "chunks": len(r.retrieved_chunks),
+                "tokens": int((r.token_usage or {}).get("total", 0) or 0),
+                "latency_ms": round(r.latency_ms),
+                "cost_usd": round(r.cost_usd or 0.0, 6),
+                "faithfulness": judge.get("faithfulness"),
+                "answer_relevance": judge.get("answer_relevance"),
+                "error": bool(r.error),
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), width="stretch")
+
+    # ── 마크다운 리포트 생성 ──
+    st.markdown("#### 📄 노션 리포트")
+    st.caption(
+        f"jsonl: `{artifacts.run_path}` · meta: `{artifacts.meta_path}` · "
+        f"parquet: `{artifacts.summary_path}`"
+    )
+    if st.button("📋 노션 마크다운 리포트 생성", key=f"gen_report_{artifacts.run_id}"):
+        try:
+            data = load_report_data(run_id=artifacts.run_id)
+            report_path = write_report(data)
+            md_text = report_path.read_text(encoding="utf-8")
+            st.success(f"리포트 생성 완료: `{report_path}`")
+            st.download_button(
+                "⬇️ 마크다운 다운로드",
+                data=md_text,
+                file_name=report_path.name,
+                mime="text/markdown",
+                key=f"dl_report_{artifacts.run_id}",
+            )
+            with st.expander("📝 리포트 미리보기", expanded=False):
+                st.markdown(md_text)
+        except Exception as exc:
+            st.error(f"리포트 생성 실패: {exc}")
+
+
+def _fmt_metric(value) -> str:
+    """None은 'N/A', 그 외는 0.0000 형태로."""
+    if value is None:
+        return "N/A"
+    try:
+        return f"{float(value):.4f}"
+    except (TypeError, ValueError):
+        return "N/A"
 
 
 def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
