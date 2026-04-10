@@ -131,7 +131,7 @@ def _make_fixture(
                     "retrieval_top_k": 5,
                 },
             },
-            "eval_path": "data/eval/eval_batch_02.csv",
+            "eval_path": "data/eval/eval_v1/eval_batch_02.csv",
             "collection_name": "test-collection",
             "judge_skipped": judge_skipped,
             "judge_total_cost_usd": 0.0 if judge_skipped else 0.0008,

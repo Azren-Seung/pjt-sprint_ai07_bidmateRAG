@@ -55,6 +55,8 @@ latency 같은 중복 가능한 값을 key로 쓰지 말 것.
 B 시나리오(gpt-5→mini→nano) 우선, A 시나리오 이름순.
 
 ### 평가셋 파일
-- 메인 형식: `data/eval/eval_batch_*.csv` (CSV-first)
+- 메인 위치: `data/eval/eval_v1/eval_batch_*.csv` (CSV-first, 버전 디렉토리)
+- 새 버전 추가 시 `data/eval/eval_v2/`처럼 디렉토리만 만들면 코드가 자동으로
+  가장 높은 버전을 사용 (`bidmate_rag.evaluation.dataset.find_latest_eval_dir`)
 - JSON 폴백: `data/eval/eval_set.json`
 - session에서 편집 → "💾 저장"으로 파일 반영

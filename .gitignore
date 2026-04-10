@@ -7,7 +7,10 @@ data/processed/*
 data/eval/*
 !data/eval/.gitkeep
 !data/eval/eval_set.json
-!data/eval/eval_batch_*.csv
+# Versioned eval directories (eval_v1/, eval_v2/, …) are tracked.
+# Loose top-level eval_batch_*.csv는 더 이상 사용하지 않습니다.
+!data/eval/eval_v*/
+!data/eval/eval_v*/**
 
 # build artifacts
 artifacts/*

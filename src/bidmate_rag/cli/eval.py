@@ -8,7 +8,7 @@ the Streamlit UI can call the exact same code path.
 Usage::
 
     uv run bidmate-eval \\
-        --evaluation-path data/eval/eval_batch_01.csv \\
+        --evaluation-path data/eval/eval_v1/eval_batch_01.csv \\
         --provider-config configs/providers/openai_gpt5mini.yaml \\
         --limit 5 --filter-type A,B
 """
