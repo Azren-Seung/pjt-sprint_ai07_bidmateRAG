@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -479,7 +478,9 @@ def _render_streamlit_app() -> None:
     # ── 탭 2: 문서 목록 ──
     with docs_tab:
         st.subheader("RFP 문서 목록")
-        chunks_path = Path("data/processed/cleaned_documents.parquet")
+        # 가장 최근 실험별 metadata를 자동 사용 (없으면 top-level fallback)
+        from bidmate_rag.evaluation.dataset import find_latest_metadata_path
+        chunks_path = find_latest_metadata_path()
         if not chunks_path.exists():
             st.info("문서 데이터가 없습니다. 파이프라인을 실행해주세요:\n\n"
                     "`uv run python scripts/ingest_data.py`")

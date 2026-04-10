@@ -8,7 +8,10 @@ from uuid import uuid4
 
 import pandas as pd
 
-from bidmate_rag.evaluation.dataset import load_eval_samples
+from bidmate_rag.evaluation.dataset import (
+    find_latest_metadata_path,
+    load_eval_samples,
+)
 from bidmate_rag.evaluation.pipeline import EvaluationArtifacts, execute_evaluation
 from bidmate_rag.pipelines.runtime import build_runtime_pipeline
 
@@ -39,8 +42,14 @@ def load_run_records(run_file: str | Path) -> list[dict]:
     ]
 
 
-def load_metadata_options(parquet_path: str | Path = "data/processed/cleaned_documents.parquet") -> dict:
-    """사이드바 필터용 메타데이터 옵션을 로딩한다."""
+def load_metadata_options(parquet_path: str | Path | None = None) -> dict:
+    """사이드바 필터용 메타데이터 옵션을 로딩한다.
+
+    ``parquet_path``가 None이면 ``find_latest_metadata_path()``로 가장 최근
+    실험별 cleaned_documents.parquet를 사용 (없으면 top-level fallback).
+    """
+    if parquet_path is None:
+        parquet_path = find_latest_metadata_path()
     path = Path(parquet_path)
     if not path.exists():
         return {"agencies": [], "domains": [], "agency_types": []}

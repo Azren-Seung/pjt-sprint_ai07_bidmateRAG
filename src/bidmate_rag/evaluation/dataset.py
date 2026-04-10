@@ -95,6 +95,41 @@ def list_eval_csvs(root: Path | str = EVAL_ROOT) -> list[Path]:
     return sorted(find_latest_eval_dir(root).glob("eval_batch_*.csv"))
 
 
+PROCESSED_ROOT = Path("data/processed")
+
+
+def find_latest_metadata_path(
+    root: Path | str = PROCESSED_ROOT,
+) -> Path:
+    """가장 최신 ``cleaned_documents.parquet`` 경로를 반환.
+
+    우선순위:
+      1. ``data/processed/{exp_name}/cleaned_documents.parquet`` 중 mtime이 가장
+         최근인 것 (실험별 ingest 결과)
+      2. ``data/processed/cleaned_documents.parquet`` (top-level legacy)
+
+    Streamlit과 다른 caller가 실험별 metadata를 자동으로 사용하도록 하기 위해
+    추가. CLI는 이미 ``_resolve_metadata_path`` (runtime 기반)를 사용하지만,
+    Streamlit은 runtime 컨텍스트가 부족해서 mtime 기반 휴리스틱이 필요.
+    """
+    root_path = Path(root)
+    if not root_path.exists():
+        return root_path / "cleaned_documents.parquet"
+
+    candidates: list[tuple[float, Path]] = []
+    for sub in root_path.iterdir():
+        if not sub.is_dir():
+            continue
+        candidate = sub / "cleaned_documents.parquet"
+        if candidate.exists():
+            candidates.append((candidate.stat().st_mtime, candidate))
+
+    if candidates:
+        return max(candidates, key=lambda item: item[0])[1]
+
+    return root_path / "cleaned_documents.parquet"
+
+
 # Columns from data/eval/eval_v*/eval_batch_*.csv that aren't part of EvalSample's
 # top-level fields but should be preserved in `metadata` so downstream filters
 # (e.g. --filter-type) can use them.
