@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def _fmt_num(value: Any, digits: int = 4, default: str = "N/A") -> str:
+    """숫자를 소수점 자릿수로 포맷한다. None이면 기본값 반환."""
     if value is None:
         return default
     try:
@@ -35,6 +36,7 @@ def _fmt_num(value: Any, digits: int = 4, default: str = "N/A") -> str:
 
 
 def _fmt_int(value: Any, default: str = "N/A") -> str:
+    """정수를 천 단위 콤마로 포맷한다. None이면 기본값 반환."""
     if value is None:
         return default
     try:
@@ -45,6 +47,7 @@ def _fmt_int(value: Any, default: str = "N/A") -> str:
 
 @dataclass
 class ReportData:
+    """리포트 생성에 필요한 데이터를 담는 컨테이너."""
     run_id: str
     experiment_name: str
     meta: dict[str, Any]

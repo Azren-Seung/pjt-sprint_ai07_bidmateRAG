@@ -1,8 +1,8 @@
 """Markdown templates for experiment reports.
 
-The template is a single triple-quoted string that gets ``str.format(**ctx)`` ed
-by ``markdown_report.render_markdown``. All placeholders must exist in the
-context dict (use ``"N/A"`` for missing values).
+실험 리포트 마크다운 템플릿.
+str.format(**ctx)으로 렌더링되며, 모든 placeholder는 context dict에 존재해야 한다.
+없는 값은 "N/A"로 채운다. markdown_report.render_markdown에서 사용.
 """
 
 from __future__ import annotations
