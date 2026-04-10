@@ -1,5 +1,10 @@
 """CLI entrypoint for benchmark execution.
 
+This module is intentionally thin: it parses CLI args, builds the runtime
+pipeline, then delegates to ``bidmate_rag.evaluation.pipeline.execute_evaluation``.
+All business logic (metrics, judge, persistence, meta.json) lives there so
+the Streamlit UI can call the exact same code path.
+
 Usage::
 
     uv run bidmate-eval \\
@@ -11,26 +16,14 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import json
-from datetime import UTC, datetime
-from pathlib import Path
-from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 from dotenv import load_dotenv
 
-from bidmate_rag.evaluation.benchmark import (
-    BenchmarkRunner,
-    persist_benchmark_summary,
-    persist_run_results,
-)
 from bidmate_rag.evaluation.dataset import load_eval_samples
-from bidmate_rag.evaluation.judge import LLMJudge
-from bidmate_rag.evaluation.metrics import calc_hit_rate, calc_mrr, calc_ndcg
-from bidmate_rag.pipelines.runtime import build_runtime_pipeline, collection_name_for_config
+from bidmate_rag.evaluation.pipeline import EvaluationArtifacts, execute_evaluation
+from bidmate_rag.pipelines.runtime import build_runtime_pipeline
 from bidmate_rag.schema import EvalSample, GenerationResult
-from bidmate_rag.tracking.git_info import capture_git_info
 
 
 def _split_csv(value: str | None) -> list[str] | None:
@@ -60,46 +53,6 @@ def _apply_filters(
     if limit is not None and limit >= 0:
         filtered = filtered[:limit]
     return filtered
-
-
-def _write_run_meta(
-    runs_dir: Path,
-    run_id: str,
-    experiment_name: str,
-    runtime,
-    collection_name: str,
-    eval_path: str,
-    config_paths: dict[str, str | None],
-) -> Path:
-    """Persist a sidecar meta.json next to the run jsonl."""
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    now_utc = datetime.now(UTC)
-    meta = {
-        "run_id": run_id,
-        "experiment_name": experiment_name,
-        "timestamp_utc": now_utc.isoformat(),
-        "timestamp_kst": now_utc.astimezone(ZoneInfo("Asia/Seoul")).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
-        "git": capture_git_info(),
-        "configs": {k: v for k, v in config_paths.items() if v},
-        "config_snapshot": runtime.model_dump(),
-        "eval_path": eval_path,
-        "collection_name": collection_name,
-        "judge_total_cost_usd": 0.0,
-        "judge_total_tokens": 0,
-    }
-    out_path = runs_dir / f"{run_id}.meta.json"
-    out_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    return out_path
-
-
-def _update_run_meta(meta_path: Path, **fields) -> None:
-    if not meta_path.exists():
-        return
-    data = json.loads(meta_path.read_text(encoding="utf-8"))
-    data.update(fields)
-    meta_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _print_summary(
@@ -164,6 +117,20 @@ def _print_summary(
             .round(0)
         )
         print(by_diff.to_string())
+
+
+def _print_artifacts(artifacts: EvaluationArtifacts) -> None:
+    """Print the file paths and judge totals at the end of a run."""
+    print()
+    print(f"run_id:    {artifacts.run_id}")
+    print(f"run jsonl: {artifacts.run_path}")
+    print(f"summary:   {artifacts.summary_path}")
+    print(f"meta:      {artifacts.meta_path}")
+    if not artifacts.judge_skipped:
+        print(
+            f"judge:     ${artifacts.judge_total_cost_usd:.4f} "
+            f"({artifacts.judge_total_tokens} tokens)"
+        )
 
 
 def main() -> None:
@@ -232,111 +199,26 @@ def main() -> None:
     if not samples:
         raise SystemExit("No samples remain after filtering.")
 
-    run_id = args.run_id or f"bench-{uuid4().hex[:8]}"
-
-    runs_dir = Path(args.runs_dir)
-    meta_path = _write_run_meta(
-        runs_dir=runs_dir,
-        run_id=run_id,
-        experiment_name=runtime.experiment.name,
+    artifacts = execute_evaluation(
+        samples,
+        pipeline=pipeline,
         runtime=runtime,
-        collection_name=collection_name_for_config(runtime),
+        embedder=embedder,
         eval_path=args.evaluation_path,
         config_paths={
             "base": args.base_config,
             "provider": args.provider_config,
             "experiment": args.experiment_config,
         },
-    )
-
-    def answer_fn(sample: EvalSample) -> GenerationResult:
-        return pipeline.answer(
-            sample.question,
-            question_id=sample.question_id,
-            scenario=runtime.provider.scenario or runtime.provider.provider,
-            run_id=run_id,
-            embedding_provider=embedder.provider_name,
-            embedding_model=embedder.model_name,
-        )
-
-    benchmark = BenchmarkRunner(answer_fn).run(
-        experiment_name=runtime.experiment.name,
-        scenario=runtime.provider.scenario or runtime.provider.provider,
-        provider_label=f"{runtime.provider.provider}:{runtime.provider.model}",
-        samples=samples,
-    )
-
-    retrieval_totals = {"hit_rate@5": 0.0, "mrr": 0.0, "ndcg@5": 0.0}
-    scored = 0
-    for sample, result in zip(samples, benchmark.results, strict=False):
-        # Eval CSVs put 파일명 in `ground_truth_docs`, which dataset.py maps to
-        # `expected_doc_titles`. Fall back to that when `expected_doc_ids` is
-        # empty so the retrieval metrics actually run.
-        expected = sample.expected_doc_ids or sample.expected_doc_titles
-        if not expected:
-            continue
-        hit = calc_hit_rate(result.retrieved_chunks, expected, k=5)
-        mrr = calc_mrr(result.retrieved_chunks, expected)
-        ndcg = calc_ndcg(result.retrieved_chunks, expected, k=5)
-        if hit is not None:
-            retrieval_totals["hit_rate@5"] += hit
-            retrieval_totals["mrr"] += mrr or 0.0
-            retrieval_totals["ndcg@5"] += ndcg or 0.0
-            scored += 1
-    if scored:
-        averaged = {key: round(value / scored, 4) for key, value in retrieval_totals.items()}
-        benchmark.metrics.update(averaged)
-
-    judge_total_cost_usd = 0.0
-    judge_total_tokens = 0
-    if not args.skip_judge:
-        judge = LLMJudge(model=args.judge_model)
-        judge_totals = {key: 0.0 for key in LLMJudge.METRIC_KEYS}
-        judged = 0
-        for sample, result in zip(samples, benchmark.results, strict=False):
-            contexts = [chunk.chunk.text for chunk in result.retrieved_chunks]
-            scores = judge.evaluate(
-                question=sample.question,
-                answer=result.answer,
-                contexts=contexts,
-                expected_answer=sample.metadata.get("ground_truth_answer"),
-            )
-            result.judge_scores = scores.to_dict()
-            if scores.error:
-                continue
-            for key in LLMJudge.METRIC_KEYS:
-                judge_totals[key] += getattr(scores, key)
-            judged += 1
-        if judged:
-            benchmark.metrics.update(
-                {key: round(value / judged, 4) for key, value in judge_totals.items()}
-            )
-        judge_total_cost_usd = round(judge.cumulative_cost_usd, 6)
-        judge_total_tokens = judge.cumulative_tokens
-        print(
-            f"judge: scored {judged}/{len(samples)} samples "
-            f"(cost ${judge_total_cost_usd:.4f}, {judge_total_tokens} tokens)"
-        )
-
-    _update_run_meta(
-        meta_path,
-        judge_total_cost_usd=judge_total_cost_usd,
-        judge_total_tokens=judge_total_tokens,
-    )
-
-    run_path = persist_run_results(benchmark.results, runs_dir=args.runs_dir, run_id=run_id)
-    summary_path = persist_benchmark_summary(
-        [benchmark.to_summary_record()],
+        runs_dir=args.runs_dir,
         benchmarks_dir=args.benchmarks_dir,
-        experiment_name=runtime.experiment.name,
+        run_id=args.run_id,
+        skip_judge=args.skip_judge,
+        judge_model=args.judge_model,
     )
 
-    _print_summary(samples, benchmark.results, benchmark.metrics)
-    print()
-    print(f"run_id:    {run_id}")
-    print(f"run jsonl: {run_path}")
-    print(f"summary:   {summary_path}")
-    print(f"meta:      {meta_path}")
+    _print_summary(samples, artifacts.benchmark.results, artifacts.metrics)
+    _print_artifacts(artifacts)
 
 
 if __name__ == "__main__":

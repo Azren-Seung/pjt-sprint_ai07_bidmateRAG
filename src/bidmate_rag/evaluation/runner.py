@@ -39,6 +39,9 @@ def persist_benchmark_summary(
     return output_path
 
 
+ProgressCallback = Callable[[int, int, "EvalSample"], None]
+
+
 class BenchmarkRunner:
     """Run an evaluation dataset through an answer function and persist results."""
 
@@ -51,8 +54,20 @@ class BenchmarkRunner:
         scenario: str,
         provider_label: str,
         samples: list[EvalSample],
+        progress_callback: ProgressCallback | None = None,
     ) -> BenchmarkRunResult:
-        results = [self.answer_fn(sample) for sample in samples]
+        """Iterate samples and collect results.
+
+        ``progress_callback(done, total, sample)`` is invoked after each sample
+        so that UIs (Streamlit progress bar etc.) can render progress without
+        coupling the runner to any specific frontend.
+        """
+        results: list[GenerationResult] = []
+        total = len(samples)
+        for index, sample in enumerate(samples, start=1):
+            results.append(self.answer_fn(sample))
+            if progress_callback is not None:
+                progress_callback(index, total, sample)
         return BenchmarkRunResult(
             experiment_name=experiment_name,
             run_id=results[0].run_id if results else datetime.now(UTC).strftime("%Y%m%d%H%M%S"),
