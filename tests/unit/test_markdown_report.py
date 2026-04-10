@@ -14,7 +14,14 @@ from bidmate_rag.tracking.markdown_report import (
 )
 
 
-def _make_fixture(tmp_path: Path, *, with_meta: bool = True, with_embedding: bool = True) -> Path:
+def _make_fixture(
+    tmp_path: Path,
+    *,
+    with_meta: bool = True,
+    with_embedding: bool = True,
+    judge_skipped: bool = False,
+    llm_model: str = "gpt-5-mini",
+) -> Path:
     runs_dir = tmp_path / "runs"
     benchmarks_dir = tmp_path / "benchmarks"
     embeddings_dir = tmp_path / "embeddings"
@@ -112,7 +119,7 @@ def _make_fixture(tmp_path: Path, *, with_meta: bool = True, with_embedding: boo
                 },
                 "provider": {
                     "provider": "openai",
-                    "model": "gpt-5-mini",
+                    "model": llm_model,
                     "embedding_model": "text-embedding-3-small",
                     "scenario": "openai",
                     "collection_name": "test-collection",
@@ -126,8 +133,9 @@ def _make_fixture(tmp_path: Path, *, with_meta: bool = True, with_embedding: boo
             },
             "eval_path": "data/eval/eval_batch_02.csv",
             "collection_name": "test-collection",
-            "judge_total_cost_usd": 0.0008,
-            "judge_total_tokens": 400,
+            "judge_skipped": judge_skipped,
+            "judge_total_cost_usd": 0.0 if judge_skipped else 0.0008,
+            "judge_total_tokens": 0 if judge_skipped else 400,
         }
         (runs_dir / f"{run_id}.meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -190,10 +198,14 @@ def test_render_markdown_includes_key_sections(tmp_path):
     assert "0.0036" in md  # generation cost
     assert "0.0010" in md  # embedding cost
     assert "0.0008" in md  # judge cost
+    # 본문 표 cost 명칭이 노션 속성과 동일하게 "Cost (USD)"로 통일
+    assert "**Cost (USD)**" in md
     # 토큰 합계
     assert "300" in md or "150" in md
     # git
     assert "abc1234" in md
+    # gpt-5-mini는 reasoning 주의 문구가 표시되어야 함
+    assert "gpt-5 계열은 reasoning tokens" in md
 
 
 def test_render_markdown_handles_missing_embedding(tmp_path):
@@ -237,3 +249,48 @@ def test_write_report_creates_file(tmp_path):
     assert out.exists()
     assert out.name == "test-exp_bench-test1234.md"
     assert "📋 노션 속성" in out.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Polish UX 회귀 방지
+# ---------------------------------------------------------------------------
+
+
+def test_judge_skipped_shows_미실행_in_judge_cost(tmp_path):
+    """--skip-judge로 돌린 run은 'Judge 비용 (USD) | (미실행)' 으로 표시."""
+    _make_fixture(tmp_path, judge_skipped=True)
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+    md = render_markdown(data)
+    assert "| Judge 비용 (USD) | (미실행) |" in md
+
+
+def test_gpt5_warning_only_for_gpt5_models(tmp_path):
+    """non-gpt-5 모델에서는 reasoning 주의 문구가 나타나지 않아야 함."""
+    _make_fixture(tmp_path, llm_model="gpt-4o-mini")
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+    md = render_markdown(data)
+    assert "gpt-5 계열은 reasoning tokens" not in md
+
+
+def test_no_blank_line_clutter_when_no_warnings(tmp_path):
+    """warnings/gpt5 주의문이 모두 비어있을 때 본문에 빈 줄 3개 이상이 없어야 함."""
+    _make_fixture(tmp_path, llm_model="gpt-4o-mini")  # gpt5_warning 비활성
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+    md = render_markdown(data)
+    # Cost 표 직후 곧바로 "## 리소스 링크"가 와야 함 (사이에 빈 줄 3개 이상 없어야)
+    assert "\n\n\n\n" not in md

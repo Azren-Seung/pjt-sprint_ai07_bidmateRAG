@@ -75,12 +75,8 @@ REPORT_TEMPLATE = """\
 | 생성 비용 (USD) | {generation_cost} |
 | 임베딩 비용 (USD) | {embedding_cost} |
 | Judge 비용 (USD) | {judge_cost} |
-| **총비용 (USD)** | **{grand_total_cost}** |
-
-{cost_warning}
-
-> ℹ️ gpt-5 계열은 reasoning tokens가 completion에 포함되어 cost가 예상보다 높을 수 있습니다.
-
+| **Cost (USD)** | **{grand_total_cost}** |
+{cost_warning}{gpt5_warning}
 ## 리소스 링크
 
 - 상세 결과 (JSONL): `{run_jsonl_path}`

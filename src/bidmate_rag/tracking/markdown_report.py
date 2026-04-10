@@ -221,7 +221,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
     eval_basename = Path(str(eval_path)).name if eval_path != "?" else "?"
     num_samples = int(summary.get("num_samples") or len(data.results) or 0)
 
-    # Cost warnings (priced?)
+    # Cost warnings (priced?) — 빈 줄이 어색하지 않도록 warning이 있을 때만 \n 감싸기
     warnings = []
     if not is_model_priced("llm", llm_model, data.pricing):
         warnings.append(f"⚠️ 생성 모델 `{llm_model}` 단가 미등록 — `configs/pricing.yaml` 갱신 필요")
@@ -233,7 +233,20 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         )
     if not data.embedding_meta:
         warnings.append("⚠️ 임베딩 비용 미수집 (build_index를 새 트래킹 코드로 다시 실행 필요)")
-    cost_warning = "\n".join(warnings) if warnings else ""
+    warnings_text = "\n".join(warnings)
+    cost_warning = f"\n{warnings_text}\n" if warnings_text else ""
+
+    # gpt-5 reasoning 주의 문구 — 모델이 gpt-5 계열일 때만 표시
+    gpt5_warning = ""
+    if str(llm_model).startswith("gpt-5"):
+        gpt5_warning = (
+            "\n> ℹ️ gpt-5 계열은 reasoning tokens가 completion에 포함되어 "
+            "cost가 예상보다 높을 수 있습니다.\n"
+        )
+
+    # judge 미실행 표시
+    judge_skipped = bool(meta.get("judge_skipped"))
+    judge_cost_str = "(미실행)" if judge_skipped else _fmt_num(judge_cost, digits=4)
 
     # Config links
     configs = meta.get("configs", {}) or {}
@@ -284,9 +297,10 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         "embedding_cost": (
             _fmt_num(embedding_cost, digits=4) if data.embedding_meta else "N/A (미수집)"
         ),
-        "judge_cost": _fmt_num(judge_cost, digits=4),
+        "judge_cost": judge_cost_str,
         "grand_total_cost": _fmt_num(grand_total, digits=4),
         "cost_warning": cost_warning,
+        "gpt5_warning": gpt5_warning,
         # paths
         "run_jsonl_path": str(data.runs_dir / f"{data.run_id}.jsonl"),
         "benchmark_parquet_path": str(

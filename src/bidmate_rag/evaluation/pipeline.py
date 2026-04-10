@@ -97,6 +97,7 @@ def execute_evaluation(
         collection_name=collection_name_for_config(runtime),
         eval_path=eval_path,
         config_paths=config_paths or {},
+        judge_skipped=skip_judge,
     )
 
     def answer_fn(sample: EvalSample) -> GenerationResult:
@@ -220,6 +221,7 @@ def _write_run_meta(
     collection_name: str,
     eval_path: str,
     config_paths: dict[str, str | None],
+    judge_skipped: bool = False,
 ) -> Path:
     runs_dir.mkdir(parents=True, exist_ok=True)
     now_utc = datetime.now(UTC)
@@ -235,6 +237,7 @@ def _write_run_meta(
         "config_snapshot": runtime.model_dump(),
         "eval_path": eval_path,
         "collection_name": collection_name,
+        "judge_skipped": judge_skipped,
         "judge_total_cost_usd": 0.0,
         "judge_total_tokens": 0,
     }
