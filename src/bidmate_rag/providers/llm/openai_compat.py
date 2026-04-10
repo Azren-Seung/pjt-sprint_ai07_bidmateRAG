@@ -57,9 +57,22 @@ class OpenAICompatibleLLM(BaseLLMProvider):
             context_chunks, max_chars=generation_config.get("max_context_chars", 8000)
         )
         messages = [{"role": "system", "content": system_prompt}]
-        for item in history[-4:]:
-            messages.append({"role": "user", "content": item["user"]})
-            messages.append({"role": "assistant", "content": item["assistant"]})
+        # history는 두 가지 형식을 모두 지원:
+        #  1. legacy: [{"user": "...", "assistant": "..."}]
+        #  2. OpenAI 표준: [{"role": "user", "content": "..."}, {"role": "assistant", ...}]
+        for item in (history or [])[-4:]:
+            if not isinstance(item, dict):
+                continue
+            if "role" in item and "content" in item:
+                # OpenAI 표준 형식 — system을 제외한 메시지만 통과
+                if item["role"] in ("user", "assistant"):
+                    messages.append({"role": item["role"], "content": item["content"]})
+            elif "user" in item or "assistant" in item:
+                # legacy 형식 — 한 turn에 user/assistant 둘 다 들어 있음
+                if "user" in item:
+                    messages.append({"role": "user", "content": item["user"]})
+                if "assistant" in item:
+                    messages.append({"role": "assistant", "content": item["assistant"]})
         messages.append({"role": "user", "content": build_rag_user_prompt(question, context)})
         import time as _time
         _start = _time.time()

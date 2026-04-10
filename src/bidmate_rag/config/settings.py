@@ -33,6 +33,13 @@ class ExperimentConfig(BaseModel):
     chunk_size: int | None = None
     chunk_overlap: int | None = None
     provider_configs: list[str] = Field(default_factory=list)
+    # Grid search 매트릭스 — 키는 ExperimentConfig 필드명(chunk_size,
+    # retrieval_top_k 등), 값은 값 리스트. 예:
+    #   matrix:
+    #     chunk_size: [500, 1000]
+    #     retrieval_top_k: [3, 5, 8]
+    # → 6개 sub-experiment로 자동 expand (run_experiment.py에서)
+    matrix: dict[str, list[Any]] = Field(default_factory=dict)
 
 
 class RuntimeConfig(BaseModel):
