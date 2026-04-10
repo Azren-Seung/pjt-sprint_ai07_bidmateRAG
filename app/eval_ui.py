@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from uuid import uuid4
 
 import pandas as pd
-
 import yaml as _yaml
 
 from app.api.routes import run_benchmark_experiment
@@ -617,7 +615,7 @@ def _render_edit_tab(st, eval_set):
         )
         if st.button("🗑️ 삭제", type="secondary", key="del_btn"):
             st.session_state.eval_set.pop(del_idx)
-            st.toast(f"질문 삭제됨", icon="🗑️")
+            st.toast("질문 삭제됨", icon="🗑️")
             st.rerun()
 
     # 파일 저장/로딩

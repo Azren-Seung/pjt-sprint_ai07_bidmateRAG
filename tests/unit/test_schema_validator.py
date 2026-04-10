@@ -7,7 +7,6 @@ from pathlib import Path
 import pandas as pd
 
 from bidmate_rag.evaluation.schema_validator import (
-    ValidationReport,
     render_validation_report,
     validate_eval_samples,
 )

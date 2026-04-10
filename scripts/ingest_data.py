@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from bidmate_rag.pipelines.ingest import run_ingest_pipeline
@@ -37,8 +38,9 @@ def main() -> None:
 
     # 실험 config가 있으면 청킹 설정을 덮어쓰고, 출력 경로도 실험별로 분리
     if args.experiment_config:
-        import yaml
         from pathlib import Path
+
+        import yaml
         exp_cfg = yaml.safe_load(Path(args.experiment_config).read_text())
         chunk_size = exp_cfg.get("chunk_size", chunk_size)
         chunk_overlap = exp_cfg.get("chunk_overlap", chunk_overlap)

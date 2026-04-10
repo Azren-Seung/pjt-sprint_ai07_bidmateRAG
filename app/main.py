@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from app.api.routes import (
@@ -541,7 +542,7 @@ def _render_streamlit_app() -> None:
                         # 이 문서에 대해 질문하기
                         agency = doc.get("발주 기관", "")
                         project = doc.get("사업명", "")
-                        if st.button(f"💬 이 문서에 대해 질문하기", key="ask_doc"):
+                        if st.button("💬 이 문서에 대해 질문하기", key="ask_doc"):
                             st.session_state["pending_example"] = f"{agency} {project} 사업 요구사항을 정리해 줘"
                             st.toast("💬 라이브 데모 탭으로 이동하세요", icon="👆")
                             st.rerun()

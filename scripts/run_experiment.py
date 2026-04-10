@@ -20,6 +20,7 @@ from uuid import uuid4
 
 import yaml
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from bidmate_rag.evaluation.dataset import find_latest_eval_dir
@@ -157,7 +158,7 @@ def main() -> None:
         _run_single_experiment(base_cfg, args, experiment_config_path=args.experiment_config)
         print(f"\n{'='*60}")
         print(f"실험 완료: {base_cfg['name']}")
-        print(f"결과: artifacts/logs/benchmarks/")
+        print("결과: artifacts/logs/benchmarks/")
         print(f"{'='*60}")
         return
 

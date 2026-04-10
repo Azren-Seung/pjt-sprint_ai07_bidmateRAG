@@ -6,7 +6,6 @@ Each test targets a single regression that the fix branch addressed.
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -24,7 +23,6 @@ from bidmate_rag.evaluation.dataset import (
 from bidmate_rag.evaluation.runner import persist_benchmark_summary
 from bidmate_rag.pipelines.runtime import collection_name_for_config
 from bidmate_rag.retrieval.retriever import RAGRetriever
-
 
 # ---------------------------------------------------------------------------
 # Phase 2: normalize_metadata_filter

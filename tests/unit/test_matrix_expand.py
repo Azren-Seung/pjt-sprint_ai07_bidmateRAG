@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from bidmate_rag.experiments.matrix import (
-    MatrixCell,
     apply_overrides_to_yaml_dict,
     expand_matrix,
 )
-
 
 # ---------------------------------------------------------------------------
 # expand_matrix

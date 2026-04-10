@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import chromadb
-
 from bidmate_rag.retrieval.vector_store import ChromaVectorStore
 from bidmate_rag.schema import Chunk
 

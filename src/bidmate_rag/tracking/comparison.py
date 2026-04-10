@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 # 비교 표에 보일 메트릭 컬럼들 (정해진 순서로 노출)
 _METRIC_COLUMNS = [
     "hit_rate@5",
