@@ -32,6 +32,7 @@ def _run_single_experiment(
     args,
     experiment_config_path: str,
     chunks_basename: str | None = None,
+    force_skip_ingest: bool = False,
 ) -> None:
     """단일 실험 1회 실행 (ingest → build_index → eval → report).
 
@@ -43,6 +44,8 @@ def _run_single_experiment(
         chunks_basename: 청크 디렉토리 이름. matrix expand 시 청킹 변경 없는
             sub-experiment는 base 실험의 chunks를 재사용해야 하므로 명시.
             None이면 ``exp_cfg['name']`` 사용 (기본/단일 실행).
+        force_skip_ingest: matrix loop에서 chunking 변경이 없는 cell에 대해
+            강제로 ingest를 skip할 때 True. CLI ``--skip-ingest`` 옵션과 OR.
     """
     exp_name = exp_cfg["name"]
     chunk_size = exp_cfg.get("chunk_size", 1000)
@@ -50,6 +53,7 @@ def _run_single_experiment(
     provider_configs = exp_cfg.get(
         "provider_configs", ["configs/providers/openai_gpt5mini.yaml"]
     )
+    skip_ingest = args.skip_ingest or force_skip_ingest
 
     # 청크 경로: matrix에서 chunking 변경 없는 sub-experiment는 base 청크 재사용
     chunks_dir_name = chunks_basename or exp_name
@@ -57,7 +61,7 @@ def _run_single_experiment(
     chunks_path = f"{processed_dir}/chunks.parquet"
     # Fallback: 실험별 sub-dir에 청크가 없으면 top-level 청크 사용
     # (legacy ingest는 --experiment-config 없이 돌리면 data/processed/ 직접 씀)
-    if args.skip_ingest and not Path(chunks_path).exists():
+    if skip_ingest and not Path(chunks_path).exists():
         legacy = "data/processed/chunks.parquet"
         if Path(legacy).exists():
             print(f"⚠️ {chunks_path} 없음 → top-level {legacy} 사용")
@@ -71,14 +75,15 @@ def _run_single_experiment(
     print(f"{'='*60}")
 
     # Step 1: Ingest — 원본 문서를 파싱 → 정제 → 청킹
-    if not args.skip_ingest:
+    if not skip_ingest:
         print("\n[1/3] Ingest (파싱 → 정제 → 청킹)...")
         subprocess.run([
             sys.executable, "scripts/ingest_data.py",
             "--experiment-config", experiment_config_path,
         ], check=True)
     else:
-        print("\n[1/3] Ingest 건너뜀")
+        reason = "matrix cell - 같은 청크 재사용" if force_skip_ingest else "사용자 옵션"
+        print(f"\n[1/3] Ingest 건너뜀 ({reason})")
 
     # Step 2: Build Index — 청크를 임베딩하여 ChromaDB에 저장 (프로바이더별)
     for provider_config in provider_configs:
@@ -170,6 +175,8 @@ def main() -> None:
     print(f"{'='*60}")
 
     completed: list[str] = []
+    # chunking_signature → 처음 ingest를 끝낸 cell이 있으면 같은 signature는 skip
+    ingested_signatures: set[tuple] = set()
     for i, cell in enumerate(cells, start=1):
         sub_cfg = apply_overrides_to_yaml_dict(base_cfg, cell.overrides)
         sub_cfg["name"] = f"{base_name}_{cell.name_suffix}"
@@ -178,6 +185,15 @@ def main() -> None:
         # 청킹 변경이 있는 cell만 새 chunks 디렉토리, 아니면 base 청크 재사용
         chunking_changed = bool(set(cell.overrides.keys()) & chunking_keys)
         chunks_basename = sub_cfg["name"] if chunking_changed else base_name
+
+        # 같은 chunking signature(chunk_size + chunk_overlap)가 이미 ingest됐으면
+        # 본 cell에서는 ingest를 강제 skip → grid 시간 대폭 절감
+        chunk_signature = (
+            sub_cfg.get("chunk_size"),
+            sub_cfg.get("chunk_overlap"),
+            chunks_basename,
+        )
+        force_skip_ingest = chunk_signature in ingested_signatures
 
         # 임시 yaml 파일로 자식 subprocess에 전달
         with tempfile.NamedTemporaryFile(
@@ -188,13 +204,19 @@ def main() -> None:
 
         try:
             print(f"\n\n>>> [{i}/{len(cells)}] {sub_cfg['name']}")
-            print(f"    chunks_dir: data/processed/{chunks_basename} ({'reuse' if not chunking_changed else 'new'})")
+            ingest_status = "skip (이미 동일 chunking)" if force_skip_ingest else "run"
+            print(
+                f"    chunks_dir: data/processed/{chunks_basename} "
+                f"({'reuse' if not chunking_changed else 'new'}) | ingest: {ingest_status}"
+            )
             _run_single_experiment(
                 sub_cfg,
                 args,
                 experiment_config_path=tmp_path,
                 chunks_basename=chunks_basename,
+                force_skip_ingest=force_skip_ingest,
             )
+            ingested_signatures.add(chunk_signature)
             completed.append(sub_cfg["name"])
         finally:
             Path(tmp_path).unlink(missing_ok=True)
