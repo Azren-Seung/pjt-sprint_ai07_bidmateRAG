@@ -6,7 +6,7 @@
 사용 예시::
 
     uv run python scripts/run_eval.py \\
-        --evaluation-path data/eval/eval_batch_01.csv \\
+        --evaluation-path data/eval/eval_v1/eval_batch_01.csv \\
         --provider-config configs/providers/openai_gpt5mini.yaml
 """
 

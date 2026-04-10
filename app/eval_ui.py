@@ -11,9 +11,12 @@ import pandas as pd
 import yaml as _yaml
 
 from app.api.routes import run_benchmark_experiment
+from bidmate_rag.evaluation.dataset import find_latest_eval_dir
 from bidmate_rag.tracking.markdown_report import load_report_data, write_report
 
-EVAL_DIR = Path("data/eval")
+# 평가셋은 ``data/eval/eval_v1/``, ``eval_v2/`` 등 버전 디렉토리에 둡니다.
+# UI는 가장 높은 버전을 자동으로 사용 (새 버전 만들면 코드 수정 없이 반영됨).
+EVAL_DIR = find_latest_eval_dir()
 
 # Provider 정렬/필터 공통 유틸
 B_ORDER = {"gpt-5": 0, "gpt-5-mini": 1, "gpt-5-nano": 2}

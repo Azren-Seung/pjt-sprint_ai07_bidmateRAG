@@ -36,6 +36,7 @@ class RAGChatPipeline:
         chat_history: list[dict] | None = None,
         top_k: int = 5,
         generation_config: dict | None = None,
+        metadata_filter: dict | None = None,
         question_id: str | None = None,
         scenario: str | None = None,
         run_id: str | None = None,
@@ -46,9 +47,11 @@ class RAGChatPipeline:
 
         Args:
             question: 사용자 질문.
-            chat_history: 이전 대화 히스토리.
+            chat_history: 이전 대화 히스토리 (multi-turn 평가용).
             top_k: 검색할 청크 수.
             generation_config: LLM 생성 설정 오버라이드.
+            metadata_filter: ChromaDB ``where`` 절로 직접 적용할 필터.
+                평가셋의 ``metadata_filter`` 또는 Streamlit UI의 수동 필터.
             question_id: 평가용 질문 ID.
             scenario: 실험 시나리오 (A/B).
             run_id: 실행 ID.
@@ -58,7 +61,12 @@ class RAGChatPipeline:
         Returns:
             GenerationResult (답변, 검색 청크, 토큰 사용량 등).
         """
-        retrieved = self.retriever.retrieve(question, chat_history=chat_history, top_k=top_k)
+        retrieved = self.retriever.retrieve(
+            question,
+            chat_history=chat_history,
+            top_k=top_k,
+            metadata_filter=metadata_filter,
+        )
         config = {**self.default_generation_config, **(generation_config or {})}
         if question_id is not None:
             config["question_id"] = question_id

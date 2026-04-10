@@ -142,11 +142,11 @@ def _render_streamlit_app() -> None:
             st.subheader("🏷️ 필터 조합")
             st.caption("여러 필터를 동시에 적용할 수 있습니다.")
 
-            # 발주기관
+            # 발주 기관 (ChromaDB 메타 키는 공백 포함이라 정확히 일치시켜야 매칭됨)
             if meta_options["agencies"]:
-                selected_agency = st.selectbox("발주기관", ["전체"] + meta_options["agencies"])
+                selected_agency = st.selectbox("발주 기관", ["전체"] + meta_options["agencies"])
                 if selected_agency != "전체":
-                    manual_filters["발주기관"] = selected_agency
+                    manual_filters["발주 기관"] = selected_agency
 
             # 사업도메인 (multiselect)
             if meta_options["domains"]:
@@ -166,16 +166,16 @@ def _render_streamlit_app() -> None:
                     else:
                         manual_filters["기관유형"] = {"$in": selected_types}
 
-            # 사업금액 범위
-            budget_filter = st.selectbox("사업금액", ["전체", "1억 이하", "1~5억", "5~10억", "10억 이상"])
+            # 사업 금액 범위 (ChromaDB 메타 키는 '사업 금액' — 공백 포함)
+            budget_filter = st.selectbox("사업 금액", ["전체", "1억 이하", "1~5억", "5~10억", "10억 이상"])
             if budget_filter == "1억 이하":
-                manual_filters["사업금액"] = {"$lte": 100_000_000}
+                manual_filters["사업 금액"] = {"$lte": 100_000_000}
             elif budget_filter == "1~5억":
-                manual_filters["사업금액"] = {"$gte": 100_000_000, "$lte": 500_000_000}
+                manual_filters["사업 금액"] = {"$gte": 100_000_000, "$lte": 500_000_000}
             elif budget_filter == "5~10억":
-                manual_filters["사업금액"] = {"$gte": 500_000_000, "$lte": 1_000_000_000}
+                manual_filters["사업 금액"] = {"$gte": 500_000_000, "$lte": 1_000_000_000}
             elif budget_filter == "10억 이상":
-                manual_filters["사업금액"] = {"$gte": 1_000_000_000}
+                manual_filters["사업 금액"] = {"$gte": 1_000_000_000}
 
             # 적용된 필터 뱃지 표시
             if manual_filters:

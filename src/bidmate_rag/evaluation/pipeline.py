@@ -97,11 +97,25 @@ def execute_evaluation(
         collection_name=collection_name_for_config(runtime),
         eval_path=eval_path,
         config_paths=config_paths or {},
+        judge_skipped=skip_judge,
+    )
+
+    # ExperimentConfig.retrieval_top_k가 비어있으면 ProjectConfig 기본값 5.
+    top_k = (
+        runtime.experiment.retrieval_top_k
+        or runtime.project.default_retrieval_top_k
+        or 5
     )
 
     def answer_fn(sample: EvalSample) -> GenerationResult:
+        # 평가셋의 metadata_filter / history를 retrieval에 실제로 적용
+        # (이전엔 dataset.py가 sample.metadata에 저장만 하고 무시되던 상태)
+        sample_meta = sample.metadata or {}
         return pipeline.answer(
             sample.question,
+            top_k=top_k,
+            chat_history=sample_meta.get("history") or None,
+            metadata_filter=sample_meta.get("metadata_filter") or None,
             question_id=sample.question_id,
             scenario=runtime.provider.scenario or runtime.provider.provider,
             run_id=resolved_run_id,
@@ -220,6 +234,7 @@ def _write_run_meta(
     collection_name: str,
     eval_path: str,
     config_paths: dict[str, str | None],
+    judge_skipped: bool = False,
 ) -> Path:
     runs_dir.mkdir(parents=True, exist_ok=True)
     now_utc = datetime.now(UTC)
@@ -235,6 +250,7 @@ def _write_run_meta(
         "config_snapshot": runtime.model_dump(),
         "eval_path": eval_path,
         "collection_name": collection_name,
+        "judge_skipped": judge_skipped,
         "judge_total_cost_usd": 0.0,
         "judge_total_tokens": 0,
     }

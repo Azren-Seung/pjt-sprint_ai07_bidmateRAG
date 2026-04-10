@@ -6,15 +6,18 @@ import re
 
 
 def clean_br_tags(text: str) -> str:
-    """HTML <br> 태그를 공백으로 변환
+    """HTML <br> 태그를 줄바꿈으로 변환
+
+    `<br>`는 HTML 의미상 줄바꿈이므로 공백이 아닌 `\\n`으로 치환합니다.
+    이후 ``clean_whitespace``의 다중 공백 정규화에 영향을 받지 않게 됩니다.
 
     Args:
         text: 원본 텍스트.
 
     Returns:
-        <br> 태그가 공백으로 치환된 텍스트.
+        <br> 태그가 줄바꿈으로 치환된 텍스트.
     """
-    return text.replace("<br>", " ")
+    return text.replace("<br>", "\n")
 
 
 def clean_duplicate_table_cells(text: str) -> str:

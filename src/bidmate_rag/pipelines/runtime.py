@@ -21,20 +21,35 @@ from bidmate_rag.storage.metadata_store import MetadataStore
 def collection_name_for_config(runtime: RuntimeConfig) -> str:
     """RuntimeConfig에서 ChromaDB 컬렉션 이름을 생성한다.
 
-    Args:
-        runtime: 런타임 설정.
+    격리 규칙:
+      - ``experiment.mode == "full_rag"`` (default): chunking을 바꿔가며 실험할
+        가능성이 있으므로 ``실험명-…`` prefix로 격리.
+      - ``experiment.mode == "generation_only"``: 동일 인덱스에 다른 LLM만
+        붙이는 실험이므로 collection을 **공유** (재빌드 비용 절약).
+      - 실험 config가 없는 경우 (``ad-hoc``): legacy 동작 보존.
 
-    Returns:
-        'bidmate-{provider}-{model}' 형식의 컬렉션 이름.
+    ``provider.collection_name``이 명시된 경우:
+      - 격리가 필요 없는 모드(generation_only / ad-hoc)에서는 그것을 그대로 사용
+      - 격리가 필요한 모드(full_rag)에서는 ``{실험명}-{명시이름}`` 형식으로 prefix
     """
-    if runtime.provider.collection_name:
-        return runtime.provider.collection_name
     model = (
         (runtime.provider.embedding_model or runtime.provider.model)
         .replace("/", "-")
         .replace(" ", "-")
     )
-    return f"bidmate-{runtime.provider.provider}-{model}".lower()
+    exp_name = (runtime.experiment.name or "ad-hoc").replace("/", "-").replace(" ", "-")
+    mode = runtime.experiment.mode or "full_rag"
+    is_shared = mode == "generation_only" or exp_name in ("ad-hoc", "default", "")
+
+    explicit = runtime.provider.collection_name
+    if explicit:
+        if is_shared:
+            return explicit
+        return f"{exp_name}-{explicit}".lower()
+
+    if is_shared:
+        return f"bidmate-{runtime.provider.provider}-{model}".lower()
+    return f"bidmate-{exp_name}-{runtime.provider.provider}-{model}".lower()
 
 
 def build_runtime_pipeline(

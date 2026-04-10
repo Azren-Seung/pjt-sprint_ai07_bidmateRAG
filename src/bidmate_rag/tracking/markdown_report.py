@@ -146,13 +146,59 @@ def render_markdown(data: ReportData) -> str:
     return REPORT_TEMPLATE.format(**ctx)
 
 
+def _sanitize_filename_component(value: str) -> str:
+    """Replace path-unsafe characters in a single filename component."""
+    text = str(value or "unknown").strip()
+    if not text:
+        return "unknown"
+    return (
+        text.replace("/", "-")
+        .replace("\\", "-")
+        .replace(" ", "-")
+        .replace(":", "-")
+    )
+
+
+def build_report_filename(data: ReportData) -> str:
+    """사람이 보기 쉬운 리포트 파일명 생성.
+
+    형식: ``YYYY-MM-DD_HHMM_{experiment_name}_{model}.md``
+
+    예: ``2026-04-10_1429_generation-compare_gpt-5-mini.md``
+
+    timestamp_kst가 meta.json에 없으면 ``unknown_unknown`` prefix로 fallback.
+    호출자가 충돌 처리(``_2`` suffix)를 직접 하므로 이 함수는 base 이름만 반환.
+    """
+    timestamp_kst = data.meta.get("timestamp_kst", "")
+    date_part = "unknown"
+    time_part = "unknown"
+    if timestamp_kst:
+        # "2026-04-10 14:29:36" → date="2026-04-10", time="1429"
+        parts = timestamp_kst.split(" ")
+        if len(parts) == 2:
+            date_part = parts[0]
+            time_part = parts[1].replace(":", "")[:4]
+    provider_cfg = (data.meta.get("config_snapshot") or {}).get("provider") or {}
+    model = provider_cfg.get("model") or "unknown"
+    exp = _sanitize_filename_component(data.experiment_name)
+    model_safe = _sanitize_filename_component(model)
+    return f"{date_part}_{time_part}_{exp}_{model_safe}.md"
+
+
 def write_report(
     data: ReportData,
     output_dir: str | Path = "artifacts/reports",
 ) -> Path:
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{data.experiment_name}_{data.run_id}.md"
+    base_name = build_report_filename(data)
+    out_path = out_dir / base_name
+    # 같은 분에 두 번 돌리는 경우 _2, _3, … suffix
+    counter = 2
+    while out_path.exists():
+        stem = base_name[:-3]  # ".md" 제거
+        out_path = out_dir / f"{stem}_{counter}.md"
+        counter += 1
     out_path.write_text(render_markdown(data), encoding="utf-8")
     return out_path
 
@@ -221,7 +267,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
     eval_basename = Path(str(eval_path)).name if eval_path != "?" else "?"
     num_samples = int(summary.get("num_samples") or len(data.results) or 0)
 
-    # Cost warnings (priced?)
+    # Cost warnings (priced?) — 빈 줄이 어색하지 않도록 warning이 있을 때만 \n 감싸기
     warnings = []
     if not is_model_priced("llm", llm_model, data.pricing):
         warnings.append(f"⚠️ 생성 모델 `{llm_model}` 단가 미등록 — `configs/pricing.yaml` 갱신 필요")
@@ -233,7 +279,20 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         )
     if not data.embedding_meta:
         warnings.append("⚠️ 임베딩 비용 미수집 (build_index를 새 트래킹 코드로 다시 실행 필요)")
-    cost_warning = "\n".join(warnings) if warnings else ""
+    warnings_text = "\n".join(warnings)
+    cost_warning = f"\n{warnings_text}\n" if warnings_text else ""
+
+    # gpt-5 reasoning 주의 문구 — 모델이 gpt-5 계열일 때만 표시
+    gpt5_warning = ""
+    if str(llm_model).startswith("gpt-5"):
+        gpt5_warning = (
+            "\n> ℹ️ gpt-5 계열은 reasoning tokens가 completion에 포함되어 "
+            "cost가 예상보다 높을 수 있습니다.\n"
+        )
+
+    # judge 미실행 표시
+    judge_skipped = bool(meta.get("judge_skipped"))
+    judge_cost_str = "(미실행)" if judge_skipped else _fmt_num(judge_cost, digits=4)
 
     # Config links
     configs = meta.get("configs", {}) or {}
@@ -284,9 +343,10 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         "embedding_cost": (
             _fmt_num(embedding_cost, digits=4) if data.embedding_meta else "N/A (미수집)"
         ),
-        "judge_cost": _fmt_num(judge_cost, digits=4),
+        "judge_cost": judge_cost_str,
         "grand_total_cost": _fmt_num(grand_total, digits=4),
         "cost_warning": cost_warning,
+        "gpt5_warning": gpt5_warning,
         # paths
         "run_jsonl_path": str(data.runs_dir / f"{data.run_id}.jsonl"),
         "benchmark_parquet_path": str(

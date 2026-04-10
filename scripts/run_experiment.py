@@ -21,13 +21,19 @@ import yaml
 from dotenv import load_dotenv
 load_dotenv()
 
+from bidmate_rag.evaluation.dataset import find_latest_eval_dir
+
 
 def main() -> None:
     """실험 config를 읽고 ingest → build_index → eval → report를 순차 실행"""
     # CLI 인자 정의
     parser = argparse.ArgumentParser(description="Run a full chunking experiment.")
     parser.add_argument("--experiment-config", required=True, help="실험 config YAML")
-    parser.add_argument("--eval-path", default="data/eval/eval_batch_01.csv")
+    parser.add_argument(
+        "--eval-path",
+        default=str(find_latest_eval_dir() / "eval_batch_01.csv"),
+        help="평가셋 CSV 경로 (기본: 가장 최신 eval_v* 디렉토리의 eval_batch_01.csv)",
+    )
     parser.add_argument("--skip-ingest", action="store_true", help="ingest 건너뛰기 (이미 실행된 경우)")
     parser.add_argument("--skip-judge", action="store_true", help="LLM judge 평가 건너뛰기")
     args = parser.parse_args()

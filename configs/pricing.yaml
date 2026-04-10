@@ -19,15 +19,17 @@ llm:
   gpt-5-mini:
     input_per_1m: 0.25
     output_per_1m: 2.00
-    # cached_input_per_1m: 0.025  # 참고용 (현재 미사용)
+    cached_input_per_1m: 0.025  # 일반 input의 10%
 
   # GPT-4o family
   gpt-4o:
     input_per_1m: 2.50
     output_per_1m: 10.00
+    cached_input_per_1m: 1.25   # 일반 input의 50%
   gpt-4o-mini:
     input_per_1m: 0.15
     output_per_1m: 0.60
+    cached_input_per_1m: 0.075  # 일반 input의 50%
 
 embedding:
   text-embedding-3-small:

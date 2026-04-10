@@ -113,15 +113,22 @@ def run_live_query(
     if system_prompt:
         pipeline.system_prompt = system_prompt
 
-    # 수동 필터가 있으면 retriever에 전달하기 위해 generation_config에 포함
-    gen_config = {}
+    # max_context_chars는 LLM generation_config로, manual_filters는 retriever
+    # explicit filter로 별도 전달 (이전에는 둘 다 generation_config에 넣었지만
+    # retriever가 generation_config를 보지 않아 manual_filters가 무시되던 버그)
+    gen_config = {"max_context_chars": max_context_chars}
+    metadata_filter: dict | None = None
     if manual_filters:
-        gen_config["manual_filters"] = manual_filters
-    gen_config["max_context_chars"] = max_context_chars
+        # "필터 없음" 모드에서는 자동 추출도 비활성화하기 위해 빈 dict 전달
+        if manual_filters.get("_no_filter"):
+            metadata_filter = {}
+        else:
+            metadata_filter = dict(manual_filters)
 
     return pipeline.answer(
         question,
         top_k=top_k,
+        metadata_filter=metadata_filter,
         scenario=runtime.provider.scenario or runtime.provider.provider,
         run_id=run_id,
         embedding_provider=embedder.provider_name,

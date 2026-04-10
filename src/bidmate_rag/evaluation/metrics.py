@@ -16,7 +16,7 @@ def _match_expected(chunk: RetrievedChunk, expected_doc_ids: list[str]) -> bool:
     - `사업명`: business/project name from metadata
     - `파일명`: original filename (e.g. `기관명_사업명.hwp`)
 
-    The eval CSVs (`data/eval/eval_batch_*.csv`) populate `ground_truth_docs`
+    The eval CSVs (`data/eval/eval_v*/eval_batch_*.csv`) populate `ground_truth_docs`
     with `파일명` strings, so this function must compare against `파일명` to
     make Hit Rate / MRR / nDCG metrics meaningful.
     """
