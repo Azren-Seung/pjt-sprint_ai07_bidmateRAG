@@ -17,7 +17,11 @@ artifacts/chroma_db/*
 artifacts/logs/*
 artifacts/vector_db/*
 artifacts/cache/*
+artifacts/reports/*
 !artifacts/**/.gitkeep
+
+# Claude Code local settings
+.claude/
 
 # git worktrees
 .worktrees/
