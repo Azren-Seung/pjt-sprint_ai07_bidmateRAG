@@ -100,9 +100,22 @@ def execute_evaluation(
         judge_skipped=skip_judge,
     )
 
+    # ExperimentConfig.retrieval_top_k가 비어있으면 ProjectConfig 기본값 5.
+    top_k = (
+        runtime.experiment.retrieval_top_k
+        or runtime.project.default_retrieval_top_k
+        or 5
+    )
+
     def answer_fn(sample: EvalSample) -> GenerationResult:
+        # 평가셋의 metadata_filter / history를 retrieval에 실제로 적용
+        # (이전엔 dataset.py가 sample.metadata에 저장만 하고 무시되던 상태)
+        sample_meta = sample.metadata or {}
         return pipeline.answer(
             sample.question,
+            top_k=top_k,
+            chat_history=sample_meta.get("history") or None,
+            metadata_filter=sample_meta.get("metadata_filter") or None,
             question_id=sample.question_id,
             scenario=runtime.provider.scenario or runtime.provider.provider,
             run_id=resolved_run_id,

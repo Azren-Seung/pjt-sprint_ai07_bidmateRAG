@@ -38,9 +38,17 @@ def main() -> None:
         experiment_config_path=args.experiment_config,
     )
 
+    # ExperimentConfig.retrieval_top_k 우선, 없으면 ProjectConfig 기본값
+    top_k = (
+        runtime.experiment.retrieval_top_k
+        or runtime.project.default_retrieval_top_k
+        or 5
+    )
+
     # 질문을 파이프라인에 전달 → 벡터 검색 → LLM 답변 생성
     result = pipeline.answer(
         args.question,
+        top_k=top_k,
         question_id=f"q-{uuid4().hex[:8]}",        # 랜덤 질문 ID
         scenario=runtime.provider.scenario or runtime.provider.provider,
         run_id=f"cli-{uuid4().hex[:8]}",            # 랜덤 실행 ID
