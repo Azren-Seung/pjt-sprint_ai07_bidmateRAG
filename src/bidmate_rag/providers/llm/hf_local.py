@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from uuid import uuid4
 
 from bidmate_rag.config.prompts import build_rag_user_prompt
@@ -52,12 +53,27 @@ class HFLocalLLM(BaseLLMProvider):
     ) -> GenerationResult:
         prompt = build_rag_user_prompt(question, _build_context(context_chunks))
         generator = self._get_generator()
+        tokenizer = generator.tokenizer
+        full_input = f"{system_prompt}\n\n{prompt}"
+
+        # 입력 토큰 수 측정
+        input_tokens = len(tokenizer.encode(full_input))
+
+        # 지연 시간 측정
+        start = time.time()
         response = generator(
-            f"{system_prompt}\n\n{prompt}",
+            full_input,
             max_new_tokens=generation_config.get("max_new_tokens", 512),
             do_sample=False,
+            return_full_text=False,
         )
-        generated_text = response[0]["generated_text"] if response else ""
+        latency_ms = (time.time() - start) * 1000
+
+        generated_text = response[0]["generated_text"].strip() if response else ""
+
+        # 출력 토큰 수 측정
+        output_tokens = len(tokenizer.encode(generated_text)) if generated_text else 0
+
         return GenerationResult(
             question_id=generation_config.get("question_id", f"q-{uuid4().hex[:8]}"),
             question=question,
@@ -71,8 +87,12 @@ class HFLocalLLM(BaseLLMProvider):
             retrieved_chunk_ids=[chunk.chunk.chunk_id for chunk in context_chunks],
             retrieved_doc_ids=[chunk.chunk.doc_id for chunk in context_chunks],
             retrieved_chunks=context_chunks,
-            latency_ms=float(generation_config.get("latency_ms", 0.0)),
-            token_usage={},
+            latency_ms=latency_ms,
+            token_usage={
+                "prompt": input_tokens,
+                "completion": output_tokens,
+                "total": input_tokens + output_tokens,
+            },
             cost_usd=0.0,
             context=_build_context(context_chunks),
         )
