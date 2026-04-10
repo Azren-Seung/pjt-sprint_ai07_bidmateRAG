@@ -22,6 +22,10 @@ from dotenv import load_dotenv
 
 from bidmate_rag.evaluation.dataset import load_eval_samples
 from bidmate_rag.evaluation.pipeline import EvaluationArtifacts, execute_evaluation
+from bidmate_rag.evaluation.schema_validator import (
+    render_validation_report,
+    validate_eval_samples,
+)
 from bidmate_rag.pipelines.runtime import build_runtime_pipeline
 from bidmate_rag.schema import EvalSample, GenerationResult
 
@@ -177,6 +181,16 @@ def main() -> None:
         default="gpt-4o-mini",
         help="LLM model used by the judge (default: gpt-4o-mini).",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="평가셋 스키마 검증에서 경고가 1건이라도 발견되면 평가 중단.",
+    )
+    parser.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="평가셋 스키마 검증 자체를 건너뜀 (legacy 호환).",
+    )
     args = parser.parse_args()
 
     pipeline, runtime, embedder, _ = build_runtime_pipeline(
@@ -186,6 +200,15 @@ def main() -> None:
     )
 
     all_samples = load_eval_samples(args.evaluation_path)
+
+    if not args.no_validate:
+        report = validate_eval_samples(all_samples)
+        print(render_validation_report(report))
+        if not report.is_valid(strict=args.strict):
+            raise SystemExit(
+                "❌ 평가셋 검증 실패. 문제를 수정하거나 --no-validate로 우회하세요."
+            )
+
     samples = _apply_filters(
         all_samples,
         types=_split_csv(args.filter_type),
