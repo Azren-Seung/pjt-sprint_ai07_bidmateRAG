@@ -247,8 +247,39 @@ def test_write_report_creates_file(tmp_path):
     )
     out = write_report(data, output_dir=tmp_path / "reports")
     assert out.exists()
-    assert out.name == "test-exp_bench-test1234.md"
+    # 사람 친화 파일명: YYYY-MM-DD_HHMM_{exp}_{model}.md
+    # fixture timestamp_kst="2026-04-09 14:32:11", llm_model 기본 "gpt-5-mini"
+    assert out.name == "2026-04-09_1432_test-exp_gpt-5-mini.md"
     assert "📋 노션 속성" in out.read_text(encoding="utf-8")
+
+
+def test_write_report_filename_for_non_gpt5_model(tmp_path):
+    _make_fixture(tmp_path, llm_model="gpt-4o-mini")
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+    out = write_report(data, output_dir=tmp_path / "reports")
+    assert out.name == "2026-04-09_1432_test-exp_gpt-4o-mini.md"
+
+
+def test_write_report_appends_suffix_on_collision(tmp_path):
+    """같은 분에 두 번 돌리면 _2, _3 suffix가 자동으로 붙어야 함."""
+    _make_fixture(tmp_path)
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+    out1 = write_report(data, output_dir=tmp_path / "reports")
+    out2 = write_report(data, output_dir=tmp_path / "reports")
+    out3 = write_report(data, output_dir=tmp_path / "reports")
+    assert out1.name == "2026-04-09_1432_test-exp_gpt-5-mini.md"
+    assert out2.name == "2026-04-09_1432_test-exp_gpt-5-mini_2.md"
+    assert out3.name == "2026-04-09_1432_test-exp_gpt-5-mini_3.md"
 
 
 # ---------------------------------------------------------------------------
