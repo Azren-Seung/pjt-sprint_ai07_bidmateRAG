@@ -25,9 +25,12 @@ class OpenAIEmbedder(BaseEmbeddingProvider):
             api_key=os.getenv(api_key_env, "EMPTY"),
             base_url=api_base,
         )
+        self.cumulative_tokens: int = 0
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         response = self.client.embeddings.create(model=self.model_name, input=texts)
+        usage = getattr(response, "usage", None)
+        self.cumulative_tokens += int(getattr(usage, "total_tokens", 0) or 0)
         return [item.embedding for item in response.data]
 
     def embed_query(self, query: str) -> list[float]:

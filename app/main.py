@@ -255,7 +255,7 @@ def _render_streamlit_app() -> None:
             cols[1].metric("총 토큰", f"{stats['total_tokens']:,}")
             cols = st.columns(2)
             avg_latency = stats["total_latency"] / stats["queries"]
-            cols[0].metric("평균 응답", f"{avg_latency:.0f}ms")
+            cols[0].metric("평균 응답", f"{avg_latency / 1000:.1f}초")
             est_cost = stats["total_tokens"] * 0.15 / 1_000_000
             cols[1].metric("예상 비용", f"${est_cost:.4f}")
 
@@ -447,7 +447,7 @@ def _render_streamlit_app() -> None:
                     _render_metadata_expander(st, meta)
 
                     st.toast(
-                        f"답변 완료 — {meta['tokens']:,}토큰, {meta['latency']}ms",
+                        f"답변 완료 — {meta['tokens']:,}토큰, {meta["latency"] / 1000:.1f}초",
                         icon="✅",
                     )
 
@@ -559,7 +559,7 @@ def _render_debug_panel(st_module, meta: dict) -> None:
     cols[0].metric("검색 청크", f"{meta.get('chunks', '-')}개")
     cols[1].metric("컨텍스트", f"{meta.get('context_chars', 0):,}자")
     cols[2].metric("토큰", f"{meta.get('tokens', 0):,}")
-    cols[3].metric("응답 시간", f"{meta.get('latency', '-')}ms")
+    cols[3].metric("응답 시간", f"{meta.get('latency', 0) / 1000:.1f}초")
 
     # 1단계: 필터 추출
     with st_module.expander("1️⃣ 필터 추출", expanded=False):
