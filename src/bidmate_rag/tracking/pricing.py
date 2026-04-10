@@ -10,7 +10,22 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PRICING_PATH = Path("configs/pricing.yaml")
+
+def _find_project_root() -> Path:
+    """Walk up from this file looking for ``pyproject.toml``.
+
+    Allows ``load_pricing()`` to work regardless of the caller's current
+    working directory. Falls back to ``Path.cwd()`` if no marker is found
+    (e.g. when the package is installed into site-packages without a checkout).
+    """
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return Path.cwd()
+
+
+DEFAULT_PRICING_PATH = _find_project_root() / "configs" / "pricing.yaml"
 
 
 def load_pricing(path: str | Path = DEFAULT_PRICING_PATH) -> dict[str, Any]:
