@@ -86,14 +86,22 @@ def _run_single_experiment(
         print(f"\n[1/3] Ingest 건너뜀 ({reason})")
 
     # Step 2: Build Index — 청크를 임베딩하여 ChromaDB에 저장 (프로바이더별)
+    # NOTE: build_index도 같은 --experiment-config를 받아야 collection_name이
+    # eval/run_eval.py와 일치함. 누락 시 full_rag 모드에서 다음 mismatch:
+    #   - build_index: ad-hoc collection (provider explicit 그대로)
+    #   - run_eval:    {exp_name}-{explicit} (full_rag 격리)
+    # → 평가가 빈 collection을 봄. generation_only는 둘 다 shared라 우연히 동작.
     for provider_config in provider_configs:
         print(f"\n[2/3] Build Index ({provider_config})...")
-        subprocess.run([
+        build_index_cmd = [
             sys.executable, "scripts/build_index.py",
             "--provider-config", provider_config,
             "--chunks-path", chunks_path,
             "--persist-dir", persist_dir,
-        ], check=True)
+        ]
+        if experiment_config_path:
+            build_index_cmd.extend(["--experiment-config", experiment_config_path])
+        subprocess.run(build_index_cmd, check=True)
 
     # Step 3: Eval + Report — 평가셋으로 성능 측정 후 리포트 생성 (프로바이더별)
     generated_reports: list[str] = []

@@ -9,7 +9,10 @@ import pandas as pd
 import yaml as _yaml
 
 from app.api.routes import run_benchmark_experiment
-from bidmate_rag.evaluation.dataset import find_latest_eval_dir
+from bidmate_rag.evaluation.dataset import (
+    find_latest_eval_dir,
+    normalize_metadata_filter,
+)
 from bidmate_rag.tracking.markdown_report import load_report_data, write_report
 
 # 평가셋은 ``data/eval/eval_v1/``, ``eval_v2/`` 등 버전 디렉토리에 둡니다.
@@ -428,10 +431,23 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
         with st.status("디버깅 실행 중...", expanded=True) as status:
             status.write("🔍 검색 중...")
             try:
+                # 평가셋의 metadata_filter는 영문 키 → ChromaDB 한국어 키로 정규화
+                # (cli/eval.py가 사용하는 normalize_metadata_filter와 동일 로직)
+                raw_filter = selected_q.get("metadata_filter")
+                normalized_filter = normalize_metadata_filter(
+                    raw_filter if isinstance(raw_filter, dict) else None
+                )
+                # history는 list[{role, content}] 형식이면 그대로 전달
+                history = selected_q.get("history") or None
+                if not isinstance(history, list):
+                    history = None
+
                 result = run_live_query(
                     question=selected_q["question"],
                     provider_config_path=provider,
                     top_k=top_k,
+                    metadata_filter=normalized_filter,
+                    chat_history=history,
                 )
                 status.update(label="완료", state="complete")
 

@@ -108,9 +108,19 @@ def run_live_query(
     experiment_config_path: str | Path | None = None,
     top_k: int = 5,
     manual_filters: dict | None = None,
+    metadata_filter: dict | None = None,
+    chat_history: list[dict] | None = None,
     system_prompt: str | None = None,
     max_context_chars: int = 8000,
 ):
+    """단일 RAG 쿼리 실행 (Streamlit 라이브 데모 + 디버그 탭 공용).
+
+    Args:
+        manual_filters: Streamlit 라이브 데모의 사이드바 수동 필터 (한국어 키).
+        metadata_filter: 평가셋의 metadata_filter처럼 explicit override용.
+            ``manual_filters``와 동시 지정 시 ``metadata_filter`` 우선.
+        chat_history: multi-turn 평가용. ``debug_tab``이 sample.history를 그대로 전달.
+    """
     pipeline, runtime, embedder, _ = build_runtime_pipeline(
         base_config_path=base_config_path,
         provider_config_path=provider_config_path,
@@ -126,18 +136,24 @@ def run_live_query(
     # explicit filter로 별도 전달 (이전에는 둘 다 generation_config에 넣었지만
     # retriever가 generation_config를 보지 않아 manual_filters가 무시되던 버그)
     gen_config = {"max_context_chars": max_context_chars}
-    metadata_filter: dict | None = None
-    if manual_filters:
-        # "필터 없음" 모드에서는 자동 추출도 비활성화하기 위해 빈 dict 전달
+
+    # explicit metadata_filter 우선, 없으면 manual_filters에서 변환
+    resolved_filter: dict | None = None
+    if metadata_filter is not None:
+        # explicit (debug_tab 등) — 빈 dict는 "필터 없음" 명시
+        resolved_filter = dict(metadata_filter) if metadata_filter else {}
+    elif manual_filters:
+        # 라이브 데모 사이드바
         if manual_filters.get("_no_filter"):
-            metadata_filter = {}
+            resolved_filter = {}
         else:
-            metadata_filter = dict(manual_filters)
+            resolved_filter = dict(manual_filters)
 
     return pipeline.answer(
         question,
         top_k=top_k,
-        metadata_filter=metadata_filter,
+        metadata_filter=resolved_filter,
+        chat_history=chat_history,
         scenario=runtime.provider.scenario or runtime.provider.provider,
         run_id=run_id,
         embedding_provider=embedder.provider_name,
