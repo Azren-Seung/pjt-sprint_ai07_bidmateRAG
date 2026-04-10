@@ -3,7 +3,13 @@ from bidmate_rag.schema import Chunk, GenerationResult, RetrievedChunk
 
 
 class FakeRetriever:
-    def retrieve(self, query: str, chat_history=None, top_k: int = 5):
+    def retrieve(
+        self,
+        query: str,
+        chat_history=None,
+        top_k: int = 5,
+        metadata_filter: dict | None = None,
+    ):
         chunk = Chunk(
             chunk_id="chunk-1",
             doc_id="doc-1",

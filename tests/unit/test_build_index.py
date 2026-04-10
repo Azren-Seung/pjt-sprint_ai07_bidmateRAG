@@ -24,6 +24,10 @@ class FakeVectorStore:
     def upsert(self, chunks, embeddings):
         self.upserts.append((chunks, embeddings))
 
+    def replace_documents(self, chunks, embeddings, batch_size=5000):
+        """build_index가 replace_documents를 호출하므로 fake에서도 필요."""
+        self.upserts.append((chunks, embeddings))
+
 
 def test_build_index_filters_short_chunks_and_uses_text_with_meta(tmp_path: Path) -> None:
     chunk_path = tmp_path / "chunks.parquet"

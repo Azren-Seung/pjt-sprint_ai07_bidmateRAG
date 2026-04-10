@@ -89,7 +89,9 @@ def build_index_from_parquet(
             else:
                 raise
 
-    vector_store.upsert(chunks, all_embeddings)
+    # replace_documents: 같은 doc_id의 이전 청크를 모두 삭제 후 upsert
+    # → 청킹 설정 변경으로 청크 수가 줄어도 stale 청크가 남지 않음
+    vector_store.replace_documents(chunks, all_embeddings)
     return {
         "input_chunks": int(len(frame)),
         "indexed_chunks": len(chunks),
