@@ -28,6 +28,7 @@ dependencies = [
 [project.scripts]
 bidmate-eval = "bidmate_rag.cli.eval:main"
 bidmate-report = "bidmate_rag.cli.report:main"
+bidmate-compare = "bidmate_rag.cli.compare:main"
 
 [dependency-groups]
 dev = [
