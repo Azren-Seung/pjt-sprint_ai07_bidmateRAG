@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from bidmate_rag.config.settings import load_runtime_config

@@ -9,7 +9,6 @@ from bidmate_rag.tracking.pricing import (
     load_pricing,
 )
 
-
 PRICING_FIXTURE = {
     "llm": {
         "test-model": {"input_per_1m": 1.00, "output_per_1m": 4.00},

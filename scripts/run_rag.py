@@ -16,6 +16,7 @@ import argparse
 from uuid import uuid4
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from bidmate_rag.pipelines.runtime import build_runtime_pipeline

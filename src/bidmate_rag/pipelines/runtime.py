@@ -52,14 +52,39 @@ def collection_name_for_config(runtime: RuntimeConfig) -> str:
     return f"bidmate-{exp_name}-{runtime.provider.provider}-{model}".lower()
 
 
+def _resolve_metadata_path(runtime: RuntimeConfig, explicit: str | Path | None) -> Path:
+    """실험별 metadata parquet 경로를 자동 결정.
+
+    우선순위:
+      1. ``explicit``가 명시되어 있고 파일이 존재 → 그것 사용
+      2. 실험별 sub-dir ``data/processed/{exp_name}/cleaned_documents.parquet``
+      3. 공용 ``data/processed/cleaned_documents.parquet`` (legacy fallback)
+
+    full-RAG 실험이 ``data/processed/{exp_name}/``에 산출물을 만들지만 기존
+    ``build_runtime_pipeline``은 항상 공용 경로만 봤기 때문에 MetadataStore
+    (agency_list / find_relevant_docs)가 stale 데이터를 사용하던 문제를 해결.
+    """
+    if explicit:
+        path = Path(explicit)
+        if path.exists():
+            return path
+
+    exp_name = runtime.experiment.name or "ad-hoc"
+    if exp_name not in ("ad-hoc", "default", ""):
+        sub = Path(f"data/processed/{exp_name}/cleaned_documents.parquet")
+        if sub.exists():
+            return sub
+
+    return Path("data/processed/cleaned_documents.parquet")
+
+
 def build_runtime_pipeline(
     base_config_path: str | Path,
     provider_config_path: str | Path,
     experiment_config_path: str | Path | None = None,
-    persist_dir: str | Path ="artifacts/chroma_db",
-    metadata_path: str | Path = "data/processed/cleaned_documents.parquet",
+    persist_dir: str | Path = "artifacts/chroma_db",
+    metadata_path: str | Path | None = None,
 ):
-    
     """설정 파일들로부터 RAGChatPipeline을 조립한다.
 
     Args:
@@ -67,7 +92,8 @@ def build_runtime_pipeline(
         provider_config_path: 프로바이더 설정 YAML 경로.
         experiment_config_path: 실험 설정 YAML 경로 (선택).
         persist_dir: ChromaDB 저장 디렉터리.
-        metadata_path: 정제된 문서 메타데이터 parquet 경로.
+        metadata_path: 정제된 문서 메타데이터 parquet 경로. None이면
+            실험별 sub-dir → 공용 순서로 자동 탐지.
 
     Returns:
         (pipeline, runtime, embedder, llm) 튜플.
@@ -79,10 +105,10 @@ def build_runtime_pipeline(
         persist_dir=persist_dir,
         collection_name=collection_name_for_config(runtime),
     )
-    metadata_file = Path(metadata_path)
+    resolved_path = _resolve_metadata_path(runtime, metadata_path)
     metadata_store = (
-        MetadataStore.from_parquet(metadata_file)
-        if metadata_file.exists()
+        MetadataStore.from_parquet(resolved_path)
+        if resolved_path.exists()
         else MetadataStore(pd.DataFrame())
     )
     retriever = RAGRetriever(

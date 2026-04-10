@@ -28,6 +28,7 @@ dependencies = [
 [project.scripts]
 bidmate-eval = "bidmate_rag.cli.eval:main"
 bidmate-report = "bidmate_rag.cli.report:main"
+bidmate-compare = "bidmate_rag.cli.compare:main"
 
 [dependency-groups]
 dev = [
@@ -66,3 +67,7 @@ extend-exclude = ["experiments/notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+ignore = [
+    "E501",  # line-too-long: 한국어 주석/메시지가 100자 자주 초과
+    "E402",  # module-import-not-at-top: load_dotenv()를 import 전에 호출하는 패턴
+]

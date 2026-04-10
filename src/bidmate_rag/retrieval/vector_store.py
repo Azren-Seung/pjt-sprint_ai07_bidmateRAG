@@ -52,6 +52,11 @@ class ChromaVectorStore:
             chunks: 저장할 Chunk 리스트.
             embeddings: 각 청크에 대응하는 임베딩 벡터 리스트.
             batch_size: 한 번에 처리할 배치 크기.
+
+        주의: 같은 chunk_id가 있으면 갱신하지만, **컬렉션에 있던 이전 청크는
+        지우지 않습니다**. 청킹 설정을 바꿔 청크 수가 줄어들면 stale 청크가
+        남아 retrieval을 오염시킵니다. 청킹/재빌드 시에는
+        :meth:`replace_documents`를 사용하세요.
         """
         for i in range(0, len(chunks), batch_size):
             batch_chunks = chunks[i : i + batch_size]
@@ -73,6 +78,29 @@ class ChromaVectorStore:
                     for chunk in batch_chunks
                 ],
             )
+
+    def replace_documents(
+        self,
+        chunks: list[Chunk],
+        embeddings: list[list[float]],
+        batch_size: int = 5000,
+    ) -> None:
+        """청크가 속한 문서들의 기존 청크를 모두 삭제 후 새로 upsert.
+
+        ``upsert``와 달리, 같은 ``doc_id``의 stale 청크 (이전 빌드에서 만들어진
+        뒤 새 빌드에서는 사라진 청크)를 안전하게 제거합니다. 청킹 설정 변경
+        후 재빌드 시 stale 청크가 retrieval을 오염시키는 것을 방지합니다.
+
+        주의: 같은 collection에 다른 doc_id의 청크가 있으면 그것들은 보존됩니다.
+        부분 update가 가능하므로 한 문서만 다시 빌드해도 안전.
+        """
+        if not chunks:
+            return
+        doc_ids = sorted({chunk.doc_id for chunk in chunks})
+        if doc_ids:
+            # ChromaDB $in operator로 한 번에 삭제
+            self.collection.delete(where={"doc_id": {"$in": doc_ids}})
+        self.upsert(chunks, embeddings, batch_size=batch_size)
 
     def query(
         self,
