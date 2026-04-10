@@ -56,7 +56,7 @@ def build_runtime_pipeline(
     base_config_path: str | Path,
     provider_config_path: str | Path,
     experiment_config_path: str | Path | None = None,
-    persist_dir: str | Path | None = None, # None으로 변경 - provider yaml의 persist_dir이 우선 적용되도록
+    persist_dir: str | Path ="artifacts/chroma_db",
     metadata_path: str | Path = "data/processed/cleaned_documents.parquet",
 ):
     
@@ -73,12 +73,10 @@ def build_runtime_pipeline(
         (pipeline, runtime, embedder, llm) 튜플.
     """
     runtime = load_runtime_config(base_config_path, provider_config_path, experiment_config_path)
-    # persist_dir 우선순위: 함수 인자 → provider yaml → 기본값
-    resolved_persist_dir = persist_dir or runtime.provider.persist_dir
     embedder = build_embedding_provider(runtime.provider)
     llm = build_llm_provider(runtime.provider)
     vector_store = ChromaVectorStore(
-        persist_dir=resolved_persist_dir,
+        persist_dir=persist_dir,
         collection_name=collection_name_for_config(runtime),
     )
     metadata_file = Path(metadata_path)

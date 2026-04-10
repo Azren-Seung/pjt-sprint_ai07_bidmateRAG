@@ -23,7 +23,6 @@ class ProviderConfig(BaseModel):
     scenario: str | None = None
     embedding_model: str | None = None
     collection_name: str | None = None
-    persist_dir: str = "artifacts/chroma_db"  #청킹 실험별로 다른 벡터 DB를 사용하기 위해 추가. provider yaml에서 오버라이드 가능
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -74,7 +73,6 @@ def load_runtime_config(
         "scenario",
         "embedding_model",
         "collection_name",
-        "persist_dir",
     }
     provider_extra = {
         key: value for key, value in provider_data.items() if key not in provider_known_keys
