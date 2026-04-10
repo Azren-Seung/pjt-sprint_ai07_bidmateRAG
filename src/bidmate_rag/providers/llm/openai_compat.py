@@ -72,8 +72,14 @@ class OpenAICompatibleLLM(BaseLLMProvider):
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        prompt_details = getattr(usage, "prompt_tokens_details", None)
+        cached_tokens = int(getattr(prompt_details, "cached_tokens", 0) or 0)
         computed_cost = calc_llm_cost(
-            self.model_name, prompt_tokens, completion_tokens, self.pricing
+            self.model_name,
+            prompt_tokens,
+            completion_tokens,
+            self.pricing,
+            cached_tokens=cached_tokens,
         )
         return GenerationResult(
             question_id=generation_config.get("question_id", f"q-{uuid4().hex[:8]}"),
@@ -92,6 +98,7 @@ class OpenAICompatibleLLM(BaseLLMProvider):
             token_usage={
                 "prompt": prompt_tokens,
                 "completion": completion_tokens,
+                "cached": cached_tokens,
                 "total": int(getattr(usage, "total_tokens", 0) or 0),
             },
             cost_usd=float(generation_config.get("cost_usd", computed_cost)),

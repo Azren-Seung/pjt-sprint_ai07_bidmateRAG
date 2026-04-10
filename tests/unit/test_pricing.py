@@ -68,3 +68,36 @@ def test_load_pricing_reads_yaml(tmp_path):
     pricing = load_pricing(pricing_file)
     assert pricing["llm"]["foo"]["input_per_1m"] == 0.5
     assert pricing["embedding"] == {}  # default added
+
+
+# ---------------------------------------------------------------------------
+# cached_tokens 처리 (OpenAI prompt_tokens_details.cached_tokens)
+# ---------------------------------------------------------------------------
+
+
+CACHED_PRICING = {
+    "llm": {
+        "x": {"input_per_1m": 1.0, "output_per_1m": 4.0, "cached_input_per_1m": 0.1},
+        "no_cached": {"input_per_1m": 1.0, "output_per_1m": 4.0},
+    }
+}
+
+
+def test_calc_llm_cost_cached_input_uses_discount():
+    # 1000 prompt 중 800 cached → uncached 200 * 1.0 + cached 800 * 0.1 + completion 0
+    # = 200 + 80 = 280 micro-USD
+    cost = calc_llm_cost("x", 1000, 0, CACHED_PRICING, cached_tokens=800)
+    assert cost == round(280 / 1_000_000, 6)
+
+
+def test_calc_llm_cost_cached_zero_equals_no_cached_arg():
+    a = calc_llm_cost("x", 1000, 500, CACHED_PRICING)
+    b = calc_llm_cost("x", 1000, 500, CACHED_PRICING, cached_tokens=0)
+    assert a == b
+
+
+def test_calc_llm_cost_cached_falls_back_to_input_rate_when_unset():
+    # cached_input_per_1m이 없는 모델은 cached_tokens도 일반 input 단가로 계산
+    cost_no_cache = calc_llm_cost("no_cached", 1000, 0, CACHED_PRICING, cached_tokens=0)
+    cost_with_cache = calc_llm_cost("no_cached", 1000, 0, CACHED_PRICING, cached_tokens=500)
+    assert cost_no_cache == cost_with_cache

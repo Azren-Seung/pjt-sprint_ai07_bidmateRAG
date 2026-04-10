@@ -95,9 +95,15 @@ class LLMJudge:
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        prompt_details = getattr(usage, "prompt_tokens_details", None)
+        cached_tokens = int(getattr(prompt_details, "cached_tokens", 0) or 0)
         self.cumulative_tokens += prompt_tokens + completion_tokens
         self.cumulative_cost_usd += calc_llm_cost(
-            self.model, prompt_tokens, completion_tokens, self.pricing
+            self.model,
+            prompt_tokens,
+            completion_tokens,
+            self.pricing,
+            cached_tokens=cached_tokens,
         )
 
         raw_text = response.choices[0].message.content or ""
