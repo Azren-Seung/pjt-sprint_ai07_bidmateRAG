@@ -32,10 +32,34 @@ def persist_run_results(
 def persist_benchmark_summary(
     records: list[dict], benchmarks_dir: str | Path, experiment_name: str
 ) -> Path:
+    """Append-or-replace 방식으로 benchmark summary parquet에 행 추가.
+
+    같은 ``experiment_name``으로 여러 provider 평가를 순차로 돌리거나,
+    같은 run을 다시 실행해도 이전 row들이 보존되도록 합니다.
+
+    동작:
+      - 파일이 없으면 새로 생성
+      - 있으면 기존 parquet 읽고, 새 records의 ``run_id``와 같은 기존 row는
+        제거(replace) 후 새 행 append → 같은 run을 다시 평가하면 마지막 결과
+        우선, 다른 run은 그대로 보존
+    """
     benchmark_path = Path(benchmarks_dir)
     benchmark_path.mkdir(parents=True, exist_ok=True)
     output_path = benchmark_path / f"{experiment_name}.parquet"
-    pd.DataFrame(records).to_parquet(output_path, index=False)
+    new_df = pd.DataFrame(records)
+    if output_path.exists():
+        try:
+            existing = pd.read_parquet(output_path)
+        except Exception:
+            existing = pd.DataFrame()
+        if "run_id" in new_df.columns and "run_id" in existing.columns:
+            new_run_ids = set(new_df["run_id"].astype(str))
+            existing = existing[~existing["run_id"].astype(str).isin(new_run_ids)]
+        # 컬럼 union (새 컬럼이 추가되어도 안전하게)
+        combined = pd.concat([existing, new_df], ignore_index=True, sort=False)
+    else:
+        combined = new_df
+    combined.to_parquet(output_path, index=False)
     return output_path
 
 

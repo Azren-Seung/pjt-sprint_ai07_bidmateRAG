@@ -45,9 +45,11 @@ class RAGRetriever:
         Returns:
             RetrievedChunk 리스트.
         """
-        if metadata_filter:
-            # Explicit override — 자동 추출 / fallback 모두 건너뜀
-            where = dict(metadata_filter)
+        # ``metadata_filter is None`` → 자동 추출 (legacy 기본 동작)
+        # ``metadata_filter == {}``   → "필터 없음" 명시 (자동 추출도 비활성화)
+        # ``metadata_filter == {...}`` → explicit override
+        if metadata_filter is not None:
+            where = dict(metadata_filter) if metadata_filter else None
         else:
             agency_list = getattr(self.metadata_store, "agency_list", [])
             where = extract_metadata_filters(query, agency_list, chat_history=chat_history)
