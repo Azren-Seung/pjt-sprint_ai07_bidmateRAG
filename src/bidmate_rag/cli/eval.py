@@ -269,11 +269,15 @@ def main() -> None:
     retrieval_totals = {"hit_rate@5": 0.0, "mrr": 0.0, "ndcg@5": 0.0}
     scored = 0
     for sample, result in zip(samples, benchmark.results, strict=False):
-        if not sample.expected_doc_ids:
+        # Eval CSVs put 파일명 in `ground_truth_docs`, which dataset.py maps to
+        # `expected_doc_titles`. Fall back to that when `expected_doc_ids` is
+        # empty so the retrieval metrics actually run.
+        expected = sample.expected_doc_ids or sample.expected_doc_titles
+        if not expected:
             continue
-        hit = calc_hit_rate(result.retrieved_chunks, sample.expected_doc_ids, k=5)
-        mrr = calc_mrr(result.retrieved_chunks, sample.expected_doc_ids)
-        ndcg = calc_ndcg(result.retrieved_chunks, sample.expected_doc_ids, k=5)
+        hit = calc_hit_rate(result.retrieved_chunks, expected, k=5)
+        mrr = calc_mrr(result.retrieved_chunks, expected)
+        ndcg = calc_ndcg(result.retrieved_chunks, expected, k=5)
         if hit is not None:
             retrieval_totals["hit_rate@5"] += hit
             retrieval_totals["mrr"] += mrr or 0.0

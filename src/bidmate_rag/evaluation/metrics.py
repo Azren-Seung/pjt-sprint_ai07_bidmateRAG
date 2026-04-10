@@ -8,9 +8,22 @@ from bidmate_rag.schema import GenerationResult, RetrievedChunk
 
 
 def _match_expected(chunk: RetrievedChunk, expected_doc_ids: list[str]) -> bool:
+    """Check whether a retrieved chunk matches any expected document identifier.
+
+    Accepts three identifier types so that callers can pass `doc_id` (공고 번호),
+    `사업명`, or `파일명` interchangeably:
+    - `doc_id`: ChromaDB-stored doc id (typically `공고 번호`)
+    - `사업명`: business/project name from metadata
+    - `파일명`: original filename (e.g. `기관명_사업명.hwp`)
+
+    The eval CSVs (`data/eval/eval_batch_*.csv`) populate `ground_truth_docs`
+    with `파일명` strings, so this function must compare against `파일명` to
+    make Hit Rate / MRR / nDCG metrics meaningful.
+    """
     return (
         chunk.chunk.doc_id in expected_doc_ids
         or chunk.chunk.metadata.get("사업명") in expected_doc_ids
+        or chunk.chunk.metadata.get("파일명") in expected_doc_ids
     )
 
 
