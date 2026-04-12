@@ -10,6 +10,7 @@ load_dotenv()
 
 from app.api.routes import (
     list_provider_configs,
+    list_chunking_configs,
     load_benchmark_frames,
     load_metadata_options,
     load_run_records,
@@ -222,15 +223,18 @@ def _render_streamlit_app() -> None:
                 prompt_changed = custom_prompt.strip() != DEFAULT_PROMPT.strip()
                 if prompt_changed:
                     st.caption("✏️ 수정됨")
-
-        # 청킹 preset (참고 정보)
-        from bidmate_rag.preprocessing.chunker import CHUNKING_PRESETS
-        with st.expander("📦 청킹 전략 (참고)", expanded=False):
-            for name, preset in CHUNKING_PRESETS.items():
-                st.markdown(f"**{name}**: {preset['chunk_size']}자 / {preset['chunk_overlap']} 오버랩")
-                st.caption(preset["description"])
-            st.info("청킹 변경은 인덱스 재구축이 필요합니다:\n"
-                    "`uv run python scripts/run_experiment.py --experiment-config configs/chunking/chunking_500_100.yaml`")
+        # 청킹 전략 선택    
+        st.subheader("📦 청킹 전략")
+        chunking_configs = list_chunking_configs()
+        default_idx = next(
+            (i for i, p in enumerate(chunking_configs) if "1000_150" in p.stem), 0
+        )
+        selected_chunking = st.selectbox(
+            "청킹 전략 선택",
+            chunking_configs,
+            index=default_idx,
+            format_func=lambda p: p.stem,
+        )
 
         # 5) 모델 정보
         st.subheader("📊 모델 정보")
@@ -398,6 +402,7 @@ def _render_streamlit_app() -> None:
                     result = run_live_query(
                         question=prompt,
                         provider_config_path=selected_provider,
+                        experiment_config_path=selected_chunking,
                         top_k=top_k,
                         manual_filters=filters_to_pass,
                         system_prompt=prompt_override,
@@ -436,6 +441,7 @@ def _render_streamlit_app() -> None:
                         "filter_info": {
                             "검색 모드": search_mode,
                             "적용 필터": str(filters_to_pass) if filters_to_pass else "자동 추출",
+                            "청킹 전략": selected_chunking.stem,
                             "Top-K": top_k,
                             "컨텍스트 길이": f"{max_context_chars:,}자",
                             "프롬프트": "커스텀" if prompt_override else "기본",
@@ -550,7 +556,7 @@ def _render_streamlit_app() -> None:
 
     # ── 탭 3: 평가 ──
     with eval_tab:
-        render_eval_tabs(st, run_live_query, list_provider_configs, load_benchmark_frames, load_run_records)
+        render_eval_tabs(st, run_live_query, list_provider_configs, list_chunking_configs, load_benchmark_frames, load_run_records)
 
 
 def _render_debug_panel(st_module, meta: dict) -> None:

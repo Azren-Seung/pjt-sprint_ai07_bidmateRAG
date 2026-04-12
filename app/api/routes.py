@@ -19,6 +19,10 @@ from bidmate_rag.pipelines.runtime import build_runtime_pipeline
 def list_provider_configs(config_dir: str | Path = "configs/providers") -> list[Path]:
     return sorted(Path(config_dir).glob("*.yaml"))
 
+#청킹 설정
+def list_chunking_configs(config_dir: str | Path = "configs/chunking") -> list[Path]:
+    return sorted(Path(config_dir).glob("*.yaml"))
+
 
 def load_benchmark_frames(benchmarks_dir: str | Path = "artifacts/logs/benchmarks") -> pd.DataFrame:
     benchmark_dir = Path(benchmarks_dir)
