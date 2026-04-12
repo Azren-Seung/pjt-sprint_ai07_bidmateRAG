@@ -57,6 +57,7 @@ def run_ingest_pipeline(
     parse_fn=None,
     chunk_size: int = 1000,
     chunk_overlap: int = 150,
+    duplicates_map_path: str | Path | None = None,
 ) -> dict[str, Path]:
     """인제스트 파이프라인 전체를 실행한다.
 
@@ -72,6 +73,7 @@ def run_ingest_pipeline(
         parse_fn: 커스텀 파서 함수 (기본: HWP/PDF 자동 선택).
         chunk_size: 청크 최대 글자수.
         chunk_overlap: 청크 간 겹침 글자수.
+        duplicates_map_path: 중복/정본 매핑 CSV 경로. 생략 시 기본 설정 경로를 사용.
 
     Returns:
         산출물 이름-경로 딕셔너리 (parsed, cleaned, chunks).
@@ -83,33 +85,44 @@ def run_ingest_pipeline(
 
     # ── 1단계: 메타데이터 CSV 로딩 ──
     # data_list.csv에서 사업명, 발주기관, 파일명 등 기본 정보를 읽어온다
-    metadata_df = load_metadata_frame(metadata_path)
+    metadata_df = load_metadata_frame(
+        metadata_path,
+        duplicates_map_path=duplicates_map_path,
+    )
+    ingest_df = metadata_df[metadata_df["ingest_enabled"]].copy()
 
     # ── 2단계: 원본 문서 파싱 (HWP/PDF → 마크다운 텍스트) ──
     # 각 문서를 kordoc(HWP) 또는 pdfplumber(PDF)로 텍스트 추출
     parsed_rows: list[dict] = []
-    total = len(metadata_df)
-    for i, (_, row) in enumerate(metadata_df.iterrows(), 1):
-        file_path = raw_root / row["파일명"]
-        print(f"[{i}/{total}] 파싱 중: {row['파일명']}", end=" ... ")
+    total = len(ingest_df)
+    for i, (_, row) in enumerate(ingest_df.iterrows(), 1):
+        source_file = row["파일명"]
+        ingest_file = row["ingest_file"]
+        file_path = raw_root / ingest_file
+        display_name = source_file if source_file == ingest_file else f"{source_file} -> {ingest_file}"
+        print(f"[{i}/{total}] 파싱 중: {display_name}", end=" ... ")
         try:
             parsed = parser(file_path)
         except Exception as exc:
             # 파서 크래시 시 빈 결과로 대체하고 다음 파일로 진행
             parsed = {
-                "파일명": row["파일명"],
+                "파일명": source_file,
                 "파서": "error",
                 "텍스트": "",
                 "글자수": 0,
                 "성공": False,
                 "에러": str(exc),
             }
+        else:
+            parsed = parsed.copy()
+            parsed["파일명"] = source_file
+        parsed["ingest_file"] = ingest_file
         status = "OK" if parsed.get("성공") else f"실패({parsed.get('에러', '?')})"
         print(f"{status} ({parsed.get('글자수', 0):,}자)")
         parsed_rows.append(parsed)
 
     # 파싱 결과를 메타데이터에 합쳐서 parsed_documents.parquet로 저장
-    parsed_df = metadata_df.copy()
+    parsed_df = ingest_df.copy()
     parsed_map = {row["파일명"]: row for row in parsed_rows}
     parsed_df["본문_마크다운"] = parsed_df["파일명"].map(lambda name: parsed_map[name]["텍스트"])
     parsed_df["본문_글자수"] = parsed_df["파일명"].map(lambda name: parsed_map[name]["글자수"])
