@@ -31,16 +31,40 @@ class HFLocalLLM(BaseLLMProvider):
         self._generator = generator
 
     def _get_generator(self):
+        """transformers pipeline을 생성한다. 4bit 양자화로 VRAM 절약 + 속도 향상."""
         if self._generator is not None:
             return self._generator
         try:
-            from transformers import pipeline
+            from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
         except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
             raise ModuleNotFoundError(
                 "transformers is required for the local HF provider. "
                 "Install the ml dependency group."
             ) from exc
-        self._generator = pipeline("text-generation", model=self.model_name)
+        # 4bit 양자화 로드 시도 (bitsandbytes 필요)
+        try:
+            import torch
+            from transformers import BitsAndBytesConfig
+
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_quant_type="nf4",
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                quantization_config=quantization_config,
+                device_map="auto",
+            )
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self._generator = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=tokenizer,
+            )
+        except (ImportError, Exception):
+            # bitsandbytes 없으면 일반 로드로 폴백
+            self._generator = pipeline("text-generation", model=self.model_name)
         return self._generator
 
     def generate(
