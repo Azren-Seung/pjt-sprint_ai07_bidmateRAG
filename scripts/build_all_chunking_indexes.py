@@ -57,6 +57,7 @@ def main() -> None:
             run([
                 "python", "scripts/ingest_data.py",
                 "--experiment-config", cfg["config"],
+                "--parsed-path", "data/processed/parsed_documents.parquet",
             ])
 
         # 2. build_index
@@ -66,7 +67,7 @@ def main() -> None:
             "--provider-config", PROVIDER,
             "--experiment-config", cfg["config"],
             "--chunks-path", cfg["chunks"],
-            "--parsed-path", "data/processed/parsed_documents.parquet",
+            
         ])
 
         print(f"  ✅ {cfg['name']} 완료!")
