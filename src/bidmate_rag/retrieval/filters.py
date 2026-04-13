@@ -38,6 +38,42 @@ SECTION_KEYWORDS = {
 
 TABLE_KEYWORDS = ["요구사항", "정리", "목록", "예산", "금액", "일정", "배점", "기준", "표"]
 RELEASE_KEYWORDS = ["다른 기관", "다른 사업", "그 외", "외에", "이외", "말고"]
+COMPARISON_KEYWORDS = [
+    "비교",
+    "차이",
+    "차액",
+    "합산",
+    "더 큰",
+    "더 작은",
+    "공통",
+    "대비",
+]
+PER_SOURCE_KEYWORDS = ["각각"]
+MULTI_SOURCE_HINT_KEYWORDS = [
+    "각 기관",
+    "기관별",
+    "기관마다",
+    "두 기관",
+    "양 기관",
+    "각 사업",
+    "사업별",
+    "사업마다",
+    "두 사업",
+    "양 사업",
+]
+
+
+def extract_matched_agencies(query: str, agency_list: list[str]) -> list[str]:
+    """쿼리에 명시적으로 언급된 발주기관 목록을 추출."""
+    matched_agencies: list[str] = []
+    for agency in agency_list:
+        short = agency.replace("(주)", "").replace("㈜", "").strip()
+        for part in [short, short[:6], short[:4]]:
+            if len(part) >= 3 and part in query:
+                if agency not in matched_agencies:
+                    matched_agencies.append(agency)
+                break
+    return matched_agencies
 
 
 def extract_metadata_filters(
@@ -55,14 +91,7 @@ def extract_metadata_filters(
     """
     if any(keyword in query for keyword in RELEASE_KEYWORDS):
         return None
-    matched_agencies: list[str] = []
-    for agency in agency_list:
-        short = agency.replace("(주)", "").replace("㈜", "").strip()
-        for part in [short, short[:6], short[:4]]:
-            if len(part) >= 3 and part in query:
-                if agency not in matched_agencies:
-                    matched_agencies.append(agency)
-                break
+    matched_agencies = extract_matched_agencies(query, agency_list)
     if len(matched_agencies) >= 2:
         return None
     if len(matched_agencies) == 1:
@@ -133,3 +162,19 @@ def should_boost_tables(query: str) -> bool:
         테이블 부스팅 여부.
     """
     return any(keyword in query for keyword in TABLE_KEYWORDS)
+
+
+def is_comparison_query(query: str) -> bool:
+    """쿼리가 비교·대조·합산형 질문인지 판별
+
+    Args:
+        query: 사용자 질의 문자열.
+
+    Returns:
+        비교형 질의 여부.
+    """
+    if any(keyword in query for keyword in COMPARISON_KEYWORDS):
+        return True
+    return any(keyword in query for keyword in PER_SOURCE_KEYWORDS) and any(
+        hint in query for hint in MULTI_SOURCE_HINT_KEYWORDS
+    )

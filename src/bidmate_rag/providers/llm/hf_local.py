@@ -6,22 +6,9 @@ import time
 from uuid import uuid4
 
 from bidmate_rag.config.prompts import build_rag_user_prompt
+from bidmate_rag.generation.context_builder import build_context_block
 from bidmate_rag.providers.llm.base import BaseLLMProvider
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
-
-
-def _build_context(chunks: list[RetrievedChunk], max_chars: int = 8000) -> str:
-    parts: list[str] = []
-    total = 0
-    for retrieved in chunks:
-        metadata = retrieved.chunk.metadata
-        source = f"[출처: {metadata.get('사업명', '')} | {metadata.get('발주 기관', '')}]"
-        chunk_text = f"{source}\n{retrieved.chunk.text}"
-        if total + len(chunk_text) > max_chars:
-            break
-        parts.append(chunk_text)
-        total += len(chunk_text)
-    return "\n\n---\n\n".join(parts)
 
 
 class HFLocalLLM(BaseLLMProvider):
@@ -75,7 +62,10 @@ class HFLocalLLM(BaseLLMProvider):
         generation_config: dict,
         system_prompt: str,
     ) -> GenerationResult:
-        prompt = build_rag_user_prompt(question, _build_context(context_chunks))
+        context = build_context_block(
+            context_chunks, max_chars=generation_config.get("max_context_chars", 8000)
+        )
+        prompt = build_rag_user_prompt(question, context)
         generator = self._get_generator()
         tokenizer = generator.tokenizer
         full_input = f"{system_prompt}\n\n{prompt}"
@@ -118,5 +108,5 @@ class HFLocalLLM(BaseLLMProvider):
                 "total": input_tokens + output_tokens,
             },
             cost_usd=0.0,
-            context=_build_context(context_chunks),
+            context=context,
         )

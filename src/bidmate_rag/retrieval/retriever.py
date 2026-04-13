@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from bidmate_rag.retrieval.filters import (
+    extract_matched_agencies,
     extract_metadata_filters,
     extract_range_filters,
     extract_section_hint,
+    is_comparison_query,
+    should_boost_tables,
 )
 
 
@@ -23,6 +26,80 @@ class RAGRetriever:
         self.vector_store = vector_store
         self.embedder = embedder
         self.metadata_store = metadata_store
+
+    def _extract_scope_key(self, where: dict | None) -> tuple[str, list[str]] | None:
+        if not where:
+            return None
+        value = where.get("발주 기관")
+        if isinstance(value, dict):
+            scoped_values = value.get("$in")
+            if isinstance(scoped_values, list) and len(scoped_values) >= 2:
+                return "발주 기관", scoped_values
+        return None
+
+    def _should_run_scoped_queries(self, query: str, where: dict | None) -> bool:
+        return is_comparison_query(query) and self._extract_scope_key(where) is not None
+
+    def _build_scoped_filters(self, where: dict) -> list[dict]:
+        scoped_target = self._extract_scope_key(where)
+        if scoped_target is None:
+            return [where]
+        scope_key, scoped_values = scoped_target
+        shared_filters = {key: value for key, value in where.items() if key != scope_key}
+        return [{**shared_filters, scope_key: value} for value in scoped_values]
+
+    def _merge_round_robin(self, grouped_results: list[list], top_k: int) -> list:
+        merged: list = []
+        seen_chunk_ids: set[str] = set()
+        max_group_len = max((len(results) for results in grouped_results), default=0)
+        for index in range(max_group_len):
+            for results in grouped_results:
+                if index >= len(results):
+                    continue
+                item = results[index]
+                chunk_id = item.chunk.chunk_id
+                if chunk_id in seen_chunk_ids:
+                    continue
+                seen_chunk_ids.add(chunk_id)
+                merged.append(item)
+                if len(merged) >= top_k:
+                    return self._assign_ranks(merged)
+        return self._assign_ranks(merged)
+
+    def _assign_ranks(self, results: list) -> list:
+        for index, result in enumerate(results, start=1):
+            result.rank = index
+        return results
+
+    def _should_rerank_results(self, section_hint: str | None, table_boost: bool) -> bool:
+        return bool(section_hint or table_boost)
+
+    def _rerank_results(self, results: list, query: str, section_hint: str | None) -> list:
+        if not results:
+            return results
+
+        table_boost = should_boost_tables(query)
+        if not self._should_rerank_results(section_hint, table_boost):
+            return self._assign_ranks(results)
+
+        def boosted_score(result) -> float:
+            score = result.score
+            if section_hint and section_hint in result.chunk.section:
+                score += 0.1
+            if table_boost and result.chunk.content_type == "table":
+                score += 0.1
+            return score
+
+        ordered = sorted(
+            enumerate(results),
+            key=lambda item: (boosted_score(item[1]), item[1].score, -item[0]),
+            reverse=True,
+        )
+        reranked = []
+        for index, (_, result) in enumerate(ordered, start=1):
+            result.rank = index
+            reranked.append(result)
+        return reranked
 
     def retrieve(
         self,
@@ -53,6 +130,9 @@ class RAGRetriever:
         else:
             agency_list = getattr(self.metadata_store, "agency_list", [])
             where = extract_metadata_filters(query, agency_list, chat_history=chat_history)
+            matched_agencies = extract_matched_agencies(query, agency_list)
+            if where is None and len(matched_agencies) >= 2 and is_comparison_query(query):
+                where = {"발주 기관": {"$in": matched_agencies}}
             range_filter = extract_range_filters(query)
             if range_filter:
                 where = {**(where or {}), **range_filter}
@@ -63,9 +143,22 @@ class RAGRetriever:
         section_hint = extract_section_hint(query)
         where_document = {"$contains": section_hint} if section_hint else None
         query_embedding = self.embedder.embed_query(query)
-        return self.vector_store.query(
-            query_embedding=query_embedding,
-            top_k=top_k,
-            where=where,
-            where_document=where_document,
-        )
+        if self._should_run_scoped_queries(query, where):
+            grouped_results = [
+                self.vector_store.query(
+                    query_embedding=query_embedding,
+                    top_k=top_k,
+                    where=scoped_where,
+                    where_document=where_document,
+                )
+                for scoped_where in self._build_scoped_filters(where)
+            ]
+            results = self._merge_round_robin(grouped_results, top_k)
+        else:
+            results = self.vector_store.query(
+                query_embedding=query_embedding,
+                top_k=top_k,
+                where=where,
+                where_document=where_document,
+            )
+        return self._rerank_results(results, query=query, section_hint=section_hint)

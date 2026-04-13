@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pandas as pd
 
+import bidmate_rag.tracking.markdown_report as markdown_report_module
 from bidmate_rag.tracking.markdown_report import (
     load_report_data,
     render_markdown,
@@ -21,6 +23,8 @@ def _make_fixture(
     with_embedding: bool = True,
     judge_skipped: bool = False,
     llm_model: str = "gpt-5-mini",
+    notes_path: str | None = None,
+    rows: list[dict[str, object]] | None = None,
 ) -> Path:
     runs_dir = tmp_path / "runs"
     benchmarks_dir = tmp_path / "benchmarks"
@@ -34,7 +38,7 @@ def _make_fixture(
 
     # JSONL with two questions
     jsonl_path = runs_dir / f"{run_id}.jsonl"
-    rows = [
+    rows = rows or [
         {
             "question_id": "q1",
             "question": "Q1",
@@ -137,6 +141,8 @@ def _make_fixture(
             "judge_total_cost_usd": 0.0 if judge_skipped else 0.0008,
             "judge_total_tokens": 0 if judge_skipped else 400,
         }
+        if notes_path is not None:
+            meta["notes_path"] = notes_path
         (runs_dir / f"{run_id}.meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -174,6 +180,176 @@ def test_load_report_data_full(tmp_path):
     assert data.meta["judge_total_cost_usd"] == 0.0008
 
 
+def test_load_report_data_reads_notes_from_meta(tmp_path):
+    notes_path = tmp_path / "notes" / "example-budget-quality.yaml"
+    notes_path.parent.mkdir()
+    notes_path.write_text(
+        (
+            "title: budget-metadata-context\n"
+            "overview: 예산 메타데이터를 답변에 반영하는 실험\n"
+            "hypothesis:\n"
+            "  - 예산이 metadata에만 존재하는 문서도 답변 가능해질 것이다.\n"
+            "changes:\n"
+            "  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가\n"
+            "expected_outcome:\n"
+            "  - 예산 질문 무응답 감소\n"
+            "next_actions:\n"
+            "  - judge 기준으로 실패 유형 재분류\n"
+            "failure_cases:\n"
+            "  - question_id: q2\n"
+            "    why_watch: retrieval miss\n"
+        ),
+        encoding="utf-8",
+    )
+    _make_fixture(tmp_path, notes_path=str(notes_path))
+
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    assert data.experiment_notes is not None
+    assert data.experiment_notes["title"] == "budget-metadata-context"
+    assert data.experiment_notes["overview"] == "예산 메타데이터를 답변에 반영하는 실험"
+    assert data.experiment_notes["failure_cases"][0]["question_id"] == "q2"
+
+
+def test_load_report_data_resolves_relative_notes_path_from_repo_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    fake_repo = tmp_path / "fake-repo"
+    fake_module_path = fake_repo / "src" / "bidmate_rag" / "tracking" / "markdown_report.py"
+    fake_module_path.parent.mkdir(parents=True)
+    fake_module_path.write_text("# fake module path for repo-root resolution\n", encoding="utf-8")
+
+    relative_notes = Path("configs/experiments/notes/relative-budget-notes.yaml")
+    notes_file = fake_repo / relative_notes
+    notes_file.parent.mkdir(parents=True)
+    notes_file.write_text(
+        "title: relative-notes-title\noverview: 상대 경로 notes 파일\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(markdown_report_module, "__file__", str(fake_module_path))
+    _make_fixture(tmp_path, notes_path=str(relative_notes))
+
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    assert data.experiment_notes is not None
+    assert data.experiment_notes["title"] == "relative-notes-title"
+    assert data.experiment_notes["overview"] == "상대 경로 notes 파일"
+
+
+def test_load_report_data_handles_malformed_notes_yaml_with_warning(
+    tmp_path: Path, caplog
+) -> None:
+    notes_path = tmp_path / "broken-notes.yaml"
+    notes_path.write_text("title: [unterminated\n", encoding="utf-8")
+    _make_fixture(tmp_path, notes_path=str(notes_path))
+
+    with caplog.at_level(logging.WARNING):
+        data = load_report_data(
+            run_id="bench-test1234",
+            runs_dir=tmp_path / "runs",
+            benchmarks_dir=tmp_path / "benchmarks",
+            embeddings_dir=tmp_path / "embeddings",
+        )
+
+    md = render_markdown(data)
+
+    assert data.experiment_notes is None
+    assert "Experiment notes YAML could not be parsed" in caplog.text
+    assert "bench-test1234" in md
+
+
+def test_render_markdown_autofills_notes_bullets_and_failure_case(tmp_path):
+    notes_path = tmp_path / "notes.yaml"
+    notes_path.write_text(
+        (
+            "title: budget-metadata-context\n"
+            "overview: 예산이 metadata에만 존재하는 문서를 다루는 실험\n"
+            "hypothesis:\n"
+            "  - 예산이 metadata에만 존재하는 문서도 답변 가능해질 것이다.\n"
+            "  - 비교형 질문의 근거 회수가 늘어날 것이다.\n"
+            "changes:\n"
+            "  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가\n"
+            "  - 다문서 비교 질문에서 기관별 retrieval merge 추가\n"
+            "expected_outcome:\n"
+            "  - 예산 질문 무응답 감소\n"
+            "  - 비교형 질문 retrieval hit 개선\n"
+            "next_actions:\n"
+            "  - judge 기준으로 실패 유형 재분류\n"
+            "failure_cases:\n"
+            "  - question_id: q2\n"
+            "    why_watch: retrieval miss\n"
+        ),
+        encoding="utf-8",
+    )
+    _make_fixture(tmp_path, notes_path=str(notes_path))
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert "budget-metadata-context" in md
+    assert "예산이 metadata에만 존재하는 문서도 답변 가능해질 것이다." in md
+    assert "비교형 질문의 근거 회수가 늘어날 것이다." in md
+    assert "LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가" in md
+    assert "예산 질문 무응답 감소" in md
+    assert "judge 기준으로 실패 유형 재분류" in md
+    assert "### 실패 사례 1" in md
+    assert "question_id: q2" in md or "Q2" in md
+    assert "retrieval miss" in md
+
+
+def test_render_markdown_handles_missing_notes_file(tmp_path):
+    missing_notes = tmp_path / "missing-notes.yaml"
+    _make_fixture(tmp_path, notes_path=str(missing_notes))
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert data.experiment_notes is None
+    assert "bench-test1234" in md
+    assert "### 실패 사례 1" in md
+    assert "Q2" in md
+
+
+def test_render_markdown_without_notes_keeps_manual_prompts(tmp_path):
+    _make_fixture(tmp_path)
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert data.experiment_notes is None
+    assert "실험 목적/배경을 입력하세요" in md
+    assert "왜 이 변경을 했는지:" in md
+    assert "무엇이 좋아질 거라고 봤는지:" in md
+    assert "변경 내용을 입력하세요" in md
+    assert "기대 결과를 입력하세요" in md
+    assert "다음 실험에서 무엇을 바꿀지:" in md
+    assert "유지할 것:" in md
+    assert "버릴 것:" in md
+
+
 def test_render_markdown_includes_key_sections(tmp_path):
     _make_fixture(tmp_path)
     data = load_report_data(
@@ -206,6 +382,80 @@ def test_render_markdown_includes_key_sections(tmp_path):
     assert "abc1234" in md
     # gpt-5-mini는 reasoning 주의 문구가 표시되어야 함
     assert "gpt-5 계열은 reasoning tokens" in md
+
+
+def test_fallback_failure_cases_prefer_weak_signals_deterministically(tmp_path):
+    rows = [
+        {
+            "question_id": "q9",
+            "question": "strong answer",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "strong",
+            "retrieved_chunks": [{"chunk_id": "c1"}],
+            "latency_ms": 120.0,
+            "cost_usd": 0.001,
+            "judge_scores": {
+                "faithfulness": 0.95,
+                "answer_relevance": 0.93,
+            },
+        },
+        {
+            "question_id": "q2",
+            "question": "error case",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "failed",
+            "retrieved_chunks": [{"chunk_id": "c2"}],
+            "latency_ms": 900.0,
+            "cost_usd": 0.01,
+            "error": "timeout while generating answer",
+            "judge_scores": {},
+        },
+        {
+            "question_id": "q7",
+            "question": "retrieval miss",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "miss",
+            "retrieved_chunks": [],
+            "latency_ms": 1500.0,
+            "cost_usd": 0.02,
+            "judge_scores": {},
+        },
+        {
+            "question_id": "q5",
+            "question": "low score",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "weak",
+            "retrieved_chunks": [{"chunk_id": "c3"}],
+            "latency_ms": 2000.0,
+            "cost_usd": 0.03,
+            "judge_scores": {
+                "faithfulness": 0.2,
+                "answer_relevance": 0.3,
+                "context_precision": 0.4,
+                "context_recall": 0.25,
+            },
+        },
+    ]
+    _make_fixture(tmp_path, rows=rows, judge_skipped=True)
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert "### 실패 사례 1" in md
+    assert "- 질문 ID: q2" in md
+    assert "timeout while generating answer" in md
+    assert "### 실패 사례 2" in md
+    assert "- 질문 ID: q7" in md
+    assert "retrieved_chunks가 비어 있음" in md
+    assert "- 질문 ID: q5" not in md
 
 
 def test_render_markdown_handles_missing_embedding(tmp_path):
