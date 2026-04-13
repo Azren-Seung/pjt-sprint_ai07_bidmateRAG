@@ -47,6 +47,16 @@ class FakeMetadataStore:
         return ["doc-1.hwp", "doc-2.hwp"]
 
 
+class FakeReranker:
+    def __init__(self, scores_by_text: dict[str, float]):
+        self.scores_by_text = scores_by_text
+        self.calls: list[list[list[str]]] = []
+
+    def predict(self, pairs: list[list[str]]) -> list[float]:
+        self.calls.append(pairs)
+        return [self.scores_by_text[text] for _, text in pairs]
+
+
 def _retrieved_chunk(
     chunk_id: str,
     score: float,
@@ -168,7 +178,9 @@ def test_retriever_merges_multi_agency_filter_results_round_robin() -> None:
     assert [result.rank for result in results] == [1, 2, 3, 4]
 
 
-def test_retriever_keeps_explicit_multi_source_filter_single_query_without_comparison_intent() -> None:
+def test_retriever_keeps_explicit_multi_source_filter_single_query_without_comparison_intent() -> (
+    None
+):
     vector_store = FakeVectorStore()
     retriever = RAGRetriever(
         vector_store=vector_store,
@@ -234,6 +246,58 @@ def test_retriever_fans_out_query_named_multi_agency_comparison_without_explicit
         "기초과학연구원",
     ]
     assert [result.chunk.chunk_id for result in results] == ["nps-1", "ibs-1"]
+
+
+def test_retriever_applies_cross_encoder_after_multi_agency_fan_out_merge() -> None:
+    vector_store = ScopedFakeVectorStore(
+        {
+            "국민연금공단": [
+                _retrieved_chunk("nps-1", 0.99, agency="국민연금공단"),
+                _retrieved_chunk("nps-2", 0.98, agency="국민연금공단"),
+            ],
+            "기초과학연구원": [
+                _retrieved_chunk("ibs-1", 0.97, agency="기초과학연구원"),
+                _retrieved_chunk("ibs-2", 0.96, agency="기초과학연구원"),
+            ],
+        }
+    )
+    reranker = FakeReranker(
+        {
+            "nps-1": 0.20,
+            "ibs-1": 0.95,
+            "nps-2": 0.90,
+            "ibs-2": 0.10,
+        }
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+        reranker_model=reranker,
+    )
+
+    results = retriever.retrieve(
+        "국민연금공단과 기초과학연구원 사업을 비교해줘",
+        top_k=2,
+        metadata_filter={"발주 기관": {"$in": ["국민연금공단", "기초과학연구원"]}},
+    )
+
+    assert [call["where"]["발주 기관"] for call in vector_store.calls] == [
+        "국민연금공단",
+        "기초과학연구원",
+    ]
+    assert [call["top_k"] for call in vector_store.calls] == [8, 8]
+    assert reranker.calls == [
+        [
+            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "nps-1"],
+            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "ibs-1"],
+            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "nps-2"],
+            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "ibs-2"],
+        ]
+    ]
+    assert [result.chunk.chunk_id for result in results] == ["ibs-1", "nps-2"]
+    assert [result.rank for result in results] == [1, 2]
+    assert [result.score for result in results] == [0.95, 0.9]
 
 
 def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text() -> None:

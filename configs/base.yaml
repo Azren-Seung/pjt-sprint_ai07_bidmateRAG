@@ -2,3 +2,7 @@ project_name: bidmate-rag
 default_retrieval_top_k: 5
 default_chunk_size: 1000
 default_chunk_overlap: 150
+# Cross-Encoder 리랭킹 모델 (None이면 비활성화)
+# 한국어 특화: dragonkue/bge-reranker-v2-m3-ko
+# 다국어:      BAAI/bge-reranker-v2-m3
+reranker_model: dragonkue/bge-reranker-v2-m3-ko

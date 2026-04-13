@@ -6,6 +6,7 @@ CLI 스크립트와 Streamlit UI가 공유하는 파이프라인 조립 로직.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -16,6 +17,31 @@ from bidmate_rag.providers.llm.registry import build_embedding_provider, build_l
 from bidmate_rag.retrieval.retriever import RAGRetriever
 from bidmate_rag.retrieval.vector_store import ChromaVectorStore
 from bidmate_rag.storage.metadata_store import MetadataStore
+
+logger = logging.getLogger(__name__)
+
+
+def _load_reranker(model_name: str | None):
+    """Cross-Encoder 리랭킹 모델을 로드한다.
+
+    Args:
+        model_name: HuggingFace 모델명. None이면 리랭커를 사용하지 않는다.
+
+    Returns:
+        CrossEncoder 모델 인스턴스. model_name이 None이거나 로드 실패 시 None.
+    """
+    if not model_name:
+        return None
+    try:
+        from sentence_transformers import CrossEncoder
+
+        logger.info("Cross-Encoder 리랭킹 모델 로딩: %s", model_name)
+        model = CrossEncoder(model_name)
+        logger.info("Cross-Encoder 로딩 완료")
+        return model
+    except Exception as e:
+        logger.warning("Cross-Encoder 로딩 실패 (부스팅만 사용): %s", e)
+        return None
 
 
 def collection_name_for_config(runtime: RuntimeConfig) -> str:
@@ -111,8 +137,12 @@ def build_runtime_pipeline(
         if resolved_path.exists()
         else MetadataStore(pd.DataFrame())
     )
+    reranker = _load_reranker(runtime.project.reranker_model)
     retriever = RAGRetriever(
-        vector_store=vector_store, embedder=embedder, metadata_store=metadata_store
+        vector_store=vector_store,
+        embedder=embedder,
+        metadata_store=metadata_store,
+        reranker_model=reranker,
     )
     pipeline = RAGChatPipeline(retriever=retriever, llm=llm)
     return pipeline, runtime, embedder, llm
