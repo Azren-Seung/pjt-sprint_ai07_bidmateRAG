@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import yaml as _yaml
 
-from app.api.routes import run_benchmark_experiment
+from app.api.routes import run_benchmark_experiment, load_metadata_options
 from bidmate_rag.evaluation.dataset import (
     find_latest_eval_dir,
     normalize_metadata_filter,
@@ -482,7 +482,9 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
                 # (cli/eval.py가 사용하는 normalize_metadata_filter와 동일 로직)
                 raw_filter = selected_q.get("metadata_filter")
                 normalized_filter = normalize_metadata_filter(
-                    raw_filter if isinstance(raw_filter, dict) else None
+                    raw_filter if isinstance(raw_filter, dict) else None,
+                    question=selected_q["question"],
+                    agency_list=load_metadata_options().get("agencies", [])
                 )
                 # history는 list[{role, content}] 형식이면 그대로 전달
                 history = selected_q.get("history") or None
