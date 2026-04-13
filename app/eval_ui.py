@@ -22,6 +22,7 @@ EVAL_DIR = find_latest_eval_dir()
 # Provider 정렬/필터 공통 유틸
 B_ORDER = {"gpt-5": 0, "gpt-5-mini": 1, "gpt-5-nano": 2}
 
+
 def _get_provider_info(path):
     try:
         cfg = _yaml.safe_load(path.read_text())
@@ -29,18 +30,24 @@ def _get_provider_info(path):
     except Exception:
         return "", ""
 
+
 def _format_provider(p):
     scenario, model = _get_provider_info(p)
     tag = "🅰️" if scenario == "scenario_a" else "🅱️"
     return f"{tag} {model}"
 
+
 def _sort_providers(configs):
     """B 시나리오(gpt-5→mini→nano) 우선, A 시나리오 이름순."""
-    return sorted(configs, key=lambda p: (
-        0 if _get_provider_info(p)[0] == "scenario_b" else 1,
-        B_ORDER.get(_get_provider_info(p)[1], 99),
-        p.stem,
-    ))
+    return sorted(
+        configs,
+        key=lambda p: (
+            0 if _get_provider_info(p)[0] == "scenario_b" else 1,
+            B_ORDER.get(_get_provider_info(p)[1], 99),
+            p.stem,
+        ),
+    )
+
 
 def _render_scenario_provider_selector(st, list_provider_configs, key_prefix=""):
     """시나리오 체크박스 + Provider selectbox. 평가실행/디버깅 공통."""
@@ -63,18 +70,20 @@ def _render_scenario_provider_selector(st, list_provider_configs, key_prefix="")
     if not filtered:
         st.warning("선택한 시나리오에 Provider가 없습니다.")
         return None
-    return st.selectbox("Provider", filtered, format_func=_format_provider, key=f"{key_prefix}_provider")
+    return st.selectbox(
+        "Provider", filtered, format_func=_format_provider, key=f"{key_prefix}_provider"
+    )
+
+
 EVAL_SET_PATH = EVAL_DIR / "eval_set.json"
 RUNS_DIR = Path("artifacts/logs/runs")
 BENCHMARKS_DIR = Path("artifacts/logs/benchmarks")
 
 
 def _render_chunking_selector(st, list_chunking_configs, key_prefix=""):
-    #청킹 전략 selectbox
+    # 청킹 전략 selectbox
     chunking_configs = list_chunking_configs()
-    default_idx = next(
-        (i for i, p in enumerate(chunking_configs) if "1000_150" in p.stem), 0
-    )
+    default_idx = next((i for i, p in enumerate(chunking_configs) if "1000_150" in p.stem), 0)
     return st.selectbox(
         "청킹 전략",
         chunking_configs,
@@ -139,26 +148,37 @@ def save_eval_set(data: list[dict], fmt: str = "csv") -> Path:
         save_path = EVAL_DIR / "eval_set_edited.csv"
         rows = []
         for q in data:
-            rows.append({
-                "id": q["id"],
-                "type": q["type"],
-                "difficulty": q.get("difficulty", "중"),
-                "question": q["question"],
-                "ground_truth_answer": q.get("ground_truth_answer", ""),
-                "ground_truth_docs": json.dumps(q.get("ground_truth_docs", []), ensure_ascii=False),
-                "metadata_filter": json.dumps(q.get("metadata_filter") or {}, ensure_ascii=False),
-                "history": json.dumps(q.get("history") or [], ensure_ascii=False),
-            })
+            rows.append(
+                {
+                    "id": q["id"],
+                    "type": q["type"],
+                    "difficulty": q.get("difficulty", "중"),
+                    "question": q["question"],
+                    "ground_truth_answer": q.get("ground_truth_answer", ""),
+                    "ground_truth_docs": json.dumps(
+                        q.get("ground_truth_docs", []), ensure_ascii=False
+                    ),
+                    "metadata_filter": json.dumps(
+                        q.get("metadata_filter") or {}, ensure_ascii=False
+                    ),
+                    "history": json.dumps(q.get("history") or [], ensure_ascii=False),
+                }
+            )
         pd.DataFrame(rows).to_csv(save_path, index=False, encoding="utf-8-sig")
         return save_path
     else:
-        EVAL_SET_PATH.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        EVAL_SET_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         return EVAL_SET_PATH
 
 
-def render_eval_tabs(st, run_live_query, list_provider_configs, list_chunking_configs, load_benchmark_frames, load_run_records):
+def render_eval_tabs(
+    st,
+    run_live_query,
+    list_provider_configs,
+    list_chunking_configs,
+    load_benchmark_frames,
+    load_run_records,
+):
     """평가 탭 메인 렌더러."""
 
     # 평가셋 파일 선택
@@ -200,7 +220,9 @@ def render_eval_tabs(st, run_live_query, list_provider_configs, list_chunking_co
 
     # ── 서브탭 2: 질문 디버깅 ──
     with debug_tab:
-        _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs)
+        _render_debug_tab(
+            st, eval_set, run_live_query, list_provider_configs, list_chunking_configs
+        )
 
     # ── 서브탭 3: 결과 비교 ──
     with compare_tab:
@@ -239,11 +261,9 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
     provider = _render_scenario_provider_selector(st, list_provider_configs, key_prefix="run")
     if provider is None:
         return
-    chunking = _render_chunking_selector(st, list_chunking_configs, key_prefix="run") #청킹 선택 추가
-    
-
-
-
+    chunking = _render_chunking_selector(
+        st, list_chunking_configs, key_prefix="run"
+    )  # 청킹 선택 추가
 
     opt_col1, opt_col2 = st.columns(2)
     with opt_col1:
@@ -267,15 +287,13 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
     progress_bar = st.progress(0, text="평가 실행 중...")
 
     def _on_progress(done: int, total: int, sample) -> None:
-        progress_bar.progress(
-            done / total, text=f"[{done}/{total}] {sample.question[:40]}..."
-        )
+        progress_bar.progress(done / total, text=f"[{done}/{total}] {sample.question[:40]}...")
 
     try:
         artifacts = run_benchmark_experiment(
             evaluation_path=eval_file,
             provider_config_path=provider,
-            experiment_config_path=chunking, #청킹 전략 전달
+            experiment_config_path=chunking,  # 청킹 전략 전달
             skip_judge=skip_judge,
             judge_model=judge_model,
             progress_callback=_on_progress,
@@ -304,9 +322,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
     ]
     st.session_state.eval_results[artifacts.run_id] = legacy_rows
 
-    st.success(
-        f"실행 완료: {len(artifacts.benchmark.results)}건 (run_id: `{artifacts.run_id}`)"
-    )
+    st.success(f"실행 완료: {len(artifacts.benchmark.results)}건 (run_id: `{artifacts.run_id}`)")
 
     _render_run_artifacts(st, artifacts)
 
@@ -320,19 +336,18 @@ def _render_run_artifacts(st, artifacts) -> None:
     generation_cost = sum(float(r.cost_usd or 0.0) for r in results)
     judge_cost = float(artifacts.judge_total_cost_usd or 0.0)
     prompt_tokens = sum(int((r.token_usage or {}).get("prompt", 0) or 0) for r in results)
-    completion_tokens = sum(
-        int((r.token_usage or {}).get("completion", 0) or 0) for r in results
-    )
+    completion_tokens = sum(int((r.token_usage or {}).get("completion", 0) or 0) for r in results)
     total_tokens = prompt_tokens + completion_tokens
     latencies_ms = [float(r.latency_ms or 0.0) for r in results]
     avg_latency_s = sum(latencies_ms) / len(latencies_ms) / 1000 if latencies_ms else 0.0
 
     # ── 검색 메트릭 카드 ──
     st.markdown("#### 🔍 검색 품질")
-    cols = st.columns(3)
+    cols = st.columns(4)
     cols[0].metric("Hit Rate@5", _fmt_metric(metrics.get("hit_rate@5")))
     cols[1].metric("MRR", _fmt_metric(metrics.get("mrr")))
     cols[2].metric("nDCG@5", _fmt_metric(metrics.get("ndcg@5")))
+    cols[3].metric("MAP@5", _fmt_metric(metrics.get("map@5")))
 
     # ── Judge 메트릭 카드 ──
     if not artifacts.judge_skipped:
@@ -418,9 +433,15 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
     # 필터
     col1, col2 = st.columns(2)
     with col1:
-        type_filter = st.selectbox("유형 필터", ["전체"] + sorted(set(q["type"] for q in eval_set)), key="debug_type")
+        type_filter = st.selectbox(
+            "유형 필터", ["전체"] + sorted(set(q["type"] for q in eval_set)), key="debug_type"
+        )
     with col2:
-        diff_filter = st.selectbox("난이도 필터", ["전체"] + sorted(set(q.get("difficulty", "중") for q in eval_set)), key="debug_diff")
+        diff_filter = st.selectbox(
+            "난이도 필터",
+            ["전체"] + sorted(set(q.get("difficulty", "중") for q in eval_set)),
+            key="debug_diff",
+        )
 
     filtered = eval_set
     if type_filter != "전체":
@@ -435,7 +456,9 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
     selected_q = st.selectbox(
         "질문 선택",
         filtered,
-        format_func=lambda q: f"[{q['id']}|{q['type']}|{q.get('difficulty','중')}] {q['question'][:50]}",
+        format_func=lambda q: (
+            f"[{q['id']}|{q['type']}|{q.get('difficulty', '중')}] {q['question'][:50]}"
+        ),
         key="debug_question",
     )
 
@@ -447,7 +470,9 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
     if provider is None:
         return
     top_k = st.slider("Top-K", 1, 20, 5, key="debug_topk")
-    chunking = _render_chunking_selector(st, list_chunking_configs, key_prefix="debug") #청킹 선택 추가
+    chunking = _render_chunking_selector(
+        st, list_chunking_configs, key_prefix="debug"
+    )  # 청킹 선택 추가
 
     if st.button("🔍 이 질문 실행", type="primary", key="debug_run_btn"):
         with st.status("디버깅 실행 중...", expanded=True) as status:
@@ -467,7 +492,7 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
                 result = run_live_query(
                     question=selected_q["question"],
                     provider_config_path=provider,
-                    experiment_config_path=chunking, #청킹 전략 전달
+                    experiment_config_path=chunking,  # 청킹 전략 전달
                     top_k=top_k,
                     metadata_filter=normalized_filter,
                     chat_history=history,
@@ -500,24 +525,36 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
                     st.dataframe(chunks_data, width="stretch")
 
                     # 정답 문서 포함 여부
-                    retrieved_docs = [c.chunk.metadata.get("사업명", "") for c in result.retrieved_chunks]
+                    retrieved_docs = [
+                        c.chunk.metadata.get("사업명", "") for c in result.retrieved_chunks
+                    ]
                     expected = selected_q.get("ground_truth_docs", [])
                     if expected:
                         found = [e for e in expected if any(e in d for d in retrieved_docs)]
                         if len(found) == len(expected):
                             st.success(f"검색 성공: 기대 문서 {len(found)}/{len(expected)}건 포함")
                         else:
-                            st.warning(f"검색 부분 성공: 기대 문서 {len(found)}/{len(expected)}건만 포함")
+                            st.warning(
+                                f"검색 부분 성공: 기대 문서 {len(found)}/{len(expected)}건만 포함"
+                            )
 
                 # 2) 생성 단계
                 st.markdown("### 2단계: 생성 — 답변 vs 정답 비교")
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown("**생성된 답변**")
-                    st.text_area("답변", result.answer[:2000], height=300, key="debug_answer", disabled=True)
+                    st.text_area(
+                        "답변", result.answer[:2000], height=300, key="debug_answer", disabled=True
+                    )
                 with col2:
                     st.markdown("**정답 (Ground Truth)**")
-                    st.text_area("정답", selected_q.get("ground_truth_answer", "없음"), height=300, key="debug_gt", disabled=True)
+                    st.text_area(
+                        "정답",
+                        selected_q.get("ground_truth_answer", "없음"),
+                        height=300,
+                        key="debug_gt",
+                        disabled=True,
+                    )
 
                 # 3) 메트릭
                 st.markdown("### 3단계: 메트릭")
@@ -553,7 +590,9 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
             pass
 
     if len(all_sources) < 2:
-        st.info("비교하려면 최소 2개 이상의 평가 결과가 필요합니다. '평가 실행' 탭에서 다른 설정으로 실행해보세요.")
+        st.info(
+            "비교하려면 최소 2개 이상의 평가 결과가 필요합니다. '평가 실행' 탭에서 다른 설정으로 실행해보세요."
+        )
         if all_sources:
             st.caption(f"현재 결과: {len(all_sources)}개")
             for name, df in all_sources.items():
@@ -576,7 +615,11 @@ def _render_compare_tab(st, load_benchmark_frames, load_run_records):
     st.markdown("### 질문별 비교")
     if "id" in left_df.columns and "id" in right_df.columns:
         merged = left_df.merge(right_df, on="id", suffixes=("_좌", "_우"), how="outer")
-        display_cols = [c for c in merged.columns if "id" in c or "answer" in c or "tokens" in c or "latency" in c]
+        display_cols = [
+            c
+            for c in merged.columns
+            if "id" in c or "answer" in c or "tokens" in c or "latency" in c
+        ]
         st.dataframe(merged[display_cols] if display_cols else merged, width="stretch")
     else:
         col1, col2 = st.columns(2)
@@ -620,7 +663,9 @@ def _render_edit_tab(st, eval_set):
         st.dataframe(table_data, width="stretch")
 
     # 편집할 질문 선택 또는 새로 추가
-    action = st.radio("작업", ["기존 질문 편집", "새 질문 추가", "질문 삭제"], horizontal=True, key="edit_action")
+    action = st.radio(
+        "작업", ["기존 질문 편집", "새 질문 추가", "질문 삭제"], horizontal=True, key="edit_action"
+    )
 
     if action == "기존 질문 편집" and eval_set:
         selected_idx = st.selectbox(
@@ -634,7 +679,7 @@ def _render_edit_tab(st, eval_set):
 
     elif action == "새 질문 추가":
         new_q = {
-            "id": f"Q{len(eval_set)+1:03d}",
+            "id": f"Q{len(eval_set) + 1:03d}",
             "type": "A",
             "difficulty": "중",
             "question": "",
@@ -682,22 +727,27 @@ def _render_edit_tab(st, eval_set):
             st.rerun()
     with col3:
         # CSV 업로드
-        uploaded = st.file_uploader("CSV 업로드", type=["csv"], key="upload_csv", label_visibility="collapsed")
+        uploaded = st.file_uploader(
+            "CSV 업로드", type=["csv"], key="upload_csv", label_visibility="collapsed"
+        )
         if uploaded:
             import io
+
             df = pd.read_csv(io.StringIO(uploaded.read().decode("utf-8-sig")))
             new_records = []
             for _, row in df.iterrows():
-                new_records.append({
-                    "id": str(row.get("id", "")),
-                    "type": str(row.get("type", "A")),
-                    "difficulty": str(row.get("difficulty", "중")),
-                    "question": str(row.get("question", "")),
-                    "ground_truth_answer": str(row.get("ground_truth_answer", "")),
-                    "ground_truth_docs": _parse_json_field(row.get("ground_truth_docs")) or [],
-                    "metadata_filter": _parse_json_field(row.get("metadata_filter")),
-                    "history": _parse_json_field(row.get("history")),
-                })
+                new_records.append(
+                    {
+                        "id": str(row.get("id", "")),
+                        "type": str(row.get("type", "A")),
+                        "difficulty": str(row.get("difficulty", "중")),
+                        "question": str(row.get("question", "")),
+                        "ground_truth_answer": str(row.get("ground_truth_answer", "")),
+                        "ground_truth_docs": _parse_json_field(row.get("ground_truth_docs")) or [],
+                        "metadata_filter": _parse_json_field(row.get("metadata_filter")),
+                        "history": _parse_json_field(row.get("history")),
+                    }
+                )
             st.session_state.eval_set = new_records
             st.toast(f"업로드 완료: {len(new_records)}개 질문", icon="📤")
             st.rerun()
@@ -709,24 +759,47 @@ def _render_question_form(st, q: dict, key_prefix: str, edit_mode: bool, idx: in
     with col1:
         q_id = st.text_input("ID", value=q["id"], key=f"{key_prefix}_id")
     with col2:
-        q_type = st.selectbox("유형", ["A", "B", "C", "D", "E"],
-                               index=["A", "B", "C", "D", "E"].index(q.get("type", "A")),
-                               key=f"{key_prefix}_type")
+        q_type = st.selectbox(
+            "유형",
+            ["A", "B", "C", "D", "E"],
+            index=["A", "B", "C", "D", "E"].index(q.get("type", "A")),
+            key=f"{key_prefix}_type",
+        )
     with col3:
-        q_diff = st.selectbox("난이도", ["하", "중", "상"],
-                               index=["하", "중", "상"].index(q.get("difficulty", "중")),
-                               key=f"{key_prefix}_diff")
+        q_diff = st.selectbox(
+            "난이도",
+            ["하", "중", "상"],
+            index=["하", "중", "상"].index(q.get("difficulty", "중")),
+            key=f"{key_prefix}_diff",
+        )
 
-    q_question = st.text_area("질문", value=q.get("question", ""), height=80, key=f"{key_prefix}_question")
-    q_gt_answer = st.text_area("정답 (Ground Truth)", value=q.get("ground_truth_answer", ""), height=120, key=f"{key_prefix}_gt")
-    q_gt_docs = st.text_input("기대 문서 (쉼표 구분)", value=", ".join(q.get("ground_truth_docs", [])), key=f"{key_prefix}_docs")
-    q_meta_filter = st.text_input("메타데이터 필터 (JSON)", value=json.dumps(q.get("metadata_filter") or {}, ensure_ascii=False), key=f"{key_prefix}_filter")
+    q_question = st.text_area(
+        "질문", value=q.get("question", ""), height=80, key=f"{key_prefix}_question"
+    )
+    q_gt_answer = st.text_area(
+        "정답 (Ground Truth)",
+        value=q.get("ground_truth_answer", ""),
+        height=120,
+        key=f"{key_prefix}_gt",
+    )
+    q_gt_docs = st.text_input(
+        "기대 문서 (쉼표 구분)",
+        value=", ".join(q.get("ground_truth_docs", [])),
+        key=f"{key_prefix}_docs",
+    )
+    q_meta_filter = st.text_input(
+        "메타데이터 필터 (JSON)",
+        value=json.dumps(q.get("metadata_filter") or {}, ensure_ascii=False),
+        key=f"{key_prefix}_filter",
+    )
 
     # C유형: history
     q_history = None
     if q_type == "C":
         history_str = json.dumps(q.get("history") or [], ensure_ascii=False, indent=2)
-        q_history_raw = st.text_area("대화 히스토리 (JSON)", value=history_str, height=150, key=f"{key_prefix}_history")
+        q_history_raw = st.text_area(
+            "대화 히스토리 (JSON)", value=history_str, height=150, key=f"{key_prefix}_history"
+        )
         try:
             q_history = json.loads(q_history_raw) if q_history_raw.strip() else None
         except json.JSONDecodeError:
@@ -743,7 +816,9 @@ def _render_question_form(st, q: dict, key_prefix: str, edit_mode: bool, idx: in
             "question": q_question,
             "ground_truth_answer": q_gt_answer,
             "ground_truth_docs": [d.strip() for d in q_gt_docs.split(",") if d.strip()],
-            "metadata_filter": json.loads(q_meta_filter) if q_meta_filter.strip() and q_meta_filter.strip() != "{}" else None,
+            "metadata_filter": json.loads(q_meta_filter)
+            if q_meta_filter.strip() and q_meta_filter.strip() != "{}"
+            else None,
             "history": q_history,
         }
 

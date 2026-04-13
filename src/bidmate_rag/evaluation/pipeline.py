@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from bidmate_rag.config.settings import RuntimeConfig
 from bidmate_rag.evaluation.judge import LLMJudge
-from bidmate_rag.evaluation.metrics import calc_hit_rate, calc_mrr, calc_ndcg
+from bidmate_rag.evaluation.metrics import calc_hit_rate, calc_map, calc_mrr, calc_ndcg
 from bidmate_rag.evaluation.runner import (
     BenchmarkRunner,
     ProgressCallback,
@@ -101,11 +101,7 @@ def execute_evaluation(
     )
 
     # ExperimentConfig.retrieval_top_k가 비어있으면 ProjectConfig 기본값 5.
-    top_k = (
-        runtime.experiment.retrieval_top_k
-        or runtime.project.default_retrieval_top_k
-        or 5
-    )
+    top_k = runtime.experiment.retrieval_top_k or runtime.project.default_retrieval_top_k or 5
 
     def answer_fn(sample: EvalSample) -> GenerationResult:
         # 평가셋의 metadata_filter / history를 retrieval에 실제로 적용
@@ -143,9 +139,7 @@ def execute_evaluation(
             judge_total_tokens=judge_tokens,
         )
 
-    run_path = persist_run_results(
-        benchmark.results, runs_dir=runs_path, run_id=resolved_run_id
-    )
+    run_path = persist_run_results(benchmark.results, runs_dir=runs_path, run_id=resolved_run_id)
     summary_path = persist_benchmark_summary(
         [benchmark.to_summary_record()],
         benchmarks_dir=benchmarks_path,
@@ -170,11 +164,9 @@ def execute_evaluation(
 # ---------------------------------------------------------------------------
 
 
-def _aggregate_retrieval_metrics(
-    samples: list[EvalSample], benchmark: BenchmarkRunResult
-) -> None:
-    """Compute Hit Rate@5 / MRR / nDCG@5 and merge into ``benchmark.metrics``."""
-    totals = {"hit_rate@5": 0.0, "mrr": 0.0, "ndcg@5": 0.0}
+def _aggregate_retrieval_metrics(samples: list[EvalSample], benchmark: BenchmarkRunResult) -> None:
+    """Compute Hit Rate@5 / MRR / nDCG@5 / MAP@5 and merge into ``benchmark.metrics``."""
+    totals = {"hit_rate@5": 0.0, "mrr": 0.0, "ndcg@5": 0.0, "map@5": 0.0}
     scored = 0
     for sample, result in zip(samples, benchmark.results, strict=False):
         # Eval CSVs put 파일명 in `ground_truth_docs`, which dataset.py maps to
@@ -185,15 +177,15 @@ def _aggregate_retrieval_metrics(
         hit = calc_hit_rate(result.retrieved_chunks, expected, k=5)
         mrr = calc_mrr(result.retrieved_chunks, expected)
         ndcg = calc_ndcg(result.retrieved_chunks, expected, k=5)
+        map_score = calc_map(result.retrieved_chunks, expected, k=5)
         if hit is not None:
             totals["hit_rate@5"] += hit
             totals["mrr"] += mrr or 0.0
             totals["ndcg@5"] += ndcg or 0.0
+            totals["map@5"] += map_score or 0.0
             scored += 1
     if scored:
-        benchmark.metrics.update(
-            {key: round(value / scored, 4) for key, value in totals.items()}
-        )
+        benchmark.metrics.update({key: round(value / scored, 4) for key, value in totals.items()})
 
 
 def _run_judge(
@@ -220,9 +212,7 @@ def _run_judge(
             totals[key] += getattr(scores, key)
         judged += 1
     if judged:
-        benchmark.metrics.update(
-            {key: round(value / judged, 4) for key, value in totals.items()}
-        )
+        benchmark.metrics.update({key: round(value / judged, 4) for key, value in totals.items()})
     return round(judge.cumulative_cost_usd, 6), judge.cumulative_tokens
 
 
@@ -242,9 +232,7 @@ def _write_run_meta(
         "run_id": run_id,
         "experiment_name": experiment_name,
         "timestamp_utc": now_utc.isoformat(),
-        "timestamp_kst": now_utc.astimezone(ZoneInfo("Asia/Seoul")).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
+        "timestamp_kst": now_utc.astimezone(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M:%S"),
         "git": capture_git_info(),
         "configs": {k: v for k, v in config_paths.items() if v},
         "notes_path": runtime.experiment.notes_path,
