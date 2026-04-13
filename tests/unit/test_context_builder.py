@@ -1,0 +1,99 @@
+from bidmate_rag.generation.context_builder import build_context_block
+from bidmate_rag.schema import Chunk, RetrievedChunk
+
+
+def _make_retrieved_chunk(
+    *,
+    chunk_id: str,
+    text: str,
+    metadata: dict,
+) -> RetrievedChunk:
+    chunk = Chunk(
+        chunk_id=chunk_id,
+        doc_id=f"doc-{chunk_id}",
+        text=text,
+        text_with_meta=text,
+        char_count=len(text),
+        section="요구사항",
+        content_type="text",
+        chunk_index=0,
+        metadata=metadata,
+    )
+    return RetrievedChunk(rank=1, score=0.9, chunk=chunk)
+
+
+def test_build_context_block_renders_source_and_metadata() -> None:
+    chunks = [
+        _make_retrieved_chunk(
+            chunk_id="chunk-1",
+            text="첫 번째 청크",
+            metadata={
+                "사업명": "차세대 ERP 구축",
+                "발주 기관": "한국가스공사",
+                "파일명": "kgc_rfp.hwp",
+                "사업 금액": 14107009000,
+                "공개연도": 2024,
+                "기관유형": "공기업/준정부기관",
+                "사업도메인": "경영/행정",
+            },
+        )
+    ]
+
+    context = build_context_block(chunks)
+
+    assert "[사업명: 차세대 ERP 구축 | 발주 기관: 한국가스공사 | 파일명: kgc_rfp.hwp]" in context
+    assert "사업 금액: 14,107,009,000원" in context
+    assert "공개연도: 2024" in context
+    assert "기관유형: 공기업/준정부기관" in context
+    assert "사업도메인: 경영/행정" in context
+    assert context.endswith("첫 번째 청크")
+
+
+def test_build_context_block_omits_missing_and_nan_like_metadata() -> None:
+    chunks = [
+        _make_retrieved_chunk(
+            chunk_id="chunk-1",
+            text="본문",
+            metadata={
+                "사업명": "  ",
+                "발주 기관": "nan",
+                "파일명": None,
+                "사업 금액": float("nan"),
+                "공개연도": "",
+                "기관유형": "N/A",
+                "사업도메인": "<NA>",
+            },
+        )
+    ]
+
+    context = build_context_block(chunks)
+
+    assert "[사업명:" not in context
+    assert "발주 기관:" not in context
+    assert "파일명:" not in context
+    assert "사업 금액:" not in context
+    assert "공개연도:" not in context
+    assert "기관유형:" not in context
+    assert "사업도메인:" not in context
+    assert context == "본문"
+
+
+def test_build_context_block_respects_max_chars_budget() -> None:
+    chunks = [
+        _make_retrieved_chunk(
+            chunk_id="chunk-1",
+            text="짧은 본문",
+            metadata={"사업명": "사업 1", "발주 기관": "기관 1"},
+        ),
+        _make_retrieved_chunk(
+            chunk_id="chunk-2",
+            text="이 청크는 예산 때문에 포함되면 안 됩니다",
+            metadata={"사업명": "사업 2", "발주 기관": "기관 2"},
+        ),
+    ]
+
+    context = build_context_block(chunks, max_chars=80)
+
+    assert "사업 1" in context
+    assert "사업 2" not in context
+    assert context == "[사업명: 사업 1 | 발주 기관: 기관 1]\n짧은 본문"
