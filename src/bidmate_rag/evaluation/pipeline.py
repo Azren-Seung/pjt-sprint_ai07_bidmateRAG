@@ -247,6 +247,7 @@ def _write_run_meta(
         ),
         "git": capture_git_info(),
         "configs": {k: v for k, v in config_paths.items() if v},
+        "notes_path": runtime.experiment.notes_path,
         "config_snapshot": runtime.model_dump(),
         "eval_path": eval_path,
         "collection_name": collection_name,
