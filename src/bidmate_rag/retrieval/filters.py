@@ -38,6 +38,17 @@ SECTION_KEYWORDS = {
 
 TABLE_KEYWORDS = ["요구사항", "정리", "목록", "예산", "금액", "일정", "배점", "기준", "표"]
 RELEASE_KEYWORDS = ["다른 기관", "다른 사업", "그 외", "외에", "이외", "말고"]
+COMPARISON_KEYWORDS = [
+    "비교",
+    "차이",
+    "차액",
+    "합산",
+    "더 큰",
+    "더 작은",
+    "각각",
+    "공통",
+    "대비",
+]
 
 
 def extract_metadata_filters(
@@ -133,3 +144,15 @@ def should_boost_tables(query: str) -> bool:
         테이블 부스팅 여부.
     """
     return any(keyword in query for keyword in TABLE_KEYWORDS)
+
+
+def is_comparison_query(query: str) -> bool:
+    """쿼리가 비교·대조·합산형 질문인지 판별
+
+    Args:
+        query: 사용자 질의 문자열.
+
+    Returns:
+        비교형 질의 여부.
+    """
+    return any(keyword in query for keyword in COMPARISON_KEYWORDS)
