@@ -41,11 +41,11 @@ def test_build_context_block_renders_source_and_metadata() -> None:
 
     context = build_context_block(chunks)
 
-    assert "[사업명: 차세대 ERP 구축 | 발주 기관: 한국가스공사 | 파일명: kgc_rfp.hwp]" in context
-    assert "사업 금액: 14,107,009,000원" in context
-    assert "공개연도: 2024" in context
-    assert "기관유형: 공기업/준정부기관" in context
-    assert "사업도메인: 경영/행정" in context
+    assert "[출처: 차세대 ERP 구축 | 한국가스공사 | kgc_rfp.hwp]" in context
+    assert "사업 금액=14,107,009,000원" in context
+    assert "공개연도=2024" in context
+    assert "기관유형=공기업/준정부기관" in context
+    assert "사업도메인=경영/행정" in context
     assert context.endswith("첫 번째 청크")
 
 
@@ -68,13 +68,14 @@ def test_build_context_block_omits_missing_and_nan_like_metadata() -> None:
 
     context = build_context_block(chunks)
 
-    assert "[사업명:" not in context
-    assert "발주 기관:" not in context
-    assert "파일명:" not in context
-    assert "사업 금액:" not in context
-    assert "공개연도:" not in context
-    assert "기관유형:" not in context
-    assert "사업도메인:" not in context
+    assert "[출처:" not in context
+    assert "사업명=" not in context
+    assert "발주 기관=" not in context
+    assert "파일명=" not in context
+    assert "사업 금액=" not in context
+    assert "공개연도=" not in context
+    assert "기관유형=" not in context
+    assert "사업도메인=" not in context
     assert context == "본문"
 
 
@@ -92,8 +93,8 @@ def test_build_context_block_respects_max_chars_budget() -> None:
         ),
     ]
 
-    context = build_context_block(chunks, max_chars=80)
+    context = build_context_block(chunks, max_chars=40)
 
     assert "사업 1" in context
     assert "사업 2" not in context
-    assert context == "[사업명: 사업 1 | 발주 기관: 기관 1]\n짧은 본문"
+    assert context == "[출처: 사업 1 | 기관 1]\n짧은 본문"

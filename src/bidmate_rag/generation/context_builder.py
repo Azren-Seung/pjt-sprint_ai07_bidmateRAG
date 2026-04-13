@@ -73,19 +73,19 @@ def _format_metadata_line(key: str, value: object) -> str | None:
         formatted = _clean_text(value)
     if formatted is None:
         return None
-    return f"{key}: {formatted}"
+    return f"{key}={formatted}"
 
 
 def _build_chunk_header(metadata: dict[str, object]) -> str:
-    source_parts: list[str] = []
+    source_values: list[str] = []
     for key in _SOURCE_KEYS:
         value = _clean_text(metadata.get(key))
         if value is not None:
-            source_parts.append(f"{key}: {value}")
+            source_values.append(value)
 
     lines: list[str] = []
-    if source_parts:
-        lines.append(f"[{' | '.join(source_parts)}]")
+    if source_values:
+        lines.append(f"[출처: {' | '.join(source_values)}]")
 
     for key in _DETAIL_KEYS:
         line = _format_metadata_line(key, metadata.get(key))
