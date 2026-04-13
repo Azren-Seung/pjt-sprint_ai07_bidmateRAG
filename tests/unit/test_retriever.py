@@ -11,13 +11,16 @@ class FakeEmbedder:
 
 
 class FakeVectorStore:
-    def __init__(self):
+    def __init__(self, query_results: list[RetrievedChunk] | None = None):
         self.last_kwargs = None
         self.calls = []
+        self.query_results = query_results
 
     def query(self, **kwargs):
         self.last_kwargs = kwargs
         self.calls.append(kwargs)
+        if self.query_results is not None:
+            return self.query_results
         return [
             RetrievedChunk(
                 rank=1,
@@ -113,8 +116,23 @@ def test_retriever_uses_metadata_store_shortlist_when_no_explicit_filter() -> No
 
     results = retriever.retrieve("비슷한 사업 비교해줘", top_k=2)
 
-    assert [call["where"]["파일명"] for call in vector_store.calls] == ["doc-1.hwp", "doc-2.hwp"]
+    assert len(vector_store.calls) == 1
+    assert vector_store.last_kwargs["where"] == {"파일명": {"$in": ["doc-1.hwp", "doc-2.hwp"]}}
     assert results[0].score > 0
+
+
+def test_retriever_does_not_fan_out_generic_shortlist_each_query() -> None:
+    vector_store = FakeVectorStore()
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+    )
+
+    retriever.retrieve("요구사항을 각각 정리해줘", top_k=2)
+
+    assert len(vector_store.calls) == 1
+    assert vector_store.last_kwargs["where"] == {"파일명": {"$in": ["doc-1.hwp", "doc-2.hwp"]}}
 
 
 def test_retriever_merges_multi_agency_filter_results_round_robin() -> None:
@@ -150,18 +168,65 @@ def test_retriever_merges_multi_agency_filter_results_round_robin() -> None:
     assert [result.rank for result in results] == [1, 2, 3, 4]
 
 
-def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text() -> None:
+def test_retriever_keeps_explicit_multi_source_filter_single_query_without_comparison_intent() -> None:
     vector_store = FakeVectorStore()
-    vector_store.query = lambda **kwargs: [
-        _retrieved_chunk("overview-text", 0.91, agency="국민연금공단", section="사업개요"),
-        _retrieved_chunk(
-            "budget-table",
-            0.8,
-            agency="국민연금공단",
-            section="예산",
-            content_type="table",
-        ),
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+    )
+
+    retriever.retrieve(
+        "두 기관 요구사항 정리해줘",
+        top_k=4,
+        metadata_filter={"발주 기관": {"$in": ["국민연금공단", "기초과학연구원"]}},
+    )
+
+    assert len(vector_store.calls) == 1
+    assert vector_store.last_kwargs["where"] == {
+        "발주 기관": {"$in": ["국민연금공단", "기초과학연구원"]}
+    }
+
+
+def test_retriever_fans_out_multi_agency_filter_for_per_source_each_query() -> None:
+    vector_store = ScopedFakeVectorStore(
+        {
+            "국민연금공단": [_retrieved_chunk("nps-1", 0.99, agency="국민연금공단")],
+            "기초과학연구원": [_retrieved_chunk("ibs-1", 0.97, agency="기초과학연구원")],
+        }
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+    )
+
+    results = retriever.retrieve(
+        "각 기관 요구사항을 각각 정리해줘",
+        top_k=2,
+        metadata_filter={"발주 기관": {"$in": ["국민연금공단", "기초과학연구원"]}},
+    )
+
+    assert [call["where"]["발주 기관"] for call in vector_store.calls] == [
+        "국민연금공단",
+        "기초과학연구원",
     ]
+    assert [result.chunk.chunk_id for result in results] == ["nps-1", "ibs-1"]
+
+
+def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text() -> None:
+    vector_store = FakeVectorStore(
+        query_results=[
+            _retrieved_chunk("overview-text", 0.91, agency="국민연금공단", section="사업개요"),
+            _retrieved_chunk(
+                "budget-table",
+                0.8,
+                agency="국민연금공단",
+                section="예산",
+                content_type="table",
+            ),
+        ]
+    )
     retriever = RAGRetriever(
         vector_store=vector_store,
         embedder=FakeEmbedder(),
@@ -172,3 +237,22 @@ def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text(
 
     assert results[0].chunk.chunk_id == "budget-table"
     assert results[0].rank == 1
+
+
+def test_retriever_preserves_original_order_when_no_rerank_hints_present() -> None:
+    vector_store = FakeVectorStore(
+        query_results=[
+            _retrieved_chunk("first-text", 0.75, agency="국민연금공단", section="사업개요"),
+            _retrieved_chunk("second-text", 0.95, agency="국민연금공단", section="일반"),
+        ]
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+    )
+
+    results = retriever.retrieve("국민연금공단 사업 알려줘", top_k=2)
+
+    assert [result.chunk.chunk_id for result in results] == ["first-text", "second-text"]
+    assert [result.rank for result in results] == [1, 2]

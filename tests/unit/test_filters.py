@@ -36,4 +36,6 @@ def test_extract_range_and_section_filters() -> None:
 def test_is_comparison_query_detects_comparison_and_shared_keywords() -> None:
     assert is_comparison_query("국민연금공단과 기초과학연구원 사업을 비교해줘") is True
     assert is_comparison_query("두 기관의 차액과 공통 요구사항을 각각 알려줘") is True
+    assert is_comparison_query("각 기관 요구사항을 각각 정리해줘") is True
+    assert is_comparison_query("요구사항을 각각 정리해줘") is False
     assert is_comparison_query("국민연금공단 요구사항 알려줘") is False

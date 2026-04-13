@@ -29,13 +29,11 @@ class RAGRetriever:
     def _extract_scope_key(self, where: dict | None) -> tuple[str, list[str]] | None:
         if not where:
             return None
-        for key in ("발주 기관", "파일명"):
-            value = where.get(key)
-            if not isinstance(value, dict):
-                continue
+        value = where.get("발주 기관")
+        if isinstance(value, dict):
             scoped_values = value.get("$in")
             if isinstance(scoped_values, list) and len(scoped_values) >= 2:
-                return key, scoped_values
+                return "발주 기관", scoped_values
         return None
 
     def _should_run_scoped_queries(self, query: str, where: dict | None) -> bool:
@@ -72,12 +70,15 @@ class RAGRetriever:
             result.rank = index
         return results
 
+    def _should_rerank_results(self, section_hint: str | None, table_boost: bool) -> bool:
+        return bool(section_hint or table_boost)
+
     def _rerank_results(self, results: list, query: str, section_hint: str | None) -> list:
         if not results:
             return results
 
         table_boost = should_boost_tables(query)
-        if not section_hint and not table_boost:
+        if not self._should_rerank_results(section_hint, table_boost):
             return self._assign_ranks(results)
 
         def boosted_score(result) -> float:

@@ -45,9 +45,21 @@ COMPARISON_KEYWORDS = [
     "합산",
     "더 큰",
     "더 작은",
-    "각각",
     "공통",
     "대비",
+]
+PER_SOURCE_KEYWORDS = ["각각"]
+MULTI_SOURCE_HINT_KEYWORDS = [
+    "각 기관",
+    "기관별",
+    "기관마다",
+    "두 기관",
+    "양 기관",
+    "각 사업",
+    "사업별",
+    "사업마다",
+    "두 사업",
+    "양 사업",
 ]
 
 
@@ -155,4 +167,8 @@ def is_comparison_query(query: str) -> bool:
     Returns:
         비교형 질의 여부.
     """
-    return any(keyword in query for keyword in COMPARISON_KEYWORDS)
+    if any(keyword in query for keyword in COMPARISON_KEYWORDS):
+        return True
+    return any(keyword in query for keyword in PER_SOURCE_KEYWORDS) and any(
+        hint in query for hint in MULTI_SOURCE_HINT_KEYWORDS
+    )
