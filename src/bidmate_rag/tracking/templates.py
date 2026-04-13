@@ -28,6 +28,7 @@ REPORT_TEMPLATE = """\
 | Git Commit | {git_commit_short} |
 | Hit Rate@5 | {hit_rate} |
 | MRR | {mrr} |
+| MAP@5 | {map} |
 | Faithfulness | {faithfulness} |
 | Latency Avg (s) | {latency_avg_s} |
 | Total Tokens | {total_tokens} |
@@ -63,6 +64,7 @@ REPORT_TEMPLATE = """\
 | Hit Rate@5 | {hit_rate} |
 | MRR | {mrr} |
 | nDCG@5 | {ndcg} |
+| MAP@5 | {map} |
 | Faithfulness | {faithfulness} |
 | Answer Relevance | {answer_relevance} |
 | Context Precision | {context_precision} |
