@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 
 from bidmate_rag.tracking.pricing import is_model_priced, load_pricing
 from bidmate_rag.tracking.templates import REPORT_TEMPLATE
@@ -55,11 +56,43 @@ class ReportData:
     summary_row: dict[str, Any]
     results: list[dict[str, Any]]
     embedding_meta: dict[str, Any] | None
+    experiment_notes: dict[str, Any] | None
     pricing: dict[str, Any]
     runs_dir: Path
     benchmarks_dir: Path
     embeddings_dir: Path
     extras: dict[str, Any] = field(default_factory=dict)
+
+
+def _resolve_existing_path(path: str | Path | None) -> Path | None:
+    if path is None:
+        return None
+    candidate = Path(path)
+    if candidate.exists():
+        return candidate
+    if not candidate.is_absolute():
+        repo_root = Path(__file__).resolve().parents[3]
+        alt = repo_root / candidate
+        if alt.exists():
+            return alt
+    return None
+
+
+def _load_yaml_if_exists(path: str | Path | None) -> dict[str, Any] | None:
+    resolved = _resolve_existing_path(path)
+    if resolved is None:
+        if path is not None:
+            logger.warning("Experiment notes not found: %s", path)
+        return None
+    try:
+        loaded = yaml.safe_load(resolved.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        logger.warning("Experiment notes YAML could not be parsed: %s", resolved)
+        return None
+    if not isinstance(loaded, dict):
+        logger.warning("Experiment notes must be a mapping: %s", resolved)
+        return None
+    return loaded
 
 
 def load_report_data(
@@ -118,6 +151,8 @@ def load_report_data(
         if emb_file.exists():
             embedding_meta = json.loads(emb_file.read_text(encoding="utf-8"))
 
+    experiment_notes = _load_yaml_if_exists(meta.get("notes_path"))
+
     return ReportData(
         run_id=run_id,
         experiment_name=exp_name,
@@ -125,6 +160,7 @@ def load_report_data(
         summary_row=summary_row,
         results=results,
         embedding_meta=embedding_meta,
+        experiment_notes=experiment_notes,
         pricing=load_pricing(),
         runs_dir=runs_path,
         benchmarks_dir=benchmarks_path,
@@ -210,6 +246,7 @@ def write_report(
 def _build_context(data: ReportData) -> dict[str, Any]:
     summary = data.summary_row
     meta = data.meta
+    notes = data.experiment_notes or {}
     runtime_cfg = meta.get("config_snapshot", {}) or {}
     provider_cfg = runtime_cfg.get("provider", {}) or {}
     experiment_cfg = runtime_cfg.get("experiment", {}) or {}
@@ -295,12 +332,49 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         or "  - (미기록)"
     )
 
+    experiment_title = _first_non_empty(notes.get("title"), data.experiment_name)
+    experiment_overview = _first_non_empty(
+        notes.get("overview"),
+        notes.get("summary"),
+        notes.get("description"),
+    ) or "실험 목적/배경을 입력하세요"
+    hypothesis_bullets = _format_bullet_block(
+        notes.get("hypothesis"),
+        data.experiment_notes,
+        placeholder_lines=[
+            "왜 이 변경을 했는지:",
+            "무엇이 좋아질 거라고 봤는지:",
+        ],
+    )
+    changes_bullets = _format_bullet_block(
+        notes.get("changes"),
+        data.experiment_notes,
+        placeholder_lines=["변경 내용을 입력하세요"],
+    )
+    expected_outcome_bullets = _format_bullet_block(
+        notes.get("expected_outcome"),
+        data.experiment_notes,
+        placeholder_lines=["기대 결과를 입력하세요"],
+    )
+    next_actions_bullets = _format_bullet_block(
+        notes.get("next_actions"),
+        data.experiment_notes,
+        placeholder_lines=[
+            "다음 실험에서 무엇을 바꿀지:",
+            "유지할 것:",
+            "버릴 것:",
+        ],
+    )
+    failure_case_blocks = _build_failure_case_blocks(data, notes)
+
     # Judge metrics from summary first, fall back to results aggregate
     def _get_metric(key: str) -> Any:
         return summary.get(key) if summary else None
 
     return {
         "experiment_name": data.experiment_name,
+        "experiment_title": experiment_title,
+        "experiment_overview": experiment_overview,
         "run_id": data.run_id,
         "timestamp_kst": meta.get("timestamp_kst", "N/A"),
         "scenario": scenario,
@@ -348,7 +422,190 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         "benchmark_parquet_path": str(data.benchmarks_dir / f"{data.experiment_name}.parquet"),
         "meta_json_path": str(data.runs_dir / f"{data.run_id}.meta.json"),
         "config_links": config_links,
+        # notes-derived report body
+        "hypothesis_bullets": hypothesis_bullets,
+        "changes_bullets": changes_bullets,
+        "expected_outcome_bullets": expected_outcome_bullets,
+        "failure_case_blocks": failure_case_blocks,
+        "next_actions_bullets": next_actions_bullets,
     }
+
+
+def _first_non_empty(*values: Any) -> str:
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _format_bullet_block(
+    value: Any,
+    notes_present: dict[str, Any] | None,
+    *,
+    placeholder_lines: list[str],
+) -> str:
+    if not notes_present:
+        return "\n".join(f"- {line}" for line in placeholder_lines)
+    if not value:
+        return "\n".join(f"- {line}" for line in placeholder_lines)
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, list):
+        items = value
+    else:
+        items = [value]
+    bullets = []
+    for item in items:
+        text = str(item).strip()
+        if text:
+            bullets.append(f"- {text}")
+    return "\n".join(bullets) if bullets else "\n".join(f"- {line}" for line in placeholder_lines)
+
+
+def _normalize_question_id(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _build_failure_case_blocks(data: ReportData, notes: dict[str, Any]) -> str:
+    matched_cases = _select_failure_case_entries(data, notes)
+    if not matched_cases:
+        return ""
+    blocks: list[str] = []
+    for index, entry in enumerate(matched_cases[:2], start=1):
+        row = entry["row"]
+        note = entry["note"]
+        question_id = row.get("question_id", "?")
+        question = row.get("question", "N/A")
+        answer = row.get("answer", "N/A")
+        retrieved_chunks = row.get("retrieved_chunks") or []
+        judge_scores = row.get("judge_scores") or {}
+        evidence = note.get("why_watch") or note.get("reason") or note.get("note") or ""
+        if not evidence:
+            explicit_error = _extract_error_text(row)
+            if explicit_error:
+                evidence = explicit_error
+        if not evidence:
+            if not retrieved_chunks:
+                evidence = "retrieved_chunks가 비어 있음"
+            elif judge_scores:
+                numeric_scores = [
+                    float(score)
+                    for score in judge_scores.values()
+                    if isinstance(score, (int, float))
+                ]
+                evidence = (
+                    f"judge score 최저값 {min(numeric_scores):.2f}"
+                    if numeric_scores
+                    else "judge score 기록 없음"
+                )
+            else:
+                evidence = "run 결과에서 약한 사례로 선별"
+        block_lines = [
+            f"### 실패 사례 {index}",
+            f"- 질문 ID: {question_id}",
+            f"- 질문: {question}",
+            f"- 실제 결과: {answer}",
+            f"- 관찰 포인트: {evidence}",
+        ]
+        blocks.append("\n".join(block_lines))
+    return "\n\n".join(blocks)
+
+
+def _select_failure_case_entries(
+    data: ReportData, notes: dict[str, Any]
+) -> list[dict[str, Any]]:
+    results_by_qid = {
+        _normalize_question_id(row.get("question_id")): row for row in data.results if row.get("question_id")
+    }
+    note_cases = notes.get("failure_cases") or []
+    selected: list[dict[str, Any]] = []
+    matched_qids: set[str] = set()
+
+    if isinstance(note_cases, list):
+        for note_case in note_cases:
+            if not isinstance(note_case, dict):
+                continue
+            qid = _normalize_question_id(note_case.get("question_id"))
+            if not qid or qid not in results_by_qid:
+                continue
+            matched_qids.add(qid)
+            selected.append({"row": results_by_qid[qid], "note": note_case})
+
+    if selected:
+        if len(selected) >= 2:
+            return selected[:2]
+        for row in _select_fallback_weak_rows(data, exclude_qids=matched_qids):
+            selected.append({"row": row, "note": {}})
+            if len(selected) >= 2:
+                break
+        return selected
+
+    return [{"row": row, "note": {}} for row in _select_fallback_weak_rows(data)[:2]]
+
+
+def _select_fallback_weak_rows(
+    data: ReportData, *, exclude_qids: set[str] | None = None
+) -> list[dict[str, Any]]:
+    exclude_qids = exclude_qids or set()
+
+    def _score(row: dict[str, Any]) -> tuple[int, int, int, float, float, float, str]:
+        qid = _normalize_question_id(row.get("question_id"))
+        retrieved_chunks = row.get("retrieved_chunks") or []
+        judge_scores = row.get("judge_scores") or {}
+        explicit_error = 0 if _row_has_explicit_error(row) else 1
+        has_retrieval_miss = 0 if not retrieved_chunks else 1
+        has_judge_scores = 0 if judge_scores else 1
+        if judge_scores:
+            numeric_scores = [
+                float(score)
+                for score in judge_scores.values()
+                if isinstance(score, (int, float))
+            ]
+            score_value = sum(numeric_scores) / len(numeric_scores) if numeric_scores else 1.0
+        else:
+            score_value = 1.0
+        latency_ms = float(row.get("latency_ms") or 0.0)
+        cost_usd = float(row.get("cost_usd") or 0.0)
+        return (
+            explicit_error,
+            has_retrieval_miss,
+            has_judge_scores,
+            score_value,
+            -latency_ms,
+            -cost_usd,
+            qid,
+        )
+
+    rows = [
+        row
+        for row in data.results
+        if _normalize_question_id(row.get("question_id")) not in exclude_qids
+    ]
+    return sorted(rows, key=_score)
+
+
+def _extract_error_text(row: dict[str, Any]) -> str:
+    for key in ("error", "error_message", "exception", "failure_reason", "judge_error"):
+        value = row.get(key)
+        if value is None:
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text and text.lower() not in {"ok", "success", "succeeded", "passed", "pass", "none"}:
+                return text
+        elif value not in (False, "", [], {}, ()):
+            return str(value)
+    status = str(row.get("status") or "").strip()
+    if status.lower() in {"error", "failed", "failure", "exception"}:
+        return status
+    return ""
+
+
+def _row_has_explicit_error(row: dict[str, Any]) -> bool:
+    return bool(_extract_error_text(row))
 
 
 def _percentile(values: list[float], pct: int) -> float:

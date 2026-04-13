@@ -235,6 +235,7 @@ def _write_run_meta(
         "timestamp_kst": now_utc.astimezone(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M:%S"),
         "git": capture_git_info(),
         "configs": {k: v for k, v in config_paths.items() if v},
+        "notes_path": runtime.experiment.notes_path,
         "config_snapshot": runtime.model_dump(),
         "eval_path": eval_path,
         "collection_name": collection_name,

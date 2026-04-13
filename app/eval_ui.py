@@ -525,19 +525,19 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
                     st.dataframe(chunks_data, width="stretch")
 
                     # 정답 문서 포함 여부
-                    retrieved_docs = [
-                        c.chunk.metadata.get("사업명", "") for c in result.retrieved_chunks
-                    ]
+                    retrieved_docs = [c.chunk.metadata.get("사업명", "") for c in result.retrieved_chunks]
+                    retrieved_filenames = [c.chunk.metadata.get("파일명", "") for c in result.retrieved_chunks]
                     expected = selected_q.get("ground_truth_docs", [])
                     if expected:
-                        found = [e for e in expected if any(e in d for d in retrieved_docs)]
+                        found = [
+                            e for e in expected if
+                            any(e in d or d in e for d in retrieved_docs) or  # 사업명 부분 매칭
+                            any(e == f or e in f for f in retrieved_filenames)  # 파일명 매칭
+                        ]
                         if len(found) == len(expected):
                             st.success(f"검색 성공: 기대 문서 {len(found)}/{len(expected)}건 포함")
                         else:
-                            st.warning(
-                                f"검색 부분 성공: 기대 문서 {len(found)}/{len(expected)}건만 포함"
-                            )
-
+                            st.warning(f"검색 부분 성공: 기대 문서 {len(found)}/{len(expected)}건만 포함")
                 # 2) 생성 단계
                 st.markdown("### 2단계: 생성 — 답변 vs 정답 비교")
                 col1, col2 = st.columns(2)
