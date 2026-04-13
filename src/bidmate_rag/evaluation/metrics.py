@@ -19,12 +19,24 @@ def _match_expected(chunk: RetrievedChunk, expected_doc_ids: list[str]) -> bool:
     The eval CSVs (`data/eval/eval_v*/eval_batch_*.csv`) populate `ground_truth_docs`
     with `파일명` strings, so this function must compare against `파일명` to
     make Hit Rate / MRR / nDCG metrics meaningful.
+    부분 매칭 추가: 사업명이 잘려있어도 파일명에 포함되면 매칭 성공
     """
-    return (
-        chunk.chunk.doc_id in expected_doc_ids
-        or chunk.chunk.metadata.get("사업명") in expected_doc_ids
-        or chunk.chunk.metadata.get("파일명") in expected_doc_ids
-    )
+    사업명 = chunk.chunk.metadata.get("사업명") or ""
+    파일명 = chunk.chunk.metadata.get("파일명") or ""
+    doc_id = chunk.chunk.doc_id or ""
+
+    for exp in expected_doc_ids:
+        if not exp:
+            continue
+        if (
+            doc_id == exp
+            or 사업명 == exp
+            or 파일명 == exp
+            or (사업명 and 사업명 in exp)  # 사업명이 기대값에 포함
+            or (exp in 파일명)             # 기대값이 파일명에 포함
+        ):
+            return True
+    return False
 
 
 def calc_hit_rate(
