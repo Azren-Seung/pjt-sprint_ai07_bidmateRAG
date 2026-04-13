@@ -57,6 +57,7 @@ def run_ingest_pipeline(
     parse_fn=None,
     chunk_size: int = 1000,
     chunk_overlap: int = 150,
+    parsed_path:str | Path | None = None, #기존 파싱 결과 재사용 시지정
 ) -> dict[str, Path]:
     """인제스트 파이프라인 전체를 실행한다.
 
@@ -87,36 +88,39 @@ def run_ingest_pipeline(
 
     # ── 2단계: 원본 문서 파싱 (HWP/PDF → 마크다운 텍스트) ──
     # 각 문서를 kordoc(HWP) 또는 pdfplumber(PDF)로 텍스트 추출
-    parsed_rows: list[dict] = []
-    total = len(metadata_df)
-    for i, (_, row) in enumerate(metadata_df.iterrows(), 1):
-        file_path = raw_root / row["파일명"]
-        print(f"[{i}/{total}] 파싱 중: {row['파일명']}", end=" ... ")
-        try:
-            parsed = parser(file_path)
-        except Exception as exc:
-            # 파서 크래시 시 빈 결과로 대체하고 다음 파일로 진행
-            parsed = {
-                "파일명": row["파일명"],
-                "파서": "error",
-                "텍스트": "",
-                "글자수": 0,
-                "성공": False,
-                "에러": str(exc),
-            }
-        status = "OK" if parsed.get("성공") else f"실패({parsed.get('에러', '?')})"
-        print(f"{status} ({parsed.get('글자수', 0):,}자)")
-        parsed_rows.append(parsed)
+    if parsed_path:
+        # 기존 파싱 결과 재사용 (파싱 건너뜀)
+        print(f"파싱 결과 재사용: {parsed_path}")
+        parsed_df = pd.read_parquet(parsed_path)
+    else:
+        # 기존 파싱 로직
+        parsed_rows: list[dict] = []
+        total = len(metadata_df)
+        for i, (_, row) in enumerate(metadata_df.iterrows(), 1):
+            file_path = raw_root / row["파일명"]
+            print(f"[{i}/{total}] 파싱 중: {row['파일명']}", end=" ... ")
+            try:
+                parsed = parser(file_path)
+            except Exception as exc:
+                parsed = {
+                    "파일명": row["파일명"],
+                    "파서": "error",
+                    "텍스트": "",
+                    "글자수": 0,
+                    "성공": False,
+                    "에러": str(exc),
+                }
+            status = "OK" if parsed.get("성공") else f"실패({parsed.get('에러', '?')})"
+            print(f"{status} ({parsed.get('글자수', 0):,}자)")
+            parsed_rows.append(parsed)
 
-    # 파싱 결과를 메타데이터에 합쳐서 parsed_documents.parquet로 저장
-    parsed_df = metadata_df.copy()
-    parsed_map = {row["파일명"]: row for row in parsed_rows}
-    parsed_df["본문_마크다운"] = parsed_df["파일명"].map(lambda name: parsed_map[name]["텍스트"])
-    parsed_df["본문_글자수"] = parsed_df["파일명"].map(lambda name: parsed_map[name]["글자수"])
+        parsed_df = metadata_df.copy()
+        parsed_map = {row["파일명"]: row for row in parsed_rows}
+        parsed_df["본문_마크다운"] = parsed_df["파일명"].map(lambda name: parsed_map[name]["텍스트"])
+        parsed_df["본문_글자수"] = parsed_df["파일명"].map(lambda name: parsed_map[name]["글자수"])
 
-    parsed_path = processed_root / "parsed_documents.parquet"
-    parsed_df.to_parquet(parsed_path, index=False)
-
+        parsed_path_out = processed_root / "parsed_documents.parquet"
+        parsed_df.to_parquet(parsed_path_out, index=False)
     # ── 3단계: 텍스트 정제 + 메타데이터 보강 ──
     # 노이즈 제거, 기관유형/도메인/기술스택 자동 분류
     cleaned_df = parsed_df.copy()
@@ -156,5 +160,7 @@ def run_ingest_pipeline(
     chunk_df = pd.DataFrame(all_chunks)
     chunks_path = processed_root / "chunks.parquet"
     chunk_df.to_parquet(chunks_path, index=False)
+    parsed_out = Path(parsed_path) if parsed_path else parsed_path_out
 
-    return {"parsed": parsed_path, "cleaned": cleaned_path, "chunks": chunks_path}
+
+    return {"parsed": parsed_out, "cleaned": cleaned_path, "chunks": chunks_path}

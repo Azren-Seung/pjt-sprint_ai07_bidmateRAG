@@ -27,6 +27,10 @@ def list_provider_configs(config_dir: str | Path = "configs/providers") -> list[
     """
     return sorted(Path(config_dir).glob("*.yaml"))
 
+#청킹 설정
+def list_chunking_configs(config_dir: str | Path = "configs/chunking") -> list[Path]:
+    return sorted(Path(config_dir).glob("*.yaml"))
+
 
 def load_benchmark_frames(benchmarks_dir: str | Path = "artifacts/logs/benchmarks") -> pd.DataFrame:
     """벤치마크 결과 parquet 파일들을 하나의 DataFrame으로 합친다.

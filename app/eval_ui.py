@@ -80,6 +80,19 @@ RUNS_DIR = Path("artifacts/logs/runs")
 BENCHMARKS_DIR = Path("artifacts/logs/benchmarks")
 
 
+def _render_chunking_selector(st, list_chunking_configs, key_prefix=""):
+    # 청킹 전략 selectbox
+    chunking_configs = list_chunking_configs()
+    default_idx = next((i for i, p in enumerate(chunking_configs) if "1000_150" in p.stem), 0)
+    return st.selectbox(
+        "청킹 전략",
+        chunking_configs,
+        index=default_idx,
+        format_func=lambda p: p.stem,
+        key=f"{key_prefix}_chunking",
+    )
+
+
 def _parse_json_field(value) -> object:
     """CSV에서 읽은 JSON 문자열 필드를 파싱한다."""
     if pd.isna(value) or value is None:
@@ -159,7 +172,12 @@ def save_eval_set(data: list[dict], fmt: str = "csv") -> Path:
 
 
 def render_eval_tabs(
-    st, run_live_query, list_provider_configs, load_benchmark_frames, load_run_records
+    st,
+    run_live_query,
+    list_provider_configs,
+    list_chunking_configs,
+    load_benchmark_frames,
+    load_run_records,
 ):
     """평가 탭 메인 렌더러."""
 
@@ -198,11 +216,13 @@ def render_eval_tabs(
 
     # ── 서브탭 1: 평가 실행 ──
     with run_tab:
-        _render_run_tab(st, eval_set, run_live_query, list_provider_configs)
+        _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs)
 
     # ── 서브탭 2: 질문 디버깅 ──
     with debug_tab:
-        _render_debug_tab(st, eval_set, run_live_query, list_provider_configs)
+        _render_debug_tab(
+            st, eval_set, run_live_query, list_provider_configs, list_chunking_configs
+        )
 
     # ── 서브탭 3: 결과 비교 ──
     with compare_tab:
@@ -213,7 +233,7 @@ def render_eval_tabs(
         _render_edit_tab(st, eval_set)
 
 
-def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
+def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs):
     """평가셋 일괄 실행 탭. CLI(``bidmate-eval``)와 정확히 같은 코드 경로를 호출한다.
 
     UX 단순화 원칙:
@@ -241,6 +261,9 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
     provider = _render_scenario_provider_selector(st, list_provider_configs, key_prefix="run")
     if provider is None:
         return
+    chunking = _render_chunking_selector(
+        st, list_chunking_configs, key_prefix="run"
+    )  # 청킹 선택 추가
 
     opt_col1, opt_col2 = st.columns(2)
     with opt_col1:
@@ -270,6 +293,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs):
         artifacts = run_benchmark_experiment(
             evaluation_path=eval_file,
             provider_config_path=provider,
+            experiment_config_path=chunking,  # 청킹 전략 전달
             skip_judge=skip_judge,
             judge_model=judge_model,
             progress_callback=_on_progress,
@@ -399,7 +423,7 @@ def _fmt_metric(value) -> str:
         return "N/A"
 
 
-def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
+def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs):
     st.subheader("질문별 디버깅")
 
     if not eval_set:
@@ -446,6 +470,9 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
     if provider is None:
         return
     top_k = st.slider("Top-K", 1, 20, 5, key="debug_topk")
+    chunking = _render_chunking_selector(
+        st, list_chunking_configs, key_prefix="debug"
+    )  # 청킹 선택 추가
 
     if st.button("🔍 이 질문 실행", type="primary", key="debug_run_btn"):
         with st.status("디버깅 실행 중...", expanded=True) as status:
@@ -465,6 +492,7 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs):
                 result = run_live_query(
                     question=selected_q["question"],
                     provider_config_path=provider,
+                    experiment_config_path=chunking,  # 청킹 전략 전달
                     top_k=top_k,
                     metadata_filter=normalized_filter,
                     chat_history=history,
