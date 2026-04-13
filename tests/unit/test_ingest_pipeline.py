@@ -239,3 +239,81 @@ def test_run_ingest_pipeline_skips_duplicate_row_when_canonical_row_exists(
 
     assert parsed_paths == ["KIOM_doc.hwp"]
     assert parsed_df["파일명"].to_list() == ["KIOM_doc.hwp"]
+
+
+def test_run_ingest_pipeline_reuses_cached_parsed_output_with_dedup_targets(
+    tmp_path: Path,
+) -> None:
+    raw_dir = tmp_path / "raw" / "rfp"
+    metadata_dir = tmp_path / "raw" / "metadata"
+    output_dir = tmp_path / "processed"
+    raw_dir.mkdir(parents=True)
+    metadata_dir.mkdir(parents=True)
+
+    pd.DataFrame(
+        [
+            {
+                "공고 번호": "20240002",
+                "공고 차수": 0,
+                "사업명": "의료기기산업 종합정보시스템 기능개선",
+                "사업 금액": 50000000,
+                "발주 기관": "BioIN",
+                "공개 일자": "2024-09-05",
+                "입찰 참여 시작일": "",
+                "입찰 참여 마감일": "",
+                "사업 요약": "요약",
+                "파일형식": "hwp",
+                "파일명": "BioIN_doc.hwp",
+            }
+        ]
+    ).to_csv(metadata_dir / "data_list.csv", index=False)
+
+    duplicates_map_path = _write_duplicates_map(
+        metadata_dir / "duplicates_map.csv",
+        [
+            {
+                "duplicate_group_id": "DUP-001",
+                "source_file": "BioIN_doc.hwp",
+                "canonical_file": "KHIDI_doc.hwp",
+                "is_duplicate": True,
+                "resolved_agency": "한국보건산업진흥원",
+                "status": "confirmed",
+                "reason": "same document",
+                "metadata_merge_note": "alias only",
+            }
+        ],
+    )
+
+    cached_parsed_path = tmp_path / "cached.parquet"
+    pd.DataFrame(
+        [
+            {
+                "파일명": "BioIN_doc.hwp",
+                "본문_마크다운": "# 개요\n캐시된 파싱 결과",
+                "본문_글자수": 12,
+            }
+        ]
+    ).to_parquet(cached_parsed_path, index=False)
+
+    parse_called = False
+
+    def fake_parse(_: Path) -> dict:
+        nonlocal parse_called
+        parse_called = True
+        return {}
+
+    outputs = run_ingest_pipeline(
+        metadata_path=metadata_dir / "data_list.csv",
+        raw_dir=raw_dir,
+        output_dir=output_dir,
+        parse_fn=fake_parse,
+        duplicates_map_path=duplicates_map_path,
+        parsed_path=cached_parsed_path,
+    )
+
+    parsed_df = pd.read_parquet(outputs["parsed"])
+
+    assert parse_called is False
+    assert parsed_df.loc[0, "파일명"] == "BioIN_doc.hwp"
+    assert parsed_df.loc[0, "ingest_file"] == "KHIDI_doc.hwp"
+    assert parsed_df.loc[0, "본문_마크다운"] == "# 개요\n캐시된 파싱 결과"

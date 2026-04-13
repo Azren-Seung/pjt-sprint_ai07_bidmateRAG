@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def _fmt_num(value: Any, digits: int = 4, default: str = "N/A") -> str:
+    """숫자를 소수점 자릿수로 포맷한다. None이면 기본값 반환."""
     if value is None:
         return default
     try:
@@ -35,6 +36,7 @@ def _fmt_num(value: Any, digits: int = 4, default: str = "N/A") -> str:
 
 
 def _fmt_int(value: Any, default: str = "N/A") -> str:
+    """정수를 천 단위 콤마로 포맷한다. None이면 기본값 반환."""
     if value is None:
         return default
     try:
@@ -45,6 +47,8 @@ def _fmt_int(value: Any, default: str = "N/A") -> str:
 
 @dataclass
 class ReportData:
+    """리포트 생성에 필요한 데이터를 담는 컨테이너."""
+
     run_id: str
     experiment_name: str
     meta: dict[str, Any]
@@ -151,12 +155,7 @@ def _sanitize_filename_component(value: str) -> str:
     text = str(value or "unknown").strip()
     if not text:
         return "unknown"
-    return (
-        text.replace("/", "-")
-        .replace("\\", "-")
-        .replace(" ", "-")
-        .replace(":", "-")
-    )
+    return text.replace("/", "-").replace("\\", "-").replace(" ", "-").replace(":", "-")
 
 
 def build_report_filename(data: ReportData) -> str:
@@ -207,6 +206,7 @@ def write_report(
 # context builders
 # ---------------------------------------------------------------------------
 
+
 def _build_context(data: ReportData) -> dict[str, Any]:
     summary = data.summary_row
     meta = data.meta
@@ -217,9 +217,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
     git = meta.get("git", {}) or {}
 
     # Costs
-    generation_cost = sum(
-        float(r.get("cost_usd") or 0.0) for r in data.results
-    )
+    generation_cost = sum(float(r.get("cost_usd") or 0.0) for r in data.results)
     embedding_cost = float((data.embedding_meta or {}).get("total_cost_usd", 0.0) or 0.0)
     judge_cost = float(meta.get("judge_total_cost_usd", 0.0) or 0.0)
     grand_total = generation_cost + embedding_cost + judge_cost
@@ -234,9 +232,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
     total_tokens = prompt_tokens_sum + completion_tokens_sum
 
     # Latency
-    latencies_ms = [
-        float(r.get("latency_ms") or 0.0) for r in data.results if r.get("latency_ms")
-    ]
+    latencies_ms = [float(r.get("latency_ms") or 0.0) for r in data.results if r.get("latency_ms")]
     latency_avg_s = (sum(latencies_ms) / len(latencies_ms) / 1000) if latencies_ms else None
     latency_p95_s = _percentile(latencies_ms, 95) / 1000 if latencies_ms else None
 
@@ -255,9 +251,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
     chunk_overlap = experiment_cfg.get("chunk_overlap") or project_cfg.get(
         "default_chunk_overlap", "?"
     )
-    top_k = experiment_cfg.get("retrieval_top_k") or project_cfg.get(
-        "default_retrieval_top_k", "?"
-    )
+    top_k = experiment_cfg.get("retrieval_top_k") or project_cfg.get("default_retrieval_top_k", "?")
     collection_name = meta.get("collection_name") or provider_cfg.get("collection_name") or "?"
     scenario = summary.get("scenario") or provider_cfg.get("scenario") or "?"
     provider_label = summary.get("provider_label", "?")
@@ -271,9 +265,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
     warnings = []
     if not is_model_priced("llm", llm_model, data.pricing):
         warnings.append(f"⚠️ 생성 모델 `{llm_model}` 단가 미등록 — `configs/pricing.yaml` 갱신 필요")
-    if data.embedding_meta and not is_model_priced(
-        "embedding", embedding_model, data.pricing
-    ):
+    if data.embedding_meta and not is_model_priced("embedding", embedding_model, data.pricing):
         warnings.append(
             f"⚠️ 임베딩 모델 `{embedding_model}` 단가 미등록 — `configs/pricing.yaml` 갱신 필요"
         )
@@ -296,9 +288,12 @@ def _build_context(data: ReportData) -> dict[str, Any]:
 
     # Config links
     configs = meta.get("configs", {}) or {}
-    config_links = "\n".join(
-        f"  - `{configs[k]}`" for k in ("base", "provider", "experiment") if configs.get(k)
-    ) or "  - (미기록)"
+    config_links = (
+        "\n".join(
+            f"  - `{configs[k]}`" for k in ("base", "provider", "experiment") if configs.get(k)
+        )
+        or "  - (미기록)"
+    )
 
     # Judge metrics from summary first, fall back to results aggregate
     def _get_metric(key: str) -> Any:
@@ -327,6 +322,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         "hit_rate": _fmt_num(_get_metric("hit_rate@5")),
         "mrr": _fmt_num(_get_metric("mrr")),
         "ndcg": _fmt_num(_get_metric("ndcg@5")),
+        "map": _fmt_num(_get_metric("map@5")),
         "faithfulness": _fmt_num(_get_metric("faithfulness")),
         "answer_relevance": _fmt_num(_get_metric("answer_relevance")),
         "context_precision": _fmt_num(_get_metric("context_precision")),
@@ -349,9 +345,7 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         "gpt5_warning": gpt5_warning,
         # paths
         "run_jsonl_path": str(data.runs_dir / f"{data.run_id}.jsonl"),
-        "benchmark_parquet_path": str(
-            data.benchmarks_dir / f"{data.experiment_name}.parquet"
-        ),
+        "benchmark_parquet_path": str(data.benchmarks_dir / f"{data.experiment_name}.parquet"),
         "meta_json_path": str(data.runs_dir / f"{data.run_id}.meta.json"),
         "config_links": config_links,
     }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bidmate_rag.evaluation.metrics import calc_hit_rate, calc_mrr, calc_ndcg
+from bidmate_rag.evaluation.metrics import calc_hit_rate, calc_map, calc_mrr, calc_ndcg
 from bidmate_rag.schema import Chunk, RetrievedChunk
 
 
@@ -56,6 +56,7 @@ def test_empty_expected_returns_none():
     assert calc_hit_rate(chunks, [], k=5) is None
     assert calc_mrr(chunks, []) is None
     assert calc_ndcg(chunks, [], k=5) is None
+    assert calc_map(chunks, [], k=5) is None
 
 
 def test_mrr_uses_파일명_at_rank_3():
@@ -76,6 +77,38 @@ def test_ndcg_파일명_top_position():
     ]
     # 1위에서 hit → DCG = 2/log2(2) = 2.0, iDCG = 2.0 → nDCG = 1.0
     assert calc_ndcg(chunks, ["hit.hwp"], k=5) == 1.0
+
+
+def test_map_single_doc():
+    """정답 문서 1개 → MAP은 MRR과 동일한 값."""
+    chunks = [
+        _make_chunk(파일명="miss.hwp", rank=1),
+        _make_chunk(파일명="hit.hwp", rank=2),
+    ]
+    # 2위에서 매칭 → precision=1/2 → AP=0.5/1=0.5
+    assert calc_map(chunks, ["hit.hwp"], k=5) == 0.5
+
+
+def test_map_multi_doc():
+    """정답 문서 2개 → 두 문서를 모두 상위에서 찾았는지 평가."""
+    chunks = [
+        _make_chunk(doc_id="A", 파일명="hit1.hwp", rank=1),
+        _make_chunk(doc_id="B", 파일명="miss.hwp", rank=2),
+        _make_chunk(doc_id="C", 파일명="hit2.hwp", rank=3),
+    ]
+    # 1위: precision=1/1, 3위: precision=2/3 → AP=(1+2/3)/2=0.8333...
+    result = calc_map(chunks, ["hit1.hwp", "hit2.hwp"], k=5)
+    assert round(result, 4) == 0.8333
+
+
+def test_map_duplicate_chunk_same_doc():
+    """같은 문서의 청크가 여러 개 검색되어도 중복 카운트하지 않음."""
+    chunks = [
+        _make_chunk(doc_id="A", 파일명="hit.hwp", rank=1),
+        _make_chunk(doc_id="A", 파일명="hit.hwp", rank=2),
+    ]
+    # 같은 doc_id → 1위에서만 카운트 → AP=1/1=1.0
+    assert calc_map(chunks, ["hit.hwp"], k=5) == 1.0
 
 
 def test_hit_rate_outside_topk():
