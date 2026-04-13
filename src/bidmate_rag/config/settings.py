@@ -29,6 +29,7 @@ class ProviderConfig(BaseModel):
 class ExperimentConfig(BaseModel):
     name: str
     mode: str = "full_rag"
+    notes_path: str | None = None
     retrieval_top_k: int | None = None
     chunk_size: int | None = None
     chunk_overlap: int | None = None

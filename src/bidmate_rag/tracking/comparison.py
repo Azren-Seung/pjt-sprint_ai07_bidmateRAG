@@ -38,8 +38,10 @@ _HIGHER_IS_BETTER = {
 
 @dataclass
 class ComparisonData:
-    rows: pd.DataFrame
-    metric_columns: list[str]
+    """비교 결과 데이터. 메트릭 DataFrame과 표시할 컬럼 목록을 담는다."""
+
+    rows: pd.DataFrame        # run별 메트릭이 담긴 DataFrame
+    metric_columns: list[str]  # 비교 표에 표시할 메트릭 컬럼 목록
 
 
 def load_runs_for_comparison(
@@ -47,12 +49,19 @@ def load_runs_for_comparison(
     experiment_name: str | None = None,
     benchmarks_dir: str | Path = "artifacts/logs/benchmarks",
 ) -> ComparisonData:
-    """run_id 리스트 또는 experiment_name으로 비교 대상 로드.
+    """run_id 리스트 또는 experiment_name으로 비교 대상을 로드한다.
 
-    - ``experiment_name`` 명시: 그 experiment의 모든 run 비교 (parquet 1개)
-    - ``run_ids`` 명시: benchmarks_dir 안의 모든 parquet 스캔 후 해당 run_id
-      행 수집 (다른 experiment끼리도 비교 가능)
-    - 둘 다 None: ``ValueError``
+    Args:
+        run_ids: 비교할 run_id 리스트.
+        experiment_name: 실험 이름 (해당 실험의 모든 run 비교).
+        benchmarks_dir: 벤치마크 parquet 디렉터리 경로.
+
+    Returns:
+        ComparisonData 인스턴스.
+
+    Raises:
+        ValueError: run_ids와 experiment_name 모두 None인 경우.
+        FileNotFoundError: 벤치마크 디렉터리나 파일이 없는 경우.
     """
     if not experiment_name and not run_ids:
         raise ValueError("Either experiment_name or run_ids is required")
@@ -63,11 +72,13 @@ def load_runs_for_comparison(
 
     frames: list[pd.DataFrame] = []
     if experiment_name:
+        # 특정 실험의 parquet 파일에서 모든 run 로드
         target = benchmark_path / f"{experiment_name}.parquet"
         if not target.exists():
             raise FileNotFoundError(f"benchmark file not found: {target}")
         frames.append(pd.read_parquet(target))
     else:
+        # 전체 parquet 스캔하여 해당 run_id만 수집
         run_id_set = set(run_ids or [])
         for parquet_file in sorted(benchmark_path.glob("*.parquet")):
             try:
@@ -83,23 +94,26 @@ def load_runs_for_comparison(
     if not frames:
         raise ValueError("No matching runs found")
 
+    # 여러 DataFrame을 하나로 합치고 비교할 메트릭 컬럼 추출
     combined = pd.concat(frames, ignore_index=True, sort=False)
     metric_cols = [c for c in _METRIC_COLUMNS if c in combined.columns]
     return ComparisonData(rows=combined, metric_columns=metric_cols)
 
 
 def render_comparison_markdown(data: ComparisonData) -> str:
-    """비교 결과를 마크다운으로 렌더링.
+    """비교 결과를 마크다운으로 렌더링한다.
 
-    섹션:
-        # Run Comparison (요약 + 실험 목록)
-        ## 메트릭 비교    (run × metric 표)
-        ## 메트릭별 최우/최저 (각 metric의 best/worst run)
+    Args:
+        data: ComparisonData 인스턴스.
+
+    Returns:
+        마크다운 형식의 비교 리포트 문자열.
     """
     df = data.rows.copy()
     if df.empty:
         return "(no runs to compare)"
 
+    # 헤더 및 요약 정보
     lines = ["# Run Comparison", ""]
     lines.append(f"**Total runs**: {len(df)}")
     if "experiment_name" in df.columns:
@@ -116,7 +130,7 @@ def render_comparison_markdown(data: ComparisonData) -> str:
     lines.append(_df_to_markdown(show))
     lines.append("")
 
-    # 메트릭별 best/worst
+    # 메트릭별 best/worst — 각 메트릭에서 가장 좋은/나쁜 run 표시
     if data.metric_columns:
         lines.append("## 메트릭별 최우/최저")
         lines.append("")
@@ -142,7 +156,14 @@ def render_comparison_markdown(data: ComparisonData) -> str:
 
 
 def _df_to_markdown(df: pd.DataFrame) -> str:
-    """tabulate 의존 없이 마크다운 표 직접 렌더."""
+    """DataFrame을 마크다운 표로 변환한다 (외부 의존성 없음).
+
+    Args:
+        df: 변환할 DataFrame.
+
+    Returns:
+        마크다운 표 문자열.
+    """
     if df.empty:
         return "(empty)"
     headers = list(df.columns)

@@ -30,6 +30,8 @@ def main() -> None:
     parser.add_argument("--chunk-overlap", type=int, default=150)      # 청크 간 겹침 (글자 수)
     parser.add_argument("--experiment-config", default=None,
                         help="실험 config (YAML). chunk_size/overlap 설정을 오버라이드")
+    parser.add_argument("--parsed-path", default=None,
+                    help="기존 파싱 결과 parquet 경로. 지정하면 파싱 단계를 건너뜀")
     args = parser.parse_args()
 
     # 기본 청킹 설정
@@ -60,6 +62,7 @@ def main() -> None:
         output_dir=output_dir,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        parsed_path=args.parsed_path,
     )
 
     # 산출물 경로 출력 (parsed_documents.parquet, chunks.parquet 등)

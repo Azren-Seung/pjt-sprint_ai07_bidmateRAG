@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings
+
 
 from bidmate_rag.schema import Chunk
 
@@ -52,6 +55,9 @@ class ChunkingConfig:
     headers_to_split: list[tuple[str, str]] = field(default_factory=lambda: [("#", "h1")])
     separators: list[str] = field(default_factory=lambda: ["\n\n", "\n", ". ", " ", ""])
     description: str = "기본 설정"
+    chunking_strategy: str = "recursive" # "recursive" 또는 "semantic"
+    breakpoint_threshold_type: str = "percentile"
+    breakpoint_threshold_amount: float = 95.0
 
     @classmethod
     def from_preset(cls, name: str) -> "ChunkingConfig":
@@ -82,13 +88,16 @@ class ChunkingConfig:
         """
         import yaml
 
-        cfg = yaml.safe_load(Path(path).read_text())
+        cfg = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         return cls(
             chunk_size=cfg.get("chunk_size", 1000),
             chunk_overlap=cfg.get("chunk_overlap", 150),
             min_section_size=cfg.get("min_section_size", 500),
             max_table_size=cfg.get("max_table_size", 1500),
             description=cfg.get("description", cfg.get("name", "")),
+            chunking_strategy=cfg.get("chunking_strategy", "recursive"),
+            breakpoint_threshold_type=cfg.get("breakpoint_threshold_type", "percentile"),
+            breakpoint_threshold_amount=cfg.get("breakpoint_threshold_amount", 95.0),
         )
 
     def to_dict(self) -> dict:
@@ -447,8 +456,24 @@ def chunk_document(
             for table_chunk in split_table_with_headers(section_text, max_table_size):
                 append_chunk(table_chunk, section_name, "table")
             continue
-        for subdoc in splitter.create_documents([section_text]):
-            append_chunk(subdoc.page_content, section_name, "text")
+        if config and config.chunking_strategy == "semantic":
+            semantic_chunker = SemanticChunker(
+                OpenAIEmbeddings(model="text-embedding-3-small"),
+                breakpoint_threshold_type=config.breakpoint_threshold_type,
+                breakpoint_threshold_amount=config.breakpoint_threshold_amount,
+                )
+            semantic_docs = semantic_chunker.create_documents([section_text])
+            for sem_doc in semantic_docs:
+                sub_text = sem_doc.page_content
+                # 의미기반 청크가 chunk_size 초과하면 recursive로 후처리
+                if len(sub_text) > chunk_size:
+                    for subdoc in splitter.create_documents([sub_text]):
+                        append_chunk(subdoc.page_content, section_name, "text")
+                else:
+                    append_chunk(sub_text, section_name, "text")
+        else:
+            for subdoc in splitter.create_documents([section_text]):
+                append_chunk(subdoc.page_content, section_name, "text")
     return chunks
 
 

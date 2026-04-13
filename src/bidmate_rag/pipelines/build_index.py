@@ -83,9 +83,16 @@ def build_index_from_parquet(
             all_embeddings.extend(batch_embeddings)
             i += batch_size
         except Exception as exc:
-            if "300000" in str(exc) and batch_size > 5:
+            err_msg = str(exc).lower()
+            is_retryable = (
+                "300000" in str(exc)
+                or "out of memory" in err_msg
+                or "cuda" in err_msg
+                and "memory" in err_msg
+            )
+            if is_retryable and batch_size > 5:
                 batch_size = batch_size // 2
-                print(f"  → 토큰 한도 초과, 배치 {batch_size}로 축소 후 재시도")
+                print(f"  → 메모리/토큰 한도 초과, 배치 {batch_size}로 축소 후 재시도")
             else:
                 raise
 

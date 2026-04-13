@@ -2,25 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from uuid import uuid4
 
 from bidmate_rag.config.prompts import build_rag_user_prompt
+from bidmate_rag.generation.context_builder import build_context_block
 from bidmate_rag.providers.llm.base import BaseLLMProvider
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
-
-
-def _build_context(chunks: list[RetrievedChunk], max_chars: int = 8000) -> str:
-    parts: list[str] = []
-    total = 0
-    for retrieved in chunks:
-        metadata = retrieved.chunk.metadata
-        source = f"[출처: {metadata.get('사업명', '')} | {metadata.get('발주 기관', '')}]"
-        chunk_text = f"{source}\n{retrieved.chunk.text}"
-        if total + len(chunk_text) > max_chars:
-            break
-        parts.append(chunk_text)
-        total += len(chunk_text)
-    return "\n\n---\n\n".join(parts)
 
 
 class HFLocalLLM(BaseLLMProvider):
@@ -30,16 +18,40 @@ class HFLocalLLM(BaseLLMProvider):
         self._generator = generator
 
     def _get_generator(self):
+        """transformers pipeline을 생성한다. 4bit 양자화로 VRAM 절약 + 속도 향상."""
         if self._generator is not None:
             return self._generator
         try:
-            from transformers import pipeline
+            from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
         except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
             raise ModuleNotFoundError(
                 "transformers is required for the local HF provider. "
                 "Install the ml dependency group."
             ) from exc
-        self._generator = pipeline("text-generation", model=self.model_name)
+        # 4bit 양자화 로드 시도 (bitsandbytes 필요)
+        try:
+            import torch
+            from transformers import BitsAndBytesConfig
+
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_quant_type="nf4",
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                quantization_config=quantization_config,
+                device_map="auto",
+            )
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self._generator = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=tokenizer,
+            )
+        except (ImportError, Exception):
+            # bitsandbytes 없으면 일반 로드로 폴백
+            self._generator = pipeline("text-generation", model=self.model_name)
         return self._generator
 
     def generate(
@@ -50,14 +62,32 @@ class HFLocalLLM(BaseLLMProvider):
         generation_config: dict,
         system_prompt: str,
     ) -> GenerationResult:
-        prompt = build_rag_user_prompt(question, _build_context(context_chunks))
+        context = build_context_block(
+            context_chunks, max_chars=generation_config.get("max_context_chars", 8000)
+        )
+        prompt = build_rag_user_prompt(question, context)
         generator = self._get_generator()
+        tokenizer = generator.tokenizer
+        full_input = f"{system_prompt}\n\n{prompt}"
+
+        # 입력 토큰 수 측정
+        input_tokens = len(tokenizer.encode(full_input))
+
+        # 지연 시간 측정
+        start = time.time()
         response = generator(
-            f"{system_prompt}\n\n{prompt}",
+            full_input,
             max_new_tokens=generation_config.get("max_new_tokens", 512),
             do_sample=False,
+            return_full_text=False,
         )
-        generated_text = response[0]["generated_text"] if response else ""
+        latency_ms = (time.time() - start) * 1000
+
+        generated_text = response[0]["generated_text"].strip() if response else ""
+
+        # 출력 토큰 수 측정
+        output_tokens = len(tokenizer.encode(generated_text)) if generated_text else 0
+
         return GenerationResult(
             question_id=generation_config.get("question_id", f"q-{uuid4().hex[:8]}"),
             question=question,
@@ -71,8 +101,12 @@ class HFLocalLLM(BaseLLMProvider):
             retrieved_chunk_ids=[chunk.chunk.chunk_id for chunk in context_chunks],
             retrieved_doc_ids=[chunk.chunk.doc_id for chunk in context_chunks],
             retrieved_chunks=context_chunks,
-            latency_ms=float(generation_config.get("latency_ms", 0.0)),
-            token_usage={},
+            latency_ms=latency_ms,
+            token_usage={
+                "prompt": input_tokens,
+                "completion": output_tokens,
+                "total": input_tokens + output_tokens,
+            },
             cost_usd=0.0,
-            context=_build_context(context_chunks),
+            context=context,
         )
