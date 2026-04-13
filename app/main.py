@@ -115,7 +115,7 @@ def _render_streamlit_app() -> None:
             scenario = _get_scenario(p)
             model = _get_model(p)
             tag = "🅰️" if scenario == "scenario_a" else "🅱️"
-            return f"{tag} {model}"
+            return f"{tag} {model} ({p.stem})"
 
         selected_provider = st.selectbox(
             "LLM Provider",

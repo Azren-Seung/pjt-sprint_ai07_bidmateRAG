@@ -34,7 +34,7 @@ def _get_provider_info(path):
 def _format_provider(p):
     scenario, model = _get_provider_info(p)
     tag = "🅰️" if scenario == "scenario_a" else "🅱️"
-    return f"{tag} {model}"
+    return f"{tag} {model} ({p.stem})"
 
 
 def _sort_providers(configs):
