@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pandas as pd
 
+import bidmate_rag.tracking.markdown_report as markdown_report_module
 from bidmate_rag.tracking.markdown_report import (
     load_report_data,
     render_markdown,
@@ -212,6 +214,59 @@ def test_load_report_data_reads_notes_from_meta(tmp_path):
     assert data.experiment_notes["title"] == "budget-metadata-context"
     assert data.experiment_notes["overview"] == "예산 메타데이터를 답변에 반영하는 실험"
     assert data.experiment_notes["failure_cases"][0]["question_id"] == "q2"
+
+
+def test_load_report_data_resolves_relative_notes_path_from_repo_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    fake_repo = tmp_path / "fake-repo"
+    fake_module_path = fake_repo / "src" / "bidmate_rag" / "tracking" / "markdown_report.py"
+    fake_module_path.parent.mkdir(parents=True)
+    fake_module_path.write_text("# fake module path for repo-root resolution\n", encoding="utf-8")
+
+    relative_notes = Path("configs/experiments/notes/relative-budget-notes.yaml")
+    notes_file = fake_repo / relative_notes
+    notes_file.parent.mkdir(parents=True)
+    notes_file.write_text(
+        "title: relative-notes-title\noverview: 상대 경로 notes 파일\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(markdown_report_module, "__file__", str(fake_module_path))
+    _make_fixture(tmp_path, notes_path=str(relative_notes))
+
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    assert data.experiment_notes is not None
+    assert data.experiment_notes["title"] == "relative-notes-title"
+    assert data.experiment_notes["overview"] == "상대 경로 notes 파일"
+
+
+def test_load_report_data_handles_malformed_notes_yaml_with_warning(
+    tmp_path: Path, caplog
+) -> None:
+    notes_path = tmp_path / "broken-notes.yaml"
+    notes_path.write_text("title: [unterminated\n", encoding="utf-8")
+    _make_fixture(tmp_path, notes_path=str(notes_path))
+
+    with caplog.at_level(logging.WARNING):
+        data = load_report_data(
+            run_id="bench-test1234",
+            runs_dir=tmp_path / "runs",
+            benchmarks_dir=tmp_path / "benchmarks",
+            embeddings_dir=tmp_path / "embeddings",
+        )
+
+    md = render_markdown(data)
+
+    assert data.experiment_notes is None
+    assert "Experiment notes YAML could not be parsed" in caplog.text
+    assert "bench-test1234" in md
 
 
 def test_render_markdown_autofills_notes_bullets_and_failure_case(tmp_path):
