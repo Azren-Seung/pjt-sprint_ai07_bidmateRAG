@@ -49,6 +49,35 @@ def test_build_context_block_renders_source_and_metadata() -> None:
     assert context.endswith("첫 번째 청크")
 
 
+def test_build_context_block_preserves_human_readable_won_text() -> None:
+    chunks = [
+        _make_retrieved_chunk(
+            chunk_id="chunk-1",
+            text="본문",
+            metadata={"사업 금액": "약 3억원"},
+        )
+    ]
+
+    context = build_context_block(chunks)
+
+    assert "사업 금액=약 3억원" in context
+
+
+def test_build_context_block_preserves_chunk_text_whitespace() -> None:
+    chunks = [
+        _make_retrieved_chunk(
+            chunk_id="chunk-1",
+            text="  본문  ",
+            metadata={"사업명": "사업", "발주 기관": "기관"},
+        )
+    ]
+
+    context = build_context_block(chunks)
+
+    assert context.endswith("  본문  ")
+    assert "\n  본문  " in context
+
+
 def test_build_context_block_omits_missing_and_nan_like_metadata() -> None:
     chunks = [
         _make_retrieved_chunk(

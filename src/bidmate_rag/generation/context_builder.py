@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from numbers import Real
 
 from bidmate_rag.schema import RetrievedChunk
@@ -56,13 +57,13 @@ def _format_won(value: object) -> str | None:
     if isinstance(value, float):
         number = int(value)
         return f"{number:,}원"
-    text = str(value).strip().replace(",", "").replace("원", "")
-    if not text:
+    raw_text = str(value).strip()
+    if not raw_text:
         return None
-    try:
-        number = int(float(text))
-    except ValueError:
-        return text
+    normalized = raw_text.replace(",", "").replace("원", "")
+    if not re.fullmatch(r"[+-]?\d+(?:\.\d+)?", normalized):
+        return raw_text
+    number = int(float(normalized))
     return f"{number:,}원"
 
 
@@ -97,7 +98,7 @@ def _build_chunk_header(metadata: dict[str, object]) -> str:
 
 def _build_chunk_block(chunk: RetrievedChunk) -> str:
     header = _build_chunk_header(chunk.chunk.metadata)
-    text = chunk.chunk.text.strip()
+    text = chunk.chunk.text
     if header and text:
         return f"{header}\n{text}"
     if header:
