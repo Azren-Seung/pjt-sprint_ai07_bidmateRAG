@@ -214,6 +214,28 @@ def test_retriever_fans_out_multi_agency_filter_for_per_source_each_query() -> N
     assert [result.chunk.chunk_id for result in results] == ["nps-1", "ibs-1"]
 
 
+def test_retriever_fans_out_query_named_multi_agency_comparison_without_explicit_filter() -> None:
+    vector_store = ScopedFakeVectorStore(
+        {
+            "국민연금공단": [_retrieved_chunk("nps-1", 0.99, agency="국민연금공단")],
+            "기초과학연구원": [_retrieved_chunk("ibs-1", 0.97, agency="기초과학연구원")],
+        }
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+    )
+
+    results = retriever.retrieve("국민연금공단과 기초과학연구원 사업을 비교해줘", top_k=2)
+
+    assert [call["where"]["발주 기관"] for call in vector_store.calls] == [
+        "국민연금공단",
+        "기초과학연구원",
+    ]
+    assert [result.chunk.chunk_id for result in results] == ["nps-1", "ibs-1"]
+
+
 def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text() -> None:
     vector_store = FakeVectorStore(
         query_results=[

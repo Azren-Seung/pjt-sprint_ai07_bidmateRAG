@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from bidmate_rag.retrieval.filters import (
+    extract_matched_agencies,
     extract_metadata_filters,
     extract_range_filters,
     extract_section_hint,
@@ -129,6 +130,9 @@ class RAGRetriever:
         else:
             agency_list = getattr(self.metadata_store, "agency_list", [])
             where = extract_metadata_filters(query, agency_list, chat_history=chat_history)
+            matched_agencies = extract_matched_agencies(query, agency_list)
+            if where is None and len(matched_agencies) >= 2 and is_comparison_query(query):
+                where = {"발주 기관": {"$in": matched_agencies}}
             range_filter = extract_range_filters(query)
             if range_filter:
                 where = {**(where or {}), **range_filter}

@@ -63,6 +63,19 @@ MULTI_SOURCE_HINT_KEYWORDS = [
 ]
 
 
+def extract_matched_agencies(query: str, agency_list: list[str]) -> list[str]:
+    """쿼리에 명시적으로 언급된 발주기관 목록을 추출."""
+    matched_agencies: list[str] = []
+    for agency in agency_list:
+        short = agency.replace("(주)", "").replace("㈜", "").strip()
+        for part in [short, short[:6], short[:4]]:
+            if len(part) >= 3 and part in query:
+                if agency not in matched_agencies:
+                    matched_agencies.append(agency)
+                break
+    return matched_agencies
+
+
 def extract_metadata_filters(
     query: str, agency_list: list[str], chat_history: list[dict] | None = None
 ) -> dict | None:
@@ -78,14 +91,7 @@ def extract_metadata_filters(
     """
     if any(keyword in query for keyword in RELEASE_KEYWORDS):
         return None
-    matched_agencies: list[str] = []
-    for agency in agency_list:
-        short = agency.replace("(주)", "").replace("㈜", "").strip()
-        for part in [short, short[:6], short[:4]]:
-            if len(part) >= 3 and part in query:
-                if agency not in matched_agencies:
-                    matched_agencies.append(agency)
-                break
+    matched_agencies = extract_matched_agencies(query, agency_list)
     if len(matched_agencies) >= 2:
         return None
     if len(matched_agencies) == 1:
