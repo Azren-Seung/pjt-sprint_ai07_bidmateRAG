@@ -28,6 +28,54 @@ def _primitive_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     return clean
 
 
+def _normalize_field_where(field: str, value: Any) -> dict[str, Any]:
+    """Normalize a single field clause into a Chroma-compatible ``where``."""
+    if not isinstance(value, dict) or not value:
+        return {field: value}
+
+    operator_items = [
+        (operator, operand)
+        for operator, operand in value.items()
+        if isinstance(operator, str) and operator.startswith("$")
+    ]
+    if len(operator_items) != len(value):
+        return {field: value}
+    if len(operator_items) <= 1:
+        return {field: value}
+    return {"$and": [{field: {operator: operand}} for operator, operand in operator_items]}
+
+
+def _normalize_where_clause(where: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Normalize flat/mixed ``where`` filters into Chroma-compatible form."""
+    if not where:
+        return None
+
+    if len(where) == 1:
+        key, value = next(iter(where.items()))
+        if key in {"$and", "$or"} and isinstance(value, list):
+            return {
+                key: [
+                    normalized
+                    for clause in value
+                    if (normalized := _normalize_where_clause(clause)) is not None
+                ]
+            }
+        return _normalize_field_where(key, value)
+
+    clauses: list[dict[str, Any]] = []
+    for key, value in where.items():
+        if key in {"$and", "$or"} and isinstance(value, list):
+            nested = _normalize_where_clause({key: value})
+            if nested:
+                clauses.append(nested)
+            continue
+        clauses.append(_normalize_field_where(key, value))
+
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
 class ChromaVectorStore:
     """Chroma 기반 벡터 스토어."""
 
@@ -122,7 +170,7 @@ class ChromaVectorStore:
         """
         kwargs = {"query_embeddings": [query_embedding], "n_results": top_k}
         if where:
-            kwargs["where"] = where
+            kwargs["where"] = _normalize_where_clause(where)
         if where_document:
             kwargs["where_document"] = where_document
         results = self.collection.query(**kwargs)

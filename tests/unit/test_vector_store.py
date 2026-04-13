@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bidmate_rag.retrieval.vector_store import ChromaVectorStore
+from bidmate_rag.retrieval.vector_store import ChromaVectorStore, _normalize_where_clause
 from bidmate_rag.schema import Chunk
 
 
@@ -92,3 +92,63 @@ def test_replace_documents_with_empty_chunks_is_noop(tmp_path):
     # 아무 청크 없으면 collection 건드리지 않아야 함
     store.replace_documents([], [])
     assert store.collection.count() == 0
+
+
+def test_normalize_where_clause_wraps_multi_field_filters_with_and() -> None:
+    where = {"발주 기관": "국민연금공단", "공개연도": 2024}
+
+    assert _normalize_where_clause(where) == {
+        "$and": [
+            {"발주 기관": "국민연금공단"},
+            {"공개연도": 2024},
+        ]
+    }
+
+
+def test_normalize_where_clause_splits_multi_operator_same_field_range() -> None:
+    where = {"사업 금액": {"$gte": 100, "$lte": 200}}
+
+    assert _normalize_where_clause(where) == {
+        "$and": [
+            {"사업 금액": {"$gte": 100}},
+            {"사업 금액": {"$lte": 200}},
+        ]
+    }
+
+
+def test_query_normalizes_where_before_collection_query() -> None:
+    class FakeCollection:
+        def __init__(self) -> None:
+            self.last_kwargs = None
+
+        def query(self, **kwargs):
+            self.last_kwargs = kwargs
+            return {"ids": [[]], "metadatas": [[]], "documents": [[]], "distances": [[]]}
+
+    store = object.__new__(ChromaVectorStore)
+    fake_collection = FakeCollection()
+    store.collection = fake_collection
+
+    results = store.query(
+        query_embedding=[0.1, 0.2, 0.3],
+        top_k=5,
+        where={
+            "발주 기관": "국민연금공단",
+            "사업 금액": {"$gte": 500000000, "$lte": 1000000000},
+            "공개연도": 2024,
+        },
+    )
+
+    assert results == []
+    assert fake_collection.last_kwargs["where"] == {
+        "$and": [
+            {"발주 기관": "국민연금공단"},
+            {
+                "$and": [
+                    {"사업 금액": {"$gte": 500000000}},
+                    {"사업 금액": {"$lte": 1000000000}},
+                ]
+            },
+            {"공개연도": 2024},
+        ]
+    }
