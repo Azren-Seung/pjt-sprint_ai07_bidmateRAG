@@ -21,6 +21,7 @@ def _make_fixture(
     with_embedding: bool = True,
     judge_skipped: bool = False,
     llm_model: str = "gpt-5-mini",
+    notes_path: str | None = None,
 ) -> Path:
     runs_dir = tmp_path / "runs"
     benchmarks_dir = tmp_path / "benchmarks"
@@ -137,6 +138,8 @@ def _make_fixture(
             "judge_total_cost_usd": 0.0 if judge_skipped else 0.0008,
             "judge_total_tokens": 0 if judge_skipped else 400,
         }
+        if notes_path is not None:
+            meta["notes_path"] = notes_path
         (runs_dir / f"{run_id}.meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -172,6 +175,102 @@ def test_load_report_data_full(tmp_path):
     assert data.embedding_meta is not None
     assert data.embedding_meta["total_cost_usd"] == 0.001
     assert data.meta["judge_total_cost_usd"] == 0.0008
+
+
+def test_load_report_data_reads_notes_from_meta(tmp_path):
+    notes_path = tmp_path / "notes" / "example-budget-quality.yaml"
+    notes_path.parent.mkdir()
+    notes_path.write_text(
+        (
+            "title: budget-metadata-context\n"
+            "overview: 예산 메타데이터를 답변에 반영하는 실험\n"
+            "hypothesis:\n"
+            "  - 예산이 metadata에만 존재하는 문서도 답변 가능해질 것이다.\n"
+            "changes:\n"
+            "  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가\n"
+            "expected_outcome:\n"
+            "  - 예산 질문 무응답 감소\n"
+            "next_actions:\n"
+            "  - judge 기준으로 실패 유형 재분류\n"
+            "failure_cases:\n"
+            "  - question_id: q2\n"
+            "    why_watch: retrieval miss\n"
+        ),
+        encoding="utf-8",
+    )
+    _make_fixture(tmp_path, notes_path=str(notes_path))
+
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    assert data.experiment_notes is not None
+    assert data.experiment_notes["title"] == "budget-metadata-context"
+    assert data.experiment_notes["overview"] == "예산 메타데이터를 답변에 반영하는 실험"
+    assert data.experiment_notes["failure_cases"][0]["question_id"] == "q2"
+
+
+def test_render_markdown_autofills_notes_bullets_and_failure_case(tmp_path):
+    notes_path = tmp_path / "notes.yaml"
+    notes_path.write_text(
+        (
+            "title: budget-metadata-context\n"
+            "overview: 예산이 metadata에만 존재하는 문서를 다루는 실험\n"
+            "hypothesis:\n"
+            "  - 예산이 metadata에만 존재하는 문서도 답변 가능해질 것이다.\n"
+            "  - 비교형 질문의 근거 회수가 늘어날 것이다.\n"
+            "changes:\n"
+            "  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가\n"
+            "  - 다문서 비교 질문에서 기관별 retrieval merge 추가\n"
+            "expected_outcome:\n"
+            "  - 예산 질문 무응답 감소\n"
+            "  - 비교형 질문 retrieval hit 개선\n"
+            "next_actions:\n"
+            "  - judge 기준으로 실패 유형 재분류\n"
+            "failure_cases:\n"
+            "  - question_id: q2\n"
+            "    why_watch: retrieval miss\n"
+        ),
+        encoding="utf-8",
+    )
+    _make_fixture(tmp_path, notes_path=str(notes_path))
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert "budget-metadata-context" in md
+    assert "예산이 metadata에만 존재하는 문서도 답변 가능해질 것이다." in md
+    assert "비교형 질문의 근거 회수가 늘어날 것이다." in md
+    assert "LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가" in md
+    assert "예산 질문 무응답 감소" in md
+    assert "judge 기준으로 실패 유형 재분류" in md
+    assert "### 실패 사례 1" in md
+    assert "question_id: q2" in md or "Q2" in md
+    assert "retrieval miss" in md
+
+
+def test_render_markdown_handles_missing_notes_file(tmp_path):
+    missing_notes = tmp_path / "missing-notes.yaml"
+    _make_fixture(tmp_path, notes_path=str(missing_notes))
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert data.experiment_notes is None
+    assert "bench-test1234" in md
+    assert "### 실패 사례 1" in md
+    assert "Q2" in md
 
 
 def test_render_markdown_includes_key_sections(tmp_path):
