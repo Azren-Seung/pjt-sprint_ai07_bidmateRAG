@@ -340,18 +340,39 @@ def _build_context(data: ReportData) -> dict[str, Any]:
         f"  - `{configs[k]}`" for k in ("base", "provider", "experiment") if configs.get(k)
     ) or "  - (미기록)"
 
-    experiment_title = str(notes.get("title") or data.experiment_name)
+    experiment_title = _first_non_empty(notes.get("title"), data.experiment_name)
     experiment_overview = _first_non_empty(
         notes.get("overview"),
         notes.get("summary"),
         notes.get("description"),
-    ) or ""
-    hypothesis_bullets = _format_bullet_block(notes.get("hypothesis"), data.experiment_notes)
-    changes_bullets = _format_bullet_block(notes.get("changes"), data.experiment_notes)
-    expected_outcome_bullets = _format_bullet_block(
-        notes.get("expected_outcome"), data.experiment_notes
+    ) or "실험 목적/배경을 입력하세요"
+    hypothesis_bullets = _format_bullet_block(
+        notes.get("hypothesis"),
+        data.experiment_notes,
+        placeholder_lines=[
+            "왜 이 변경을 했는지:",
+            "무엇이 좋아질 거라고 봤는지:",
+        ],
     )
-    next_actions_bullets = _format_bullet_block(notes.get("next_actions"), data.experiment_notes)
+    changes_bullets = _format_bullet_block(
+        notes.get("changes"),
+        data.experiment_notes,
+        placeholder_lines=["변경 내용을 입력하세요"],
+    )
+    expected_outcome_bullets = _format_bullet_block(
+        notes.get("expected_outcome"),
+        data.experiment_notes,
+        placeholder_lines=["기대 결과를 입력하세요"],
+    )
+    next_actions_bullets = _format_bullet_block(
+        notes.get("next_actions"),
+        data.experiment_notes,
+        placeholder_lines=[
+            "다음 실험에서 무엇을 바꿀지:",
+            "유지할 것:",
+            "버릴 것:",
+        ],
+    )
     failure_case_blocks = _build_failure_case_blocks(data, notes)
 
     # Judge metrics from summary first, fall back to results aggregate
@@ -429,11 +450,16 @@ def _first_non_empty(*values: Any) -> str:
     return ""
 
 
-def _format_bullet_block(value: Any, notes_present: dict[str, Any] | None) -> str:
+def _format_bullet_block(
+    value: Any,
+    notes_present: dict[str, Any] | None,
+    *,
+    placeholder_lines: list[str],
+) -> str:
     if not notes_present:
-        return ""
+        return "\n".join(f"- {line}" for line in placeholder_lines)
     if not value:
-        return "- (기록 없음)"
+        return "\n".join(f"- {line}" for line in placeholder_lines)
     if isinstance(value, str):
         items = [value]
     elif isinstance(value, list):
@@ -445,7 +471,7 @@ def _format_bullet_block(value: Any, notes_present: dict[str, Any] | None) -> st
         text = str(item).strip()
         if text:
             bullets.append(f"- {text}")
-    return "\n".join(bullets) if bullets else "- (기록 없음)"
+    return "\n".join(bullets) if bullets else "\n".join(f"- {line}" for line in placeholder_lines)
 
 
 def _normalize_question_id(value: Any) -> str:
@@ -466,6 +492,10 @@ def _build_failure_case_blocks(data: ReportData, notes: dict[str, Any]) -> str:
         retrieved_chunks = row.get("retrieved_chunks") or []
         judge_scores = row.get("judge_scores") or {}
         evidence = note.get("why_watch") or note.get("reason") or note.get("note") or ""
+        if not evidence:
+            explicit_error = _extract_error_text(row)
+            if explicit_error:
+                evidence = explicit_error
         if not evidence:
             if not retrieved_chunks:
                 evidence = "retrieved_chunks가 비어 있음"
@@ -530,12 +560,13 @@ def _select_fallback_weak_rows(
 ) -> list[dict[str, Any]]:
     exclude_qids = exclude_qids or set()
 
-    def _score(row: dict[str, Any]) -> tuple[int, int, float, str]:
+    def _score(row: dict[str, Any]) -> tuple[int, int, int, float, float, float, str]:
         qid = _normalize_question_id(row.get("question_id"))
         retrieved_chunks = row.get("retrieved_chunks") or []
         judge_scores = row.get("judge_scores") or {}
+        explicit_error = 0 if _row_has_explicit_error(row) else 1
         has_retrieval_miss = 0 if not retrieved_chunks else 1
-        has_no_judge_scores = 0 if not judge_scores else 1
+        has_judge_scores = 0 if judge_scores else 1
         if judge_scores:
             numeric_scores = [
                 float(score)
@@ -545,7 +576,17 @@ def _select_fallback_weak_rows(
             score_value = sum(numeric_scores) / len(numeric_scores) if numeric_scores else 1.0
         else:
             score_value = 1.0
-        return (has_retrieval_miss, has_no_judge_scores, score_value, qid)
+        latency_ms = float(row.get("latency_ms") or 0.0)
+        cost_usd = float(row.get("cost_usd") or 0.0)
+        return (
+            explicit_error,
+            has_retrieval_miss,
+            has_judge_scores,
+            score_value,
+            -latency_ms,
+            -cost_usd,
+            qid,
+        )
 
     rows = [
         row
@@ -553,6 +594,27 @@ def _select_fallback_weak_rows(
         if _normalize_question_id(row.get("question_id")) not in exclude_qids
     ]
     return sorted(rows, key=_score)
+
+
+def _extract_error_text(row: dict[str, Any]) -> str:
+    for key in ("error", "error_message", "exception", "failure_reason", "judge_error"):
+        value = row.get(key)
+        if value is None:
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text and text.lower() not in {"ok", "success", "succeeded", "passed", "pass", "none"}:
+                return text
+        elif value not in (False, "", [], {}, ()):
+            return str(value)
+    status = str(row.get("status") or "").strip()
+    if status.lower() in {"error", "failed", "failure", "exception"}:
+        return status
+    return ""
+
+
+def _row_has_explicit_error(row: dict[str, Any]) -> bool:
+    return bool(_extract_error_text(row))
 
 
 def _percentile(values: list[float], pct: int) -> float:

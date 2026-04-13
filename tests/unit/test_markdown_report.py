@@ -22,6 +22,7 @@ def _make_fixture(
     judge_skipped: bool = False,
     llm_model: str = "gpt-5-mini",
     notes_path: str | None = None,
+    rows: list[dict[str, object]] | None = None,
 ) -> Path:
     runs_dir = tmp_path / "runs"
     benchmarks_dir = tmp_path / "benchmarks"
@@ -35,7 +36,7 @@ def _make_fixture(
 
     # JSONL with two questions
     jsonl_path = runs_dir / f"{run_id}.jsonl"
-    rows = [
+    rows = rows or [
         {
             "question_id": "q1",
             "question": "Q1",
@@ -273,6 +274,27 @@ def test_render_markdown_handles_missing_notes_file(tmp_path):
     assert "Q2" in md
 
 
+def test_render_markdown_without_notes_keeps_manual_prompts(tmp_path):
+    _make_fixture(tmp_path)
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert data.experiment_notes is None
+    assert "실험 목적/배경을 입력하세요" in md
+    assert "왜 이 변경을 했는지:" in md
+    assert "무엇이 좋아질 거라고 봤는지:" in md
+    assert "변경 내용을 입력하세요" in md
+    assert "기대 결과를 입력하세요" in md
+    assert "다음 실험에서 무엇을 바꿀지:" in md
+    assert "유지할 것:" in md
+    assert "버릴 것:" in md
+
+
 def test_render_markdown_includes_key_sections(tmp_path):
     _make_fixture(tmp_path)
     data = load_report_data(
@@ -305,6 +327,80 @@ def test_render_markdown_includes_key_sections(tmp_path):
     assert "abc1234" in md
     # gpt-5-mini는 reasoning 주의 문구가 표시되어야 함
     assert "gpt-5 계열은 reasoning tokens" in md
+
+
+def test_fallback_failure_cases_prefer_weak_signals_deterministically(tmp_path):
+    rows = [
+        {
+            "question_id": "q9",
+            "question": "strong answer",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "strong",
+            "retrieved_chunks": [{"chunk_id": "c1"}],
+            "latency_ms": 120.0,
+            "cost_usd": 0.001,
+            "judge_scores": {
+                "faithfulness": 0.95,
+                "answer_relevance": 0.93,
+            },
+        },
+        {
+            "question_id": "q2",
+            "question": "error case",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "failed",
+            "retrieved_chunks": [{"chunk_id": "c2"}],
+            "latency_ms": 900.0,
+            "cost_usd": 0.01,
+            "error": "timeout while generating answer",
+            "judge_scores": {},
+        },
+        {
+            "question_id": "q7",
+            "question": "retrieval miss",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "miss",
+            "retrieved_chunks": [],
+            "latency_ms": 1500.0,
+            "cost_usd": 0.02,
+            "judge_scores": {},
+        },
+        {
+            "question_id": "q5",
+            "question": "low score",
+            "scenario": "openai",
+            "run_id": "bench-test1234",
+            "answer": "weak",
+            "retrieved_chunks": [{"chunk_id": "c3"}],
+            "latency_ms": 2000.0,
+            "cost_usd": 0.03,
+            "judge_scores": {
+                "faithfulness": 0.2,
+                "answer_relevance": 0.3,
+                "context_precision": 0.4,
+                "context_recall": 0.25,
+            },
+        },
+    ]
+    _make_fixture(tmp_path, rows=rows, judge_skipped=True)
+    data = load_report_data(
+        run_id="bench-test1234",
+        runs_dir=tmp_path / "runs",
+        benchmarks_dir=tmp_path / "benchmarks",
+        embeddings_dir=tmp_path / "embeddings",
+    )
+
+    md = render_markdown(data)
+    assert "### 실패 사례 1" in md
+    assert "- 질문 ID: q2" in md
+    assert "timeout while generating answer" in md
+    assert "### 실패 사례 2" in md
+    assert "- 질문 ID: q7" in md
+    assert "retrieved_chunks가 비어 있음" in md
+    assert "- 질문 ID: q5" not in md
 
 
 def test_render_markdown_handles_missing_embedding(tmp_path):
