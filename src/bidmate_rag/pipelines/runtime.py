@@ -110,6 +110,7 @@ def build_runtime_pipeline(
     experiment_config_path: str | Path | None = None,
     persist_dir: str | Path = "artifacts/chroma_db",
     metadata_path: str | Path | None = None,
+    adapter_path: str | Path | None = None, # 어댑터 경로 추가
 ):
     """설정 파일들로부터 RAGChatPipeline을 조립한다.
 
@@ -126,7 +127,7 @@ def build_runtime_pipeline(
     """
     runtime = load_runtime_config(base_config_path, provider_config_path, experiment_config_path)
     embedder = build_embedding_provider(runtime.provider)
-    llm = build_llm_provider(runtime.provider)
+    llm = build_llm_provider(runtime.provider, adapter_path=adapter_path)  # 어댑터 경로 전달
     vector_store = ChromaVectorStore(
         persist_dir=persist_dir,
         collection_name=collection_name_for_config(runtime),
