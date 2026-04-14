@@ -14,6 +14,7 @@ class ProjectConfig(BaseModel):
     default_retrieval_top_k: int = 5
     default_chunk_size: int = 1000
     default_chunk_overlap: int = 150
+    reranker_model: str | None = None
 
 
 class ProviderConfig(BaseModel):
