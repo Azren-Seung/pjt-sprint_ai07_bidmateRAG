@@ -13,7 +13,7 @@ from bidmate_rag.web_api.schemas import (
 )
 
 
-def test_document_summary_roundtrip():
+def test_document_summary_roundtrip() -> None:
     summary = DocumentSummary(
         id="doc-1.hwp",
         title="한영대학교 학사정보시스템 고도화",
@@ -31,7 +31,7 @@ def test_document_summary_roundtrip():
     assert revived.id == "doc-1.hwp"
 
 
-def test_query_request_defaults():
+def test_query_request_defaults() -> None:
     req = QueryRequest(
         question="요구사항 알려줘",
         provider_config="openai_gpt5mini",
@@ -43,7 +43,7 @@ def test_query_request_defaults():
     assert req.max_context_chars == 8000
 
 
-def test_query_response_contains_citations():
+def test_query_response_contains_citations() -> None:
     citation = Citation(
         id=1,
         doc_id="doc-1.hwp",
@@ -73,7 +73,7 @@ def test_query_response_contains_citations():
     assert data["metadata"]["retrieval_strategy"] == "single"
 
 
-def test_document_detail_quick_facts_list():
+def test_document_detail_quick_facts_list() -> None:
     detail = DocumentDetail(
         id="doc-1.hwp",
         title="학사 시스템",
@@ -93,7 +93,7 @@ def test_document_detail_quick_facts_list():
     assert detail.quick_facts[0]["label"] == "발주기관"
 
 
-def test_slash_command_meta_serialization():
+def test_slash_command_meta_serialization() -> None:
     cmd = SlashCommandMeta(
         id="요약",
         label="/요약",
