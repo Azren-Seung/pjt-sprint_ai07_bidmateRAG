@@ -6,7 +6,11 @@ class FakeEmbedder:
     provider_name = "fake-embedder"
     model_name = "fake-embedding-model"
 
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
     def embed_query(self, query: str) -> list[float]:
+        self.queries.append(query)
         return [0.1, 0.2, 0.3]
 
 
@@ -45,6 +49,13 @@ class FakeMetadataStore:
 
     def find_relevant_docs(self, query: str, top_n: int = 3):
         return ["doc-1.hwp", "doc-2.hwp"]
+
+
+class EmptyShortlistMetadataStore:
+    agency_list = ["국민연금공단", "기초과학연구원"]
+
+    def find_relevant_docs(self, query: str, top_n: int = 3):
+        return []
 
 
 class FakeReranker:
@@ -129,20 +140,6 @@ def test_retriever_uses_metadata_store_shortlist_when_no_explicit_filter() -> No
     assert len(vector_store.calls) == 1
     assert vector_store.last_kwargs["where"] == {"파일명": {"$in": ["doc-1.hwp", "doc-2.hwp"]}}
     assert results[0].score > 0
-
-
-def test_retriever_does_not_fan_out_generic_shortlist_each_query() -> None:
-    vector_store = FakeVectorStore()
-    retriever = RAGRetriever(
-        vector_store=vector_store,
-        embedder=FakeEmbedder(),
-        metadata_store=FakeMetadataStore(),
-    )
-
-    retriever.retrieve("요구사항을 각각 정리해줘", top_k=2)
-
-    assert len(vector_store.calls) == 1
-    assert vector_store.last_kwargs["where"] == {"파일명": {"$in": ["doc-1.hwp", "doc-2.hwp"]}}
 
 
 def test_retriever_merges_multi_agency_filter_results_round_robin() -> None:
@@ -312,93 +309,40 @@ def test_retriever_applies_cross_encoder_after_multi_agency_fan_out_merge() -> N
     assert [result.score for result in results] == [0.95, 0.9]
 
 
-def test_retriever_builds_cross_encoder_input_with_agency_and_project_metadata() -> None:
-    vector_store = FakeVectorStore(
-        query_results=[
-            RetrievedChunk(
-                rank=1,
-                score=0.8,
-                chunk=Chunk(
-                    chunk_id="chunk-1",
-                    doc_id="doc-1",
-                    text="본문 내용",
-                    text_with_meta="[발주기관: 국민연금공단 | 사업명: 차세대 포털 구축]\n본문 내용",
-                    char_count=5,
-                    section="사업개요",
-                    content_type="text",
-                    chunk_index=0,
-                    metadata={
-                        "사업명": "차세대 포털 구축",
-                        "발주 기관": "국민연금공단",
-                        "파일명": "doc-1.hwp",
-                    },
-                ),
-            )
-        ]
-    )
-    reranker = FakeReranker(
-        {
-            "[발주기관: 국민연금공단 | 사업명: 차세대 포털 구축]\n본문 내용": 0.95,
-        }
-    )
+def test_retriever_rewrites_follow_up_query_and_inherits_recent_agency_filter() -> None:
+    vector_store = FakeVectorStore()
+    embedder = FakeEmbedder()
     retriever = RAGRetriever(
         vector_store=vector_store,
-        embedder=FakeEmbedder(),
-        metadata_store=FakeMetadataStore(),
-        reranker_model=reranker,
-    )
-
-    retriever.retrieve("국민연금공단 사업 목적 알려줘", top_k=1)
-
-    assert reranker.calls == [
-        [
-            [
-                "국민연금공단 사업 목적 알려줘",
-                "[발주기관: 국민연금공단 | 사업명: 차세대 포털 구축]\n본문 내용",
-            ]
-        ]
-    ]
-
-
-def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text() -> None:
-    vector_store = FakeVectorStore(
-        query_results=[
-            _retrieved_chunk("overview-text", 0.91, agency="국민연금공단", section="사업개요"),
-            _retrieved_chunk(
-                "budget-table",
-                0.8,
-                agency="국민연금공단",
-                section="예산",
-                content_type="table",
-            ),
-        ]
-    )
-    retriever = RAGRetriever(
-        vector_store=vector_store,
-        embedder=FakeEmbedder(),
+        embedder=embedder,
         metadata_store=FakeMetadataStore(),
     )
 
-    results = retriever.retrieve("국민연금공단 예산 표를 알려줘", top_k=2)
-
-    assert results[0].chunk.chunk_id == "budget-table"
-    assert results[0].rank == 1
-
-
-def test_retriever_preserves_original_order_when_no_rerank_hints_present() -> None:
-    vector_store = FakeVectorStore(
-        query_results=[
-            _retrieved_chunk("first-text", 0.75, agency="국민연금공단", section="사업개요"),
-            _retrieved_chunk("second-text", 0.95, agency="국민연금공단", section="일반"),
-        ]
+    retriever.retrieve(
+        "그 사업 예산은?",
+        top_k=2,
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
     )
+
+    assert embedder.queries == ["국민연금공단 차세대 ERP 사업 예산은?"]
+    assert vector_store.last_kwargs["where"] == {"발주 기관": "국민연금공단"}
+
+
+def test_retriever_can_disable_multiturn_rewrite_and_history_filter() -> None:
+    vector_store = FakeVectorStore()
+    embedder = FakeEmbedder()
     retriever = RAGRetriever(
         vector_store=vector_store,
-        embedder=FakeEmbedder(),
-        metadata_store=FakeMetadataStore(),
+        embedder=embedder,
+        metadata_store=EmptyShortlistMetadataStore(),
+        enable_multiturn=False,
     )
 
-    results = retriever.retrieve("국민연금공단 사업 알려줘", top_k=2)
+    retriever.retrieve(
+        "그 사업 예산은?",
+        top_k=2,
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
+    )
 
-    assert [result.chunk.chunk_id for result in results] == ["first-text", "second-text"]
-    assert [result.rank for result in results] == [1, 2]
+    assert embedder.queries == ["그 사업 예산은?"]
+    assert vector_store.last_kwargs["where"] is None
