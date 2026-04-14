@@ -153,7 +153,7 @@ def test_post_query_no_mentions_no_command(client) -> None:
     chunks = [_make_chunk("c1", "doc-1.hwp", 1), _make_chunk("c2", "doc-1.hwp", 2)]
     fake_result = _make_generation_result("## 답변\n본문 [1][2]", chunks)
 
-    with patch("bidmate_rag.web_api.routes.run_live_query", return_value=fake_result):
+    with patch("bidmate_rag.web_api.routes.web_query", return_value=fake_result):
         response = client.post(
             "/api/query",
             json={
@@ -176,11 +176,11 @@ def test_post_query_with_single_mention(client) -> None:
     fake_result = _make_generation_result("답변", chunks)
 
     captured = {}
-    def _fake_run_live_query(**kwargs):
+    def _fake_web_query(**kwargs):
         captured.update(kwargs)
         return fake_result
 
-    with patch("bidmate_rag.web_api.routes.run_live_query", side_effect=_fake_run_live_query):
+    with patch("bidmate_rag.web_api.routes.web_query", side_effect=_fake_web_query):
         response = client.post(
             "/api/query",
             json={
@@ -191,8 +191,10 @@ def test_post_query_with_single_mention(client) -> None:
             },
         )
     assert response.status_code == 200
-    # 필터가 doc_id로 전달됐는지 확인
-    assert captured["manual_filters"] == {"doc_id": "20240000001"}
+    # 멘션된 doc_id가 web_query에 전달됐는지 확인
+    assert captured["mentioned_doc_ids"] == ["20240000001"]
+    data = response.json()
+    assert data["metadata"]["filter_applied"] == {"doc_id": "20240000001"}
 
 
 def test_post_query_with_command_augments_query(client) -> None:
@@ -200,11 +202,11 @@ def test_post_query_with_command_augments_query(client) -> None:
     fake_result = _make_generation_result("표 형식 답변", chunks)
 
     captured = {}
-    def _fake_run_live_query(**kwargs):
+    def _fake_web_query(**kwargs):
         captured.update(kwargs)
         return fake_result
 
-    with patch("bidmate_rag.web_api.routes.run_live_query", side_effect=_fake_run_live_query):
+    with patch("bidmate_rag.web_api.routes.web_query", side_effect=_fake_web_query):
         response = client.post(
             "/api/query",
             json={

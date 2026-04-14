@@ -8,10 +8,9 @@ from typing import Any
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Request
 
-from app.api.routes import run_live_query
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.web_api.commands import COMMAND_REGISTRY, SlashCommand
-from bidmate_rag.web_api.retrieval_helpers import per_doc_split_query
+from bidmate_rag.web_api.retrieval_helpers import web_query
 from bidmate_rag.web_api.schemas import (
     Citation,
     DocumentDetail,
@@ -213,47 +212,37 @@ def query(req: QueryRequest) -> QueryResponse:
     # 6. top_k
     top_k = cmd.top_k if cmd else req.top_k
 
-    # 7. 분기: 멘션 2개+ → per-doc split, 아니면 run_live_query
-    if len(req.mentioned_doc_ids) >= 2:
-        result = per_doc_split_query(
-            question=req.question,
-            augmented_query=augmented_query,
-            mentioned_doc_ids=req.mentioned_doc_ids,
-            provider_config=req.provider_config,
-            chunking_config=req.chunking_config,
-            system_prompt=system_prompt,
-            top_k=top_k,
-            max_context_chars=req.max_context_chars,
-        )
-        return _result_to_response(
-            result,
-            cmd,
-            filter_applied={"doc_id": {"$in": req.mentioned_doc_ids}},
-            strategy="per_doc_split",
-            per_doc_k=max(top_k // len(req.mentioned_doc_ids), 3) + 2,
-        )
-
-    # 단일/0 문서 경로
-    manual_filters: dict | None = None
-    if len(req.mentioned_doc_ids) == 1:
-        manual_filters = {"doc_id": req.mentioned_doc_ids[0]}
-
-    experiment_config_path = (
-        f"configs/chunking/{req.chunking_config}.yaml" if req.chunking_config else None
-    )
-    result = run_live_query(
-        question=augmented_query,
-        provider_config_path=f"configs/providers/{req.provider_config}.yaml",
-        experiment_config_path=experiment_config_path,
-        top_k=top_k,
-        manual_filters=manual_filters,
+    # 7. 통합 RAG 경로 — `web_query`가 멘션 0/1/N+ 모두 처리
+    result = web_query(
+        question=req.question,
+        augmented_query=augmented_query,
+        mentioned_doc_ids=req.mentioned_doc_ids,
+        provider_config=req.provider_config,
+        chunking_config=req.chunking_config,
         system_prompt=system_prompt,
+        top_k=top_k,
         max_context_chars=req.max_context_chars,
     )
+
+    # 8. metadata 라벨링 (멘션 개수에 따라)
+    mention_count = len(req.mentioned_doc_ids)
+    if mention_count >= 2:
+        strategy = "per_doc_split"
+        filter_applied = {"doc_id": {"$in": req.mentioned_doc_ids}}
+        per_doc_k_val = max(top_k // mention_count, 3) + 2
+    elif mention_count == 1:
+        strategy = "single"
+        filter_applied = {"doc_id": req.mentioned_doc_ids[0]}
+        per_doc_k_val = None
+    else:
+        strategy = "single"
+        filter_applied = None
+        per_doc_k_val = None
+
     return _result_to_response(
         result,
         cmd,
-        filter_applied=manual_filters,
-        strategy="single",
-        per_doc_k=None,
+        filter_applied=filter_applied,
+        strategy=strategy,
+        per_doc_k=per_doc_k_val,
     )
