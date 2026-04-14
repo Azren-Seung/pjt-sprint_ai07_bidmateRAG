@@ -101,3 +101,154 @@ def test_get_commands_returns_twelve(client) -> None:
     assert "비교" in ids
     compare = next(c for c in data["commands"] if c["id"] == "비교")
     assert compare["requires_multi_doc"] is True
+
+
+from unittest.mock import patch
+
+from bidmate_rag.schema import GenerationResult, Chunk, RetrievedChunk
+
+
+def _make_generation_result(answer: str, chunks: list[RetrievedChunk]) -> GenerationResult:
+    return GenerationResult(
+        question_id="q-test",
+        question="요구사항 알려줘",
+        scenario="scenario_b",
+        run_id="run-test",
+        embedding_provider="openai",
+        embedding_model="text-embedding-3-small",
+        llm_provider="openai",
+        llm_model="gpt-5-mini",
+        answer=answer,
+        retrieved_chunk_ids=[c.chunk.chunk_id for c in chunks],
+        retrieved_doc_ids=list({c.chunk.doc_id for c in chunks}),
+        retrieved_chunks=chunks,
+        latency_ms=1234.5,
+        token_usage={"prompt": 100, "completion": 50, "total": 150, "cached": 0},
+        cost_usd=0.001,
+        context="...",
+    )
+
+
+def _make_chunk(chunk_id: str, doc_id: str, rank: int) -> RetrievedChunk:
+    return RetrievedChunk(
+        rank=rank,
+        score=0.9 - 0.1 * rank,
+        chunk=Chunk(
+            chunk_id=chunk_id,
+            doc_id=doc_id,
+            text=f"chunk text {rank}",
+            text_with_meta=f"[doc={doc_id}] chunk {rank}",
+            char_count=50,
+            section="Ⅳ 제안요청",
+            content_type="text",
+            chunk_index=rank,
+            metadata={"사업명": doc_id},
+        ),
+    )
+
+
+def test_post_query_no_mentions_no_command(client) -> None:
+    chunks = [_make_chunk("c1", "doc-1.hwp", 1), _make_chunk("c2", "doc-1.hwp", 2)]
+    fake_result = _make_generation_result("## 답변\n본문 [1][2]", chunks)
+
+    with patch("bidmate_rag.web_api.routes.run_live_query", return_value=fake_result):
+        response = client.post(
+            "/api/query",
+            json={
+                "question": "요구사항 알려줘",
+                "provider_config": "openai_gpt5mini",
+                "chunking_config": "chunking_1000_150",
+            },
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["answer"].startswith("## 답변")
+    assert len(data["citations"]) == 2
+    assert data["citations"][0]["id"] == 1
+    assert data["metadata"]["retrieval_strategy"] == "single"
+    assert data["metadata"]["command_applied"] is None
+
+
+def test_post_query_with_single_mention(client) -> None:
+    chunks = [_make_chunk("c1", "doc-1.hwp", 1)]
+    fake_result = _make_generation_result("답변", chunks)
+
+    captured = {}
+    def _fake_run_live_query(**kwargs):
+        captured.update(kwargs)
+        return fake_result
+
+    with patch("bidmate_rag.web_api.routes.run_live_query", side_effect=_fake_run_live_query):
+        response = client.post(
+            "/api/query",
+            json={
+                "question": "사업 개요",
+                "provider_config": "openai_gpt5mini",
+                "chunking_config": "chunking_1000_150",
+                "mentioned_doc_ids": ["doc-1.hwp"],
+            },
+        )
+    assert response.status_code == 200
+    # 필터가 doc_id로 전달됐는지 확인
+    assert captured["manual_filters"] == {"doc_id": "doc-1.hwp"}
+
+
+def test_post_query_with_command_augments_query(client) -> None:
+    chunks = [_make_chunk("c1", "doc-1.hwp", 1)]
+    fake_result = _make_generation_result("표 형식 답변", chunks)
+
+    captured = {}
+    def _fake_run_live_query(**kwargs):
+        captured.update(kwargs)
+        return fake_result
+
+    with patch("bidmate_rag.web_api.routes.run_live_query", side_effect=_fake_run_live_query):
+        response = client.post(
+            "/api/query",
+            json={
+                "question": "알려줘",
+                "provider_config": "openai_gpt5mini",
+                "chunking_config": "chunking_1000_150",
+                "mentioned_doc_ids": ["doc-1.hwp"],
+                "command": "요구사항",
+            },
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["metadata"]["command_applied"] == "요구사항"
+    # 시스템 프롬프트가 커맨드별로 바뀌었는지
+    assert captured["system_prompt"] is not None
+    assert "기능 요구사항" in captured["system_prompt"]
+    # top_k가 커맨드 기본값(12)로 바뀌었는지
+    assert captured["top_k"] == 12
+
+
+def test_post_query_validates_requires_multi_doc(client) -> None:
+    response = client.post(
+        "/api/query",
+        json={
+            "question": "비교해줘",
+            "provider_config": "openai_gpt5mini",
+            "chunking_config": "chunking_1000_150",
+            "mentioned_doc_ids": ["doc-1.hwp"],
+            "command": "비교",
+        },
+    )
+    assert response.status_code == 400
+    assert "2개 이상" in response.json()["detail"]
+
+
+def test_post_query_static_help_command(client) -> None:
+    response = client.post(
+        "/api/query",
+        json={
+            "question": "",
+            "provider_config": "openai_gpt5mini",
+            "chunking_config": "chunking_1000_150",
+            "command": "도움말",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["metadata"]["retrieval_strategy"] == "static"
+    assert "/요약" in data["answer"]
