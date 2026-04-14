@@ -169,6 +169,25 @@ def _print_artifacts(artifacts: EvaluationArtifacts) -> None:
         )
 
 
+def _build_progress_callback(enabled: bool):
+    """Return a CLI-only progress callback when requested.
+
+    The evaluation pipeline already supports progress callbacks for UIs. This
+    helper keeps the CLI behavior opt-in so Streamlit and API paths remain
+    unchanged.
+    """
+    if not enabled:
+        return None
+
+    def _progress(done: int, total: int, sample: EvalSample) -> None:
+        preview = " ".join(str(sample.question).split())
+        if len(preview) > 60:
+            preview = f"{preview[:57]}..."
+        print(f"[{done}/{total}] {sample.question_id} {preview}", flush=True)
+
+    return _progress
+
+
 def main() -> None:
     """CLI 인자를 파싱하고 평가 벤치마크를 실행한다."""
     load_dotenv()
@@ -232,6 +251,11 @@ def main() -> None:
         action="store_true",
         help="평가셋 스키마 검증 자체를 건너뜀 (legacy 호환).",
     )
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="평가 진행 상황을 질문 단위로 콘솔에 출력.",
+    )
     args = parser.parse_args()
 
     # 1. 런타임 파이프라인 조립 (설정 → 프로바이더 → 리트리버 → LLM)
@@ -284,6 +308,7 @@ def main() -> None:
         run_id=args.run_id,
         skip_judge=args.skip_judge,
         judge_model=args.judge_model,
+        progress_callback=_build_progress_callback(args.progress),
         judge_v2=args.judge_v2,
     )
 
