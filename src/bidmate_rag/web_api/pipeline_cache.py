@@ -18,22 +18,25 @@ _BASE_CONFIG = Path("configs/base.yaml")
 
 
 @lru_cache(maxsize=8)
-def get_pipeline(provider_config: str, chunking_config: str):
+def get_pipeline(provider_config: str, chunking_config: str | None = None):
     """캐시된 RAG 파이프라인을 반환한다.
 
     Args:
         provider_config: provider config 파일명 (확장자 제외). 예: "openai_gpt5mini".
         chunking_config: chunking config 파일명 (확장자 제외). 예: "chunking_1000_150".
+            None이면 experiment config 없이 legacy/shared 컬렉션을 사용.
 
     Returns:
         (pipeline, runtime, embedder, llm) 튜플 — `build_runtime_pipeline`과 동일.
     """
     provider_path = _PROVIDER_DIR / f"{provider_config}.yaml"
-    chunking_path = _CHUNKING_DIR / f"{chunking_config}.yaml"
     if not provider_path.exists():
         raise FileNotFoundError(f"provider config not found: {provider_path}")
-    if not chunking_path.exists():
-        raise FileNotFoundError(f"chunking config not found: {chunking_path}")
+    chunking_path: Path | None = None
+    if chunking_config:
+        chunking_path = _CHUNKING_DIR / f"{chunking_config}.yaml"
+        if not chunking_path.exists():
+            raise FileNotFoundError(f"chunking config not found: {chunking_path}")
     return build_runtime_pipeline(
         base_config_path=_BASE_CONFIG,
         provider_config_path=provider_path,

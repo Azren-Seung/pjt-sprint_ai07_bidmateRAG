@@ -56,7 +56,7 @@ def per_doc_split_query(
     augmented_query: str,
     mentioned_doc_ids: list[str],
     provider_config: str,
-    chunking_config: str,
+    chunking_config: str | None,
     system_prompt: str | None,
     top_k: int,
     max_context_chars: int,

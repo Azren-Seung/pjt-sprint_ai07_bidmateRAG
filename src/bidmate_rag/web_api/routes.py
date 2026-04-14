@@ -221,10 +221,13 @@ def query(req: QueryRequest) -> QueryResponse:
     if len(req.mentioned_doc_ids) == 1:
         manual_filters = {"doc_id": req.mentioned_doc_ids[0]}
 
+    experiment_config_path = (
+        f"configs/chunking/{req.chunking_config}.yaml" if req.chunking_config else None
+    )
     result = run_live_query(
         question=augmented_query,
         provider_config_path=f"configs/providers/{req.provider_config}.yaml",
-        experiment_config_path=f"configs/chunking/{req.chunking_config}.yaml",
+        experiment_config_path=experiment_config_path,
         top_k=top_k,
         manual_filters=manual_filters,
         system_prompt=system_prompt,

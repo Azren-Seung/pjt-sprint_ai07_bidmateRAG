@@ -44,7 +44,7 @@ class QueryRequest(BaseModel):
 
     question: str
     provider_config: str = "openai_gpt5mini"
-    chunking_config: str = "chunking_1000_150"
+    chunking_config: str | None = None
     mentioned_doc_ids: list[str] = Field(default_factory=list)
     command: str | None = None
     top_k: int = 5
