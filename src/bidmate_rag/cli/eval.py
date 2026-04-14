@@ -218,6 +218,11 @@ def main() -> None:
         help="LLM model used by the judge (default: gpt-4o-mini).",
     )
     parser.add_argument(
+        "--judge-v2",
+        action="store_true",
+        help="Use evidence-first judge v2 (keeps v1 as default).",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="평가셋 스키마 검증에서 경고가 1건이라도 발견되면 평가 중단.",
@@ -279,6 +284,7 @@ def main() -> None:
         run_id=args.run_id,
         skip_judge=args.skip_judge,
         judge_model=args.judge_model,
+        judge_v2=args.judge_v2,
     )
 
     # 6. 결과 요약 및 산출물 경로 출력

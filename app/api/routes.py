@@ -239,6 +239,7 @@ def run_benchmark_experiment(
     run_id: str | None = None,
     skip_judge: bool = False,
     judge_model: str = "gpt-4o-mini",
+    judge_v2: bool = False,
     progress_callback=None,
 ) -> EvaluationArtifacts:
     """런타임 파이프라인을 조립하고 전체 평가를 실행한다.
@@ -285,5 +286,6 @@ def run_benchmark_experiment(
         run_id=run_id,
         skip_judge=skip_judge,
         judge_model=judge_model,
+        judge_v2=judge_v2,
         progress_callback=progress_callback,
     )
