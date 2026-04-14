@@ -105,6 +105,19 @@ def build_runtime_pipeline(
         persist_dir=persist_dir,
         collection_name=collection_name_for_config(runtime),
     )
+    # collection이 비어있으면 자동으로 DB 생성
+    if vector_store.count() == 0:
+        from bidmate_rag.pipelines.build_index import build_index_from_parquet
+        chunks_path = Path("data/processed/chunks.parquet")
+        if chunks_path.exists():
+            print(f"[자동 빌드] {collection_name_for_config(runtime)}")
+            build_index_from_parquet(
+                str(chunks_path),
+                embedder=embedder,
+                vector_store=vector_store,
+            )
+        else:
+            print(f"[경고] chunks 파일을 찾을 수 없습니다.")
     resolved_path = _resolve_metadata_path(runtime, metadata_path)
     metadata_store = (
         MetadataStore.from_parquet(resolved_path)
@@ -115,4 +128,5 @@ def build_runtime_pipeline(
         vector_store=vector_store, embedder=embedder, metadata_store=metadata_store
     )
     pipeline = RAGChatPipeline(retriever=retriever, llm=llm)
+    
     return pipeline, runtime, embedder, llm
