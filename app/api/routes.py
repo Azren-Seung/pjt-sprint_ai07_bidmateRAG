@@ -259,6 +259,8 @@ def run_live_query(
             resolved_filter = {}
         else:
             resolved_filter = dict(manual_filters)
+        
+    run_id = f"live-{uuid4().hex[:8]}"
 
     # 5. RAG 파이프라인 실행 (검색 → LLM 생성)
     return pipeline.answer(
