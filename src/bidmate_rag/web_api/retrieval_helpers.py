@@ -6,15 +6,25 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import Protocol
 
 from bidmate_rag.config.prompts import SYSTEM_PROMPT
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.web_api.pipeline_cache import get_pipeline
 
 
+class _RetrieverProtocol(Protocol):
+    def retrieve(
+        self,
+        query: str,
+        chat_history: list | None = None,
+        top_k: int = 5,
+        metadata_filter: dict | None = None,
+    ) -> list[RetrievedChunk]: ...
+
+
 def split_and_merge_chunks(
-    retriever,
+    retriever: _RetrieverProtocol,
     *,
     query: str,
     mentioned_doc_ids: list[str],
