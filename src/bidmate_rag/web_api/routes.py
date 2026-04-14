@@ -36,10 +36,22 @@ def _format_budget_label(amount: float) -> str:
     return f"{int(amount)}"
 
 
+def _resolve_doc_id(row: pd.Series) -> str:
+    """Chunker의 `_chunk_doc_id`와 일치: 공고 번호 → 파일명 폴백.
+
+    18/100 문서가 공고 번호가 없어서 파일명으로 저장됨. 빈 id는 frontend에서
+    React key 충돌을 유발하므로 반드시 non-empty를 반환해야 한다.
+    """
+    notice_id = str(row.get("공고 번호") or "").strip()
+    if notice_id and notice_id.lower() not in ("nan", "none"):
+        return notice_id
+    return str(row.get("파일명") or "").strip()
+
+
 def _row_to_summary(row: pd.Series) -> DocumentSummary:
     budget = float(row.get("사업 금액") or 0)
     return DocumentSummary(
-        id=str(row.get("공고 번호", "")),
+        id=_resolve_doc_id(row),
         title=str(row.get("사업명", "")),
         agency=str(row.get("발주 기관", "")),
         agency_type=str(row.get("기관유형", "")),
@@ -63,7 +75,12 @@ def list_documents(request: Request) -> dict[str, Any]:
 @router.get("/documents/{doc_id}")
 def get_document(doc_id: str, request: Request) -> dict[str, Any]:
     frame: pd.DataFrame = request.app.state.metadata_store.frame
-    match = frame[frame["공고 번호"].astype(str) == doc_id]
+    # 공고 번호 또는 파일명으로 매칭 (일부 문서는 공고 번호 없음)
+    notice_match = frame["공고 번호"].astype(str) == doc_id
+    filename_match = (
+        frame["파일명"].astype(str) == doc_id if "파일명" in frame.columns else False
+    )
+    match = frame[notice_match | filename_match]
     if match.empty:
         raise HTTPException(status_code=404, detail=f"document not found: {doc_id}")
     row = match.iloc[0]
