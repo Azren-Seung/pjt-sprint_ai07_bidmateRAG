@@ -67,6 +67,16 @@ def split_and_merge_chunks(
     return all_chunks[:top_k]
 
 
+def _doc_where(doc_id: str) -> dict:
+    """문서 id → ChromaDB where 절.
+
+    Chunker의 `_chunk_doc_id`가 pandas NaN을 literal "nan"으로 저장해서 18개
+    문서가 `doc_id='nan'`으로 인덱싱됨. 실제 식별자는 `파일명` 필드에 있으므로
+    `doc_id` OR `파일명` 둘 다 매칭시켜야 한다.
+    """
+    return {"$or": [{"doc_id": doc_id}, {"파일명": doc_id}]}
+
+
 def vector_search(
     vector_store: _VectorStoreProtocol,
     embedder: _EmbedderProtocol,
@@ -78,7 +88,7 @@ def vector_search(
     """`vector_store.query`를 직접 호출해 section_hint 필터를 우회한다.
 
     - 멘션 0개: 필터 없이 top_k 검색
-    - 멘션 1개: `where={"doc_id": id}` 단일 검색
+    - 멘션 1개: `{"$or": [{"doc_id": id}, {"파일명": id}]}` 단일 검색
     - 멘션 2개+: 문서별 loop + 점수 병합 (per-doc split)
     """
     query_embedding = embedder.embed_query(query)
@@ -95,7 +105,7 @@ def vector_search(
         return vector_store.query(
             query_embedding=query_embedding,
             top_k=top_k,
-            where={"doc_id": mentioned_doc_ids[0]},
+            where=_doc_where(mentioned_doc_ids[0]),
             where_document=None,
         )
 
@@ -106,7 +116,7 @@ def vector_search(
         chunks = vector_store.query(
             query_embedding=query_embedding,
             top_k=per_doc_k,
-            where={"doc_id": doc_id},
+            where=_doc_where(doc_id),
             where_document=None,
         )
         all_chunks.extend(chunks)
