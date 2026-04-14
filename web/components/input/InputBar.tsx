@@ -1,14 +1,25 @@
 "use client";
 
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState } from "react";
 import { useStore } from "@/store/useStore";
 import { Button } from "@/components/ui/button";
 import { ChipTray } from "./ChipTray";
 import { QuickCommandBar } from "./QuickCommandBar";
+import { MentionTextarea } from "./MentionTextarea";
+
+function stripMentionMarkup(raw: string): string {
+  // react-mentions stores markup like `@[display](id)` or `/[display](id)`.
+  // On submit we strip all mention/command tokens since they are captured
+  // separately in the Zustand store as pinnedDocs / activeCommand.
+  return raw
+    .replace(/@\[[^\]]+\]\([^)]+\)/g, "")
+    .replace(/\/\[[^\]]+\]\([^)]+\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export function InputBar() {
   const [text, setText] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const pinnedDocs = useStore((s) => s.pinnedDocs);
   const activeCommand = useStore((s) => s.activeCommand);
@@ -32,15 +43,10 @@ export function InputBar() {
 
   const handleSend = () => {
     if (sendDisabled) return;
-    sendMessage(text);
+    const cleaned = stripMentionMarkup(text);
+    if (!cleaned) return;
+    sendMessage(cleaned);
     setText("");
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
   };
 
   return (
@@ -48,15 +54,14 @@ export function InputBar() {
       <ChipTray />
       <QuickCommandBar />
       <div className="flex gap-2 px-4">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="질문을 입력하세요. @로 문서 멘션, /로 커맨드 호출"
-          className="min-h-[60px] flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm"
-          disabled={isLoading}
-        />
+        <div className="flex-1">
+          <MentionTextarea
+            value={text}
+            onChange={setText}
+            onEnter={handleSend}
+            disabled={isLoading}
+          />
+        </div>
         <Button
           type="button"
           onClick={handleSend}
