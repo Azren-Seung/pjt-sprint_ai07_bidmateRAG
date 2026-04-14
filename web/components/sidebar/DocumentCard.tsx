@@ -11,13 +11,15 @@ interface Props {
 
 export function DocumentCard({ doc }: Props) {
   const pinDoc = useStore((s) => s.pinDoc);
+  const unpinDoc = useStore((s) => s.unpinDoc);
   const pinnedDocs = useStore((s) => s.pinnedDocs);
   const isPinned = pinnedDocs.some((d) => d.id === doc.id);
 
   return (
     <button
       type="button"
-      onClick={() => pinDoc(doc)}
+      onClick={() => (isPinned ? unpinDoc(doc.id) : pinDoc(doc))}
+      title={isPinned ? "클릭하여 해제" : "클릭하여 멘션"}
       className={cn(
         "w-full rounded-md border border-border bg-card p-3 text-left transition-colors hover:bg-accent",
         isPinned && "border-primary bg-accent"
