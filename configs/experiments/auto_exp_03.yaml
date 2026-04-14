@@ -1,0 +1,21 @@
+title: auto_exp_03
+hypothesis:
+  - 후보 수와 리랭크 범위를 줄이면 정밀도 중심의 응답 품질이 개선될 수 있다.
+changes:
+  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가
+  - 다문서 비교 질문에서 기관별 retrieval merge 추가
+  - 리랭크 범위를 축소해 상위 근거 집중 전략으로 조정
+expected_outcome:
+  - 예산 질문 무응답 감소
+  - 비교형 질문 retrieval hit 개선
+next_actions:
+  - judge 기준으로 실패 유형 재분류
+failure_cases:
+  - question_id: Q007
+    why_watch: 다문서 예산 차액 계산
+  - question_id: Q014
+    why_watch: 다문서 합산 + 공통요소 추출
+hyperparameters:
+  default_retrieval_top_k: 20
+  rerank_k: 3
+  alpha: 0.5

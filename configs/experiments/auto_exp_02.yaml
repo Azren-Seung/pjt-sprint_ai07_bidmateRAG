@@ -1,0 +1,21 @@
+title: auto_exp_02
+hypothesis:
+  - 키워드 신호를 강화하면 예산/기관명 질의에서 정답 근거를 더 빠르게 찾을 수 있다.
+changes:
+  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가
+  - 다문서 비교 질문에서 기관별 retrieval merge 추가
+  - BM25 비중을 높여 키워드 매칭 중심으로 회수 전략 조정
+expected_outcome:
+  - 예산 질문 무응답 감소
+  - 비교형 질문 retrieval hit 개선
+next_actions:
+  - judge 기준으로 실패 유형 재분류
+failure_cases:
+  - question_id: Q007
+    why_watch: 다문서 예산 차액 계산
+  - question_id: Q014
+    why_watch: 다문서 합산 + 공통요소 추출
+hyperparameters:
+  default_retrieval_top_k: 30
+  rerank_k: 5
+  alpha: 0.3
