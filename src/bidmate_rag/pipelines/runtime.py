@@ -108,6 +108,7 @@ def build_runtime_pipeline(
     base_config_path: str | Path,
     provider_config_path: str | Path,
     experiment_config_path: str | Path | None = None,
+    retrieval_config_path: str | Path | None = "configs/retrieval.yaml",
     persist_dir: str | Path = "artifacts/chroma_db",
     metadata_path: str | Path | None = None,
 ):
@@ -117,6 +118,7 @@ def build_runtime_pipeline(
         base_config_path: 기본 설정 YAML 경로.
         provider_config_path: 프로바이더 설정 YAML 경로.
         experiment_config_path: 실험 설정 YAML 경로 (선택).
+        retrieval_config_path: 리트리벌 전략 YAML 경로 (기본: configs/retrieval.yaml).
         persist_dir: ChromaDB 저장 디렉터리.
         metadata_path: 정제된 문서 메타데이터 parquet 경로. None이면
             실험별 sub-dir → 공용 순서로 자동 탐지.
@@ -124,7 +126,12 @@ def build_runtime_pipeline(
     Returns:
         (pipeline, runtime, embedder, llm) 튜플.
     """
-    runtime = load_runtime_config(base_config_path, provider_config_path, experiment_config_path)
+    runtime = load_runtime_config(
+        base_config_path,
+        provider_config_path,
+        experiment_config_path,
+        retrieval_config_path,
+    )
     embedder = build_embedding_provider(runtime.provider)
     llm = build_llm_provider(runtime.provider)
     vector_store = ChromaVectorStore(
@@ -137,12 +144,13 @@ def build_runtime_pipeline(
         if resolved_path.exists()
         else MetadataStore(pd.DataFrame())
     )
-    reranker = _load_reranker(runtime.project.reranker_model)
+    reranker = _load_reranker(runtime.retrieval.reranker_model)
     retriever = RAGRetriever(
         vector_store=vector_store,
         embedder=embedder,
         metadata_store=metadata_store,
         reranker_model=reranker,
+        enable_multiturn=runtime.retrieval.enable_multiturn,
     )
     pipeline = RAGChatPipeline(retriever=retriever, llm=llm)
     return pipeline, runtime, embedder, llm

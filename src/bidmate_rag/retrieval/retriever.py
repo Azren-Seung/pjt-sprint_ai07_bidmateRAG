@@ -16,14 +16,29 @@ from bidmate_rag.retrieval.filters import (
     extract_range_filters,
     extract_section_hint,
     is_comparison_query,
-    should_boost_tables,
+)
+from bidmate_rag.retrieval.multiturn import (
+    extract_recent_agency_filter,
+    rewrite_query_with_history,
+)
+from bidmate_rag.retrieval.reranker import (
+    _assign_ranks,
+    cross_encoder_rerank,
+    rerank_with_boost,
 )
 
 
 class RAGRetriever:
     """메타데이터 필터와 벡터 검색을 결합하는 RAG 리트리버."""
 
-    def __init__(self, vector_store, embedder, metadata_store=None, reranker_model=None) -> None:
+    def __init__(
+        self,
+        vector_store,
+        embedder,
+        metadata_store=None,
+        reranker_model=None,
+        enable_multiturn: bool = True,
+    ) -> None:
         """RAGRetriever를 초기화
 
         Args:
@@ -31,11 +46,13 @@ class RAGRetriever:
             embedder: 쿼리 임베딩 생성기.
             metadata_store: 메타데이터 기반 문서 필터링 스토어.
             reranker_model: Cross-Encoder 리랭킹 모델. None이면 Cross-Encoder 없이 부스팅만 적용.
+            enable_multiturn: 이전 대화를 이용한 검색문 보강 사용 여부.
         """
         self.vector_store = vector_store
         self.embedder = embedder
         self.metadata_store = metadata_store
         self.reranker = reranker_model
+        self.enable_multiturn = enable_multiturn
 
     # ── fan-out 관련 메서드 ──
     # 비교 질문("A와 B의 예산 차이는?")에서 기관별로 따로 검색하는 로직.
@@ -88,112 +105,8 @@ class RAGRetriever:
                 seen_chunk_ids.add(chunk_id)
                 merged.append(item)
                 if len(merged) >= top_k:
-                    return self._assign_ranks(merged)
-        return self._assign_ranks(merged)
-
-    # ── 리랭킹 관련 메서드 ──
-    # 벡터 검색 결과의 순위를 RFP 도메인에 맞게 미세 조정한다.
-    # - 섹션 부스팅: "예산" 질문이면 예산 섹션 청크를 +0.1 가산
-    # - 테이블 부스팅: 표 관련 질문이면 테이블 타입 청크를 +0.1 가산
-
-    def _assign_ranks(self, results: list) -> list:
-        for index, result in enumerate(results, start=1):
-            result.rank = index
-        return results
-
-    def _build_reranker_text(self, result) -> str:
-        """Cross-Encoder 입력용 메타 포함 텍스트를 생성한다.
-
-        Args:
-            result: 검색된 청크와 점수를 담은 RetrievedChunk 객체.
-
-        Returns:
-            발주기관/사업명이 있으면 본문 앞에 붙인 문자열, 없으면 본문만 반환한다.
-        """
-        agency = str(result.chunk.metadata.get("발주 기관", "") or "").strip()
-        project = str(result.chunk.metadata.get("사업명", "") or "").strip()
-
-        prefix_parts: list[str] = []
-        if agency:
-            prefix_parts.append(f"발주기관: {agency}")
-        if project:
-            prefix_parts.append(f"사업명: {project}")
-
-        prefix = " | ".join(prefix_parts)
-        if prefix:
-            return f"[{prefix}]\n{result.chunk.text}"
-        return result.chunk.text
-
-    def _should_rerank_results(self, section_hint: str | None, table_boost: bool) -> bool:
-        return bool(section_hint or table_boost)
-
-    def _rerank_results(self, results: list, query: str, section_hint: str | None) -> list:
-        """섹션/테이블 부스팅 기반 리랭킹.
-        Cross-Encoder 리랭킹 이후에 적용되어 RFP 특화 미세 조정을 수행한다.
-        """
-        if not results:
-            return results
-
-        table_boost = should_boost_tables(query)
-        if not self._should_rerank_results(section_hint, table_boost):
-            return self._assign_ranks(results)
-
-        def boosted_score(result) -> float:
-            score = result.score
-            # 질문이 "예산" 관련이면 예산 섹션 청크 우선
-            if section_hint and section_hint in result.chunk.section:
-                score += 0.1
-            # 질문이 "요구사항 목록" 등이면 테이블 청크 우선
-            if table_boost and result.chunk.content_type == "table":
-                score += 0.1
-            return score
-
-        ordered = sorted(
-            enumerate(results),
-            key=lambda item: (boosted_score(item[1]), item[1].score, -item[0]),
-            reverse=True,
-        )
-        reranked = []
-        for index, (_, result) in enumerate(ordered, start=1):
-            result.rank = index
-            reranked.append(result)
-        return reranked
-
-    # ── Cross-Encoder 리랭킹 메서드 ──
-    # 벡터 검색이 넓게 가져온 후보(20개)를 Cross-Encoder가 읽고
-    # 질문과 실제로 관련 있는 상위 top_k개만 골라낸다.
-
-    def _cross_encoder_rerank(self, query: str, results: list, top_k: int) -> list:
-        """Cross-Encoder 모델로 질문-청크 쌍의 관련성을 판단하여 재정렬한다.
-
-        Args:
-            query: 사용자 질의 문자열.
-            results: 벡터 검색으로 가져온 후보 청크 리스트.
-            top_k: 최종 반환할 청크 수.
-
-        Returns:
-            관련성 높은 순으로 정렬된 상위 top_k개 RetrievedChunk 리스트.
-            reranker가 없으면 입력 그대로 반환.
-        """
-        # reranker가 없거나 결과가 없으면 그대로 반환
-        if not self.reranker or not results:
-            return results
-
-        # 질문 + 메타정보가 붙은 본문으로 입력을 만든다.
-        pairs = [[query, self._build_reranker_text(r)] for r in results]
-
-        # Cross-Encoder가 각 쌍을 읽고 관련성 점수를 매김
-        scores = self.reranker.predict(pairs)
-
-        # 점수 높은 순으로 정렬 후 상위 top_k개 선택
-        scored = sorted(zip(results, scores), key=lambda x: x[1], reverse=True)
-        reranked = []
-        for rank, (result, score) in enumerate(scored[:top_k], start=1):
-            result.score = float(score)
-            result.rank = rank
-            reranked.append(result)
-
-        return reranked
+                    return _assign_ranks(merged)
+        return _assign_ranks(merged)
 
     # ── 메인 검색 메서드 ──
 
@@ -218,6 +131,13 @@ class RAGRetriever:
         Returns:
             RetrievedChunk 리스트.
         """
+        agency_list = getattr(self.metadata_store, "agency_list", [])
+        resolved_query = (
+            rewrite_query_with_history(query, chat_history, agency_list)
+            if self.enable_multiturn
+            else query
+        )
+
         # ── 1단계: 메타데이터 필터 결정 ──
         # metadata_filter is None  → 질문에서 자동 추출
         # metadata_filter == {}    → 필터 없이 전체 검색
@@ -226,19 +146,22 @@ class RAGRetriever:
             where = dict(metadata_filter) if metadata_filter else None
         else:
             # 자동 추출: 기관명 → 도메인 → 기관유형 순으로 시도
-            agency_list = getattr(self.metadata_store, "agency_list", [])
-            where = extract_metadata_filters(query, agency_list, chat_history=chat_history)
+            where = extract_metadata_filters(resolved_query, agency_list, chat_history=chat_history)
             # 기관이 2개 이상 + 비교 질문이면 $in 필터 생성
-            matched_agencies = extract_matched_agencies(query, agency_list)
-            if where is None and len(matched_agencies) >= 2 and is_comparison_query(query):
+            matched_agencies = extract_matched_agencies(resolved_query, agency_list)
+            if where is None and len(matched_agencies) >= 2 and is_comparison_query(resolved_query):
                 where = {"발주 기관": {"$in": matched_agencies}}
+            if self.enable_multiturn and (where is None or "발주 기관" not in where):
+                history_agency_filter = extract_recent_agency_filter(chat_history, agency_list)
+                if history_agency_filter:
+                    where = {**history_agency_filter, **(where or {})}
             # 금액/연도 범위 필터 추가
-            range_filter = extract_range_filters(query)
+            range_filter = extract_range_filters(resolved_query)
             if range_filter:
                 where = {**(where or {}), **range_filter}
             # 위 필터가 모두 실패하면 MetadataStore에서 관련 문서 추정
             if where is None and self.metadata_store is not None:
-                relevant_docs = self.metadata_store.find_relevant_docs(query, top_n=3)
+                relevant_docs = self.metadata_store.find_relevant_docs(resolved_query, top_n=3)
                 if relevant_docs:
                     where = {"파일명": {"$in": relevant_docs}}
 
@@ -246,12 +169,12 @@ class RAGRetriever:
         # Cross-Encoder가 있으면 후보를 4배 넓게 가져와서 정밀 재정렬한다
         final_top_k = top_k
         rerank_pool_k = final_top_k * 4 if self.reranker else final_top_k
-        section_hint = extract_section_hint(query)
+        section_hint = extract_section_hint(resolved_query)
         where_document = {"$contains": section_hint} if section_hint else None
-        query_embedding = self.embedder.embed_query(query)
+        query_embedding = self.embedder.embed_query(resolved_query)
 
         # 비교 질문이면 기관별 fan-out 검색 → round-robin 병합
-        if self._should_run_scoped_queries(query, where):
+        if self._should_run_scoped_queries(resolved_query, where):
             grouped_results = [
                 self.vector_store.query(
                     query_embedding=query_embedding,
@@ -272,7 +195,7 @@ class RAGRetriever:
 
         # ── 3단계: Cross-Encoder 리랭킹 ──
         # 넓게 가져온 후보 중 질문과 실제로 관련 있는 top_k개만 선별
-        results = self._cross_encoder_rerank(query, results, final_top_k)
+        results = cross_encoder_rerank(self.reranker, resolved_query, results, final_top_k)
 
         # ── 4단계: 섹션/테이블 부스팅 (RFP 특화 미세 조정) ──
-        return self._rerank_results(results, query=query, section_hint=section_hint)
+        return rerank_with_boost(results, query=resolved_query, section_hint=section_hint)
