@@ -101,6 +101,29 @@ class RAGRetriever:
             result.rank = index
         return results
 
+    def _build_reranker_text(self, result) -> str:
+        """Cross-Encoder 입력용 메타 포함 텍스트를 생성한다.
+
+        Args:
+            result: 검색된 청크와 점수를 담은 RetrievedChunk 객체.
+
+        Returns:
+            발주기관/사업명이 있으면 본문 앞에 붙인 문자열, 없으면 본문만 반환한다.
+        """
+        agency = str(result.chunk.metadata.get("발주 기관", "") or "").strip()
+        project = str(result.chunk.metadata.get("사업명", "") or "").strip()
+
+        prefix_parts: list[str] = []
+        if agency:
+            prefix_parts.append(f"발주기관: {agency}")
+        if project:
+            prefix_parts.append(f"사업명: {project}")
+
+        prefix = " | ".join(prefix_parts)
+        if prefix:
+            return f"[{prefix}]\n{result.chunk.text}"
+        return result.chunk.text
+
     def _should_rerank_results(self, section_hint: str | None, table_boost: bool) -> bool:
         return bool(section_hint or table_boost)
 
@@ -156,8 +179,8 @@ class RAGRetriever:
         if not self.reranker or not results:
             return results
 
-        # 질문-청크 텍스트 쌍 생성
-        pairs = [[query, r.chunk.text] for r in results]
+        # 질문 + 메타정보가 붙은 본문으로 입력을 만든다.
+        pairs = [[query, self._build_reranker_text(r)] for r in results]
 
         # Cross-Encoder가 각 쌍을 읽고 관련성 점수를 매김
         scores = self.reranker.predict(pairs)

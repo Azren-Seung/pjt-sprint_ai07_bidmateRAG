@@ -263,10 +263,10 @@ def test_retriever_applies_cross_encoder_after_multi_agency_fan_out_merge() -> N
     )
     reranker = FakeReranker(
         {
-            "nps-1": 0.20,
-            "ibs-1": 0.95,
-            "nps-2": 0.90,
-            "ibs-2": 0.10,
+            "[발주기관: 국민연금공단 | 사업명: nps-1-사업]\nnps-1": 0.20,
+            "[발주기관: 기초과학연구원 | 사업명: ibs-1-사업]\nibs-1": 0.95,
+            "[발주기관: 국민연금공단 | 사업명: nps-2-사업]\nnps-2": 0.90,
+            "[발주기관: 기초과학연구원 | 사업명: ibs-2-사업]\nibs-2": 0.10,
         }
     )
     retriever = RAGRetriever(
@@ -289,15 +289,75 @@ def test_retriever_applies_cross_encoder_after_multi_agency_fan_out_merge() -> N
     assert [call["top_k"] for call in vector_store.calls] == [8, 8]
     assert reranker.calls == [
         [
-            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "nps-1"],
-            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "ibs-1"],
-            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "nps-2"],
-            ["국민연금공단과 기초과학연구원 사업을 비교해줘", "ibs-2"],
+            [
+                "국민연금공단과 기초과학연구원 사업을 비교해줘",
+                "[발주기관: 국민연금공단 | 사업명: nps-1-사업]\nnps-1",
+            ],
+            [
+                "국민연금공단과 기초과학연구원 사업을 비교해줘",
+                "[발주기관: 기초과학연구원 | 사업명: ibs-1-사업]\nibs-1",
+            ],
+            [
+                "국민연금공단과 기초과학연구원 사업을 비교해줘",
+                "[발주기관: 국민연금공단 | 사업명: nps-2-사업]\nnps-2",
+            ],
+            [
+                "국민연금공단과 기초과학연구원 사업을 비교해줘",
+                "[발주기관: 기초과학연구원 | 사업명: ibs-2-사업]\nibs-2",
+            ],
         ]
     ]
     assert [result.chunk.chunk_id for result in results] == ["ibs-1", "nps-2"]
     assert [result.rank for result in results] == [1, 2]
     assert [result.score for result in results] == [0.95, 0.9]
+
+
+def test_retriever_builds_cross_encoder_input_with_agency_and_project_metadata() -> None:
+    vector_store = FakeVectorStore(
+        query_results=[
+            RetrievedChunk(
+                rank=1,
+                score=0.8,
+                chunk=Chunk(
+                    chunk_id="chunk-1",
+                    doc_id="doc-1",
+                    text="본문 내용",
+                    text_with_meta="[발주기관: 국민연금공단 | 사업명: 차세대 포털 구축]\n본문 내용",
+                    char_count=5,
+                    section="사업개요",
+                    content_type="text",
+                    chunk_index=0,
+                    metadata={
+                        "사업명": "차세대 포털 구축",
+                        "발주 기관": "국민연금공단",
+                        "파일명": "doc-1.hwp",
+                    },
+                ),
+            )
+        ]
+    )
+    reranker = FakeReranker(
+        {
+            "[발주기관: 국민연금공단 | 사업명: 차세대 포털 구축]\n본문 내용": 0.95,
+        }
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+        reranker_model=reranker,
+    )
+
+    retriever.retrieve("국민연금공단 사업 목적 알려줘", top_k=1)
+
+    assert reranker.calls == [
+        [
+            [
+                "국민연금공단 사업 목적 알려줘",
+                "[발주기관: 국민연금공단 | 사업명: 차세대 포털 구축]\n본문 내용",
+            ]
+        ]
+    ]
 
 
 def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text() -> None:
