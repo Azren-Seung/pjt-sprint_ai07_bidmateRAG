@@ -252,3 +252,17 @@ def test_post_query_static_help_command(client) -> None:
     data = response.json()
     assert data["metadata"]["retrieval_strategy"] == "static"
     assert "/요약" in data["answer"]
+
+
+def test_post_query_unknown_command(client) -> None:
+    response = client.post(
+        "/api/query",
+        json={
+            "question": "알려줘",
+            "provider_config": "openai_gpt5mini",
+            "chunking_config": "chunking_1000_150",
+            "command": "없는커맨드",
+        },
+    )
+    assert response.status_code == 400
+    assert "unknown command" in response.json()["detail"]

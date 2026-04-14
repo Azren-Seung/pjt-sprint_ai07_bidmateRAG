@@ -9,7 +9,6 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Request
 
 from app.api.routes import run_live_query
-from bidmate_rag.config.prompts import SYSTEM_PROMPT
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.web_api.commands import COMMAND_REGISTRY, SlashCommand
 from bidmate_rag.web_api.retrieval_helpers import per_doc_split_query
