@@ -19,6 +19,7 @@ def sample_frame() -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
+                "공고 번호": "20240000001",
                 "파일명": "doc-1.hwp",
                 "사업명": "학사 시스템 고도화",
                 "발주 기관": "한영대학",
@@ -30,6 +31,7 @@ def sample_frame() -> pd.DataFrame:
                 "사업 요약": "학사 시스템 고도화 사업",
             },
             {
+                "공고 번호": "20240000002",
                 "파일명": "doc-2.hwp",
                 "사업명": "이러닝 시스템",
                 "발주 기관": "국민연금공단",
@@ -71,16 +73,16 @@ def test_get_documents_returns_list(client) -> None:
     assert data["total"] == 2
     assert len(data["documents"]) == 2
     first = data["documents"][0]
-    assert first["id"] == "doc-1.hwp"
+    assert first["id"] == "20240000001"
     assert first["agency"] == "한영대학"
     assert first["budget_label"].endswith("억")
 
 
 def test_get_document_detail(client) -> None:
-    response = client.get("/api/documents/doc-1.hwp")
+    response = client.get("/api/documents/20240000001")
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == "doc-1.hwp"
+    assert data["id"] == "20240000001"
     assert len(data["quick_facts"]) == 5
     labels = [f["label"] for f in data["quick_facts"]]
     assert "발주기관" in labels
@@ -88,7 +90,7 @@ def test_get_document_detail(client) -> None:
 
 
 def test_get_document_detail_not_found(client) -> None:
-    response = client.get("/api/documents/nonexistent.hwp")
+    response = client.get("/api/documents/99999999999")
     assert response.status_code == 404
 
 
@@ -170,7 +172,7 @@ def test_post_query_no_mentions_no_command(client) -> None:
 
 
 def test_post_query_with_single_mention(client) -> None:
-    chunks = [_make_chunk("c1", "doc-1.hwp", 1)]
+    chunks = [_make_chunk("c1", "20240000001", 1)]
     fake_result = _make_generation_result("답변", chunks)
 
     captured = {}
@@ -185,12 +187,12 @@ def test_post_query_with_single_mention(client) -> None:
                 "question": "사업 개요",
                 "provider_config": "openai_gpt5mini",
                 "chunking_config": "chunking_1000_150",
-                "mentioned_doc_ids": ["doc-1.hwp"],
+                "mentioned_doc_ids": ["20240000001"],
             },
         )
     assert response.status_code == 200
     # 필터가 doc_id로 전달됐는지 확인
-    assert captured["manual_filters"] == {"doc_id": "doc-1.hwp"}
+    assert captured["manual_filters"] == {"doc_id": "20240000001"}
 
 
 def test_post_query_with_command_augments_query(client) -> None:

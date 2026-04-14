@@ -39,7 +39,7 @@ def _format_budget_label(amount: float) -> str:
 def _row_to_summary(row: pd.Series) -> DocumentSummary:
     budget = float(row.get("사업 금액") or 0)
     return DocumentSummary(
-        id=str(row.get("파일명", "")),
+        id=str(row.get("공고 번호", "")),
         title=str(row.get("사업명", "")),
         agency=str(row.get("발주 기관", "")),
         agency_type=str(row.get("기관유형", "")),
@@ -63,7 +63,7 @@ def list_documents(request: Request) -> dict[str, Any]:
 @router.get("/documents/{doc_id}")
 def get_document(doc_id: str, request: Request) -> dict[str, Any]:
     frame: pd.DataFrame = request.app.state.metadata_store.frame
-    match = frame[frame["파일명"] == doc_id]
+    match = frame[frame["공고 번호"].astype(str) == doc_id]
     if match.empty:
         raise HTTPException(status_code=404, detail=f"document not found: {doc_id}")
     row = match.iloc[0]
