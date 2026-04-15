@@ -1,20 +1,19 @@
 title: auto_exp_04
+name: auto_exp_04
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 50
+top_k: 50
+rerank_k: 10
+alpha: 0.5
 hypothesis:
-  - 메타데이터를 리랭커 입력에 포함하면 예산/기관 관련 근거 정렬 정확도가 높아진다.
+  - 후보를 크게 늘리고 리랭크 깊이를 10으로 두면 리랭커가 재정렬할 여지가 커져 상위 정밀도가 극대화된다.
 changes:
-  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가
-  - 다문서 비교 질문에서 기관별 retrieval merge 추가
-  - 리랭커 입력을 query + metadata + context로 확장
+  - top_k 50, rerank_k 10, alpha 0.5 (Deep Rerank)
+  - 추론 모델용 — temperature 미사용
 expected_outcome:
-  - 예산 질문 무응답 감소
-  - 비교형 질문 retrieval hit 개선
+  - 지연은 늘 수 있으나 MRR·nDCG 유리 구간 확대
 next_actions:
-  - judge 기준으로 실패 유형 재분류
-failure_cases:
-  - question_id: Q007
-    why_watch: 다문서 예산 차액 계산
-  - question_id: Q014
-    why_watch: 다문서 합산 + 공통요소 추출
-hyperparameters:
-  reranker_input: "query + metadata + context"
-  alpha: 0.5
+  - 지연 대비 이득 임계점 측정

@@ -1,21 +1,19 @@
 title: auto_exp_07
+name: auto_exp_07
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 20
+top_k: 20
+rerank_k: 3
+alpha: 0.6
 hypothesis:
-  - Vector 비중을 높이면 의미 유사도 기반의 문맥 회수가 강화될 수 있다.
+  - 좁은 후보와 얕은 리랭크로 노이즈를 줄이고 alpha를 높여 벡터 일치도를 신뢰하면 문맥 정밀도가 오른다.
 changes:
-  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가
-  - 다문서 비교 질문에서 기관별 retrieval merge 추가
-  - 벡터 검색 가중치를 높여 semantic 중심 회수 전략으로 조정
+  - top_k 20, rerank_k 3, alpha 0.6 (Context Precision)
+  - 추론 모델용 — temperature 미사용
 expected_outcome:
-  - 예산 질문 무응답 감소
-  - 비교형 질문 retrieval hit 개선
+  - 단답·단일 근거 질의에서 정확도 향상, 회상은 trade-off 가능
 next_actions:
-  - judge 기준으로 실패 유형 재분류
-failure_cases:
-  - question_id: Q007
-    why_watch: 다문서 예산 차액 계산
-  - question_id: Q014
-    why_watch: 다문서 합산 + 공통요소 추출
-hyperparameters:
-  default_retrieval_top_k: 30
-  rerank_k: 5
-  alpha: 0.7
+  - 다문서 질의에서 recall 하락 여부 확인

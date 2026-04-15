@@ -1,21 +1,19 @@
 title: auto_exp_01
+name: auto_exp_01
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 40
+top_k: 40
+rerank_k: 5
+alpha: 0.5
 hypothesis:
-  - Recall을 넓혀 예산 관련 근거 문서를 더 안정적으로 회수할 수 있다.
+  - 초기 후보군을 넉넉히 확보한 뒤 소수만 리랭크하여 예산·메타 질의에서 재현율을 끌어올린다.
 changes:
-  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가
-  - 다문서 비교 질문에서 기관별 retrieval merge 추가
-  - 검색 후보 수를 늘려 recall 중심으로 회수 전략 조정
+  - top_k 40, rerank_k 5, alpha 0.5 (Basic Recall)
+  - 추론 모델용 — temperature 미사용
 expected_outcome:
-  - 예산 질문 무응답 감소
-  - 비교형 질문 retrieval hit 개선
+  - Hit Rate 및 상위 k 내 정답 청크 포함률 개선
 next_actions:
-  - judge 기준으로 실패 유형 재분류
-failure_cases:
-  - question_id: Q007
-    why_watch: 다문서 예산 차액 계산
-  - question_id: Q014
-    why_watch: 다문서 합산 + 공통요소 추출
-hyperparameters:
-  default_retrieval_top_k: 40
-  rerank_k: 5
-  alpha: 0.5
+  - 실패 케이스를 judge 기준으로 재분류

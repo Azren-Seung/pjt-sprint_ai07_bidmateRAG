@@ -1,20 +1,19 @@
 title: auto_exp_06
+name: auto_exp_06
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 40
+top_k: 40
+rerank_k: 8
+retrieval_merge: round-robin
 hypothesis:
-  - 수치 정보가 많은 질의에서 상세 헤더가 근거 해석 정확도를 높일 수 있다.
+  - 기관별 서브검색 결과를 라운드로빈으로 합치면 다기관 비교 질의에서 기관 간 커버리지 균형이 맞는다 (정합성은 실험으로 검증).
 changes:
-  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가
-  - 다문서 비교 질문에서 기관별 retrieval merge 추가
-  - 수치형 필드 노출을 강화하는 상세 헤더 스타일 적용
+  - retrieval_merge round-robin, rerank_k 8 (Merge RR)
+  - 추론 모델용 — temperature 미사용
 expected_outcome:
-  - 예산 질문 무응답 감소
-  - 비교형 질문 retrieval hit 개선
+  - 비교형 질문에서 특정 기관 편향 완화
 next_actions:
-  - judge 기준으로 실패 유형 재분류
-failure_cases:
-  - question_id: Q007
-    why_watch: 다문서 예산 차액 계산
-  - question_id: Q014
-    why_watch: 다문서 합산 + 공통요소 추출
-hyperparameters:
-  context_header_style: "detailed"
-  rerank_k: 7
+  - 기관별 hit 균등도 메트릭 추가 검토

@@ -1,21 +1,19 @@
 title: auto_exp_05
+name: auto_exp_05
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 40
+top_k: 40
+rerank_k: 7
+prompt_template: fact_extraction_first
 hypothesis:
-  - 생성 온도를 낮추면 수치형 답변의 일관성과 재현성이 개선될 수 있다.
+  - 사실 추출 우선 프롬프트와 리랭크 깊이 7을 맞추면 추론 모델이 단계적 근거 정리 후 답변해 환각을 줄인다.
 changes:
-  - LLM 컨텍스트 헤더에 사업 금액/공개연도/기관유형 추가
-  - 다문서 비교 질문에서 기관별 retrieval merge 추가
-  - 생성 변동성을 줄여 추론 안정성 중심으로 조정
+  - prompt_template fact_extraction_first, rerank_k 7 (Logic Step)
+  - 추론 모델용 — temperature 미사용
 expected_outcome:
-  - 예산 질문 무응답 감소
-  - 비교형 질문 retrieval hit 개선
+  - 복합 질의에서 근거 단계가 명시되어 Faithfulness 개선
 next_actions:
-  - judge 기준으로 실패 유형 재분류
-failure_cases:
-  - question_id: Q007
-    why_watch: 다문서 예산 차액 계산
-  - question_id: Q014
-    why_watch: 다문서 합산 + 공통요소 추출
-hyperparameters:
-  temperature: 0.0
-  rerank_k: 5
-  alpha: 0.5
+  - judge v2 ratio 점수와 교차 검토
