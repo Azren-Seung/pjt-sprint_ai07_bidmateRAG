@@ -26,6 +26,11 @@ type SortKey =
 
 type SortDir = "asc" | "desc";
 
+interface SortRule {
+  key: SortKey;
+  dir: SortDir;
+}
+
 export function DocumentCatalogModal() {
   const catalogOpen = useStore((s) => s.catalogOpen);
   const closeCatalog = useStore((s) => s.closeCatalog);
@@ -40,8 +45,9 @@ export function DocumentCatalogModal() {
   const requestInputFocus = useStore((s) => s.requestInputFocus);
   const openPreview = useStore((s) => s.openPreview);
 
-  const [sortKey, setSortKey] = useState<SortKey>("title");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortRules, setSortRules] = useState<SortRule[]>([
+    { key: "title", dir: "asc" },
+  ]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -62,26 +68,53 @@ export function DocumentCatalogModal() {
     const filtered = filterDocuments(documents, filters);
     const searched = searchDocuments(filtered, searchQuery);
     const sorted = [...searched].sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
-      switch (sortKey) {
-        case "budget":
-          return (a.budget - b.budget) * dir;
-        case "char_count":
-          return (a.char_count - b.char_count) * dir;
-        default:
-          return a[sortKey].localeCompare(b[sortKey], "ko") * dir;
+      for (const rule of sortRules) {
+        const dir = rule.dir === "asc" ? 1 : -1;
+        let cmp = 0;
+        switch (rule.key) {
+          case "budget":
+            cmp = (a.budget - b.budget) * dir;
+            break;
+          case "char_count":
+            cmp = (a.char_count - b.char_count) * dir;
+            break;
+          default:
+            cmp = a[rule.key].localeCompare(b[rule.key], "ko") * dir;
+        }
+        if (cmp !== 0) return cmp;
       }
+      return 0;
     });
     return sorted;
-  }, [documents, filters, searchQuery, sortKey, sortDir]);
+  }, [documents, filters, searchQuery, sortRules]);
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+  const toggleSort = (key: SortKey, shiftKey: boolean) => {
+    setSortRules((rules) => {
+      const existingIdx = rules.findIndex((r) => r.key === key);
+
+      if (!shiftKey) {
+        // 단일 정렬: 같은 키면 방향 토글, 다른 키면 교체
+        if (existingIdx === 0 && rules.length === 1) {
+          return [
+            { key, dir: rules[0].dir === "asc" ? "desc" : "asc" },
+          ];
+        }
+        return [{ key, dir: "asc" }];
+      }
+
+      // Shift+Click: 보조 정렬 추가 / 방향 토글
+      if (existingIdx >= 0) {
+        // 이미 룰에 있으면 방향만 토글
+        const next = [...rules];
+        next[existingIdx] = {
+          key,
+          dir: next[existingIdx].dir === "asc" ? "desc" : "asc",
+        };
+        return next;
+      }
+      // 새로 추가
+      return [...rules, { key, dir: "asc" }];
+    });
   };
 
   const toggleSelect = (docId: string) => {
@@ -245,45 +278,39 @@ export function DocumentCatalogModal() {
                 <SortableTh
                   label="사업명"
                   sortKey="title"
-                  currentKey={sortKey}
-                  currentDir={sortDir}
-                  onClick={() => toggleSort("title")}
+                  rules={sortRules}
+                  onToggle={toggleSort}
                 />
                 <SortableTh
                   label="발주기관"
                   sortKey="agency"
-                  currentKey={sortKey}
-                  currentDir={sortDir}
-                  onClick={() => toggleSort("agency")}
+                  rules={sortRules}
+                  onToggle={toggleSort}
                 />
                 <SortableTh
                   label="사업금액"
                   sortKey="budget"
-                  currentKey={sortKey}
-                  currentDir={sortDir}
-                  onClick={() => toggleSort("budget")}
+                  rules={sortRules}
+                  onToggle={toggleSort}
                   align="right"
                 />
                 <SortableTh
                   label="기관유형"
                   sortKey="agency_type"
-                  currentKey={sortKey}
-                  currentDir={sortDir}
-                  onClick={() => toggleSort("agency_type")}
+                  rules={sortRules}
+                  onToggle={toggleSort}
                 />
                 <SortableTh
                   label="사업도메인"
                   sortKey="domain"
-                  currentKey={sortKey}
-                  currentDir={sortDir}
-                  onClick={() => toggleSort("domain")}
+                  rules={sortRules}
+                  onToggle={toggleSort}
                 />
                 <SortableTh
                   label="문서크기"
                   sortKey="char_count"
-                  currentKey={sortKey}
-                  currentDir={sortDir}
-                  onClick={() => toggleSort("char_count")}
+                  rules={sortRules}
+                  onToggle={toggleSort}
                   align="right"
                 />
                 <th className="w-14 border-b border-border px-3 py-2" />
@@ -402,26 +429,34 @@ export function DocumentCatalogModal() {
 interface SortableThProps {
   label: string;
   sortKey: SortKey;
-  currentKey: SortKey;
-  currentDir: SortDir;
-  onClick: () => void;
+  rules: SortRule[];
+  onToggle: (key: SortKey, shiftKey: boolean) => void;
   align?: "left" | "right";
 }
 
 function SortableTh({
   label,
   sortKey,
-  currentKey,
-  currentDir,
-  onClick,
+  rules,
+  onToggle,
   align = "left",
 }: SortableThProps) {
-  const active = currentKey === sortKey;
-  const Icon = !active ? ArrowUpDown : currentDir === "asc" ? ArrowUp : ArrowDown;
+  const ruleIdx = rules.findIndex((r) => r.key === sortKey);
+  const active = ruleIdx >= 0;
+  const rule = active ? rules[ruleIdx] : null;
+  const Icon = !active
+    ? ArrowUpDown
+    : rule!.dir === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  // 정렬 규칙이 여러 개일 때만 우선순위 번호 표시
+  const showBadge = active && rules.length > 1;
 
   return (
     <th
-      onClick={onClick}
+      onClick={(e) => onToggle(sortKey, e.shiftKey)}
+      title="클릭 = 단일 정렬 · Shift+클릭 = 보조 정렬 추가"
       className={`cursor-pointer select-none border-b border-border px-3 py-2 font-semibold transition-colors hover:bg-muted/70 ${
         align === "right" ? "text-right" : "text-left"
       }`}
@@ -432,9 +467,18 @@ function SortableTh({
         }`}
       >
         {label}
-        <Icon
-          className={`size-3 ${active ? "text-foreground" : "text-muted-foreground/50"}`}
-        />
+        <span className="inline-flex items-center gap-0.5">
+          <Icon
+            className={`size-3 ${
+              active ? "text-[var(--imessage-blue)]" : "text-muted-foreground/50"
+            }`}
+          />
+          {showBadge && (
+            <span className="inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[var(--imessage-blue)] px-1 text-[9px] font-bold leading-none text-white">
+              {ruleIdx + 1}
+            </span>
+          )}
+        </span>
       </span>
     </th>
   );
