@@ -28,6 +28,7 @@ interface Store {
   previewDocId: string | null;
 
   searchFocusToken: number;
+  inputFocusToken: number;
 
   messages: Message[];
   isLoading: boolean;
@@ -54,6 +55,7 @@ interface Store {
   closePreview: () => void;
 
   requestSearchFocus: () => void;
+  requestInputFocus: () => void;
 
   newChat: () => void;
   sendMessage: (text: string) => Promise<void>;
@@ -75,6 +77,7 @@ export const useStore = create<Store>()(
       previewDocId: null,
 
       searchFocusToken: 0,
+      inputFocusToken: 0,
 
       messages: [],
       isLoading: false,
@@ -110,6 +113,9 @@ export const useStore = create<Store>()(
 
       requestSearchFocus: () =>
         set((s) => ({ searchFocusToken: s.searchFocusToken + 1 })),
+
+      requestInputFocus: () =>
+        set((s) => ({ inputFocusToken: s.inputFocusToken + 1 })),
 
       newChat: () =>
         set({
