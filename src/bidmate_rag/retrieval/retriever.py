@@ -38,6 +38,7 @@ class RAGRetriever:
         metadata_store=None,
         reranker_model=None,
         enable_multiturn: bool = True,
+        boost_config: dict | None = None,
     ) -> None:
         """RAGRetriever를 초기화
 
@@ -47,12 +48,14 @@ class RAGRetriever:
             metadata_store: 메타데이터 기반 문서 필터링 스토어.
             reranker_model: Cross-Encoder 리랭킹 모델. None이면 Cross-Encoder 없이 부스팅만 적용.
             enable_multiturn: 이전 대화를 이용한 검색문 보강 사용 여부.
+            boost_config: 부스팅 가중치 설정.
         """
         self.vector_store = vector_store
         self.embedder = embedder
         self.metadata_store = metadata_store
         self.reranker = reranker_model
         self.enable_multiturn = enable_multiturn
+        self.boost_config = boost_config
 
     # ── fan-out 관련 메서드 ──
     # 비교 질문("A와 B의 예산 차이는?")에서 기관별로 따로 검색하는 로직.
@@ -168,9 +171,9 @@ class RAGRetriever:
         # ── 2단계: 벡터 검색 ──
         # Cross-Encoder가 있으면 후보를 4배 넓게 가져와서 정밀 재정렬한다
         final_top_k = top_k
-        rerank_pool_k = final_top_k * 4 if self.reranker else final_top_k
+        rerank_pool_k = final_top_k * 4 if self.reranker else final_top_k * 3
         section_hint = extract_section_hint(resolved_query)
-        where_document = {"$contains": section_hint} if section_hint else None
+        where_document = None
         query_embedding = self.embedder.embed_query(resolved_query)
 
         # 비교 질문이면 기관별 fan-out 검색 → round-robin 병합
@@ -198,4 +201,9 @@ class RAGRetriever:
         results = cross_encoder_rerank(self.reranker, resolved_query, results, final_top_k)
 
         # ── 4단계: 섹션/테이블 부스팅 (RFP 특화 미세 조정) ──
-        return rerank_with_boost(results, query=resolved_query, section_hint=section_hint)
+        return rerank_with_boost(
+            results,
+            query=resolved_query,
+            section_hint=section_hint,
+            boost_config=self.boost_config,
+        )

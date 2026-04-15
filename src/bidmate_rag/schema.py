@@ -55,6 +55,7 @@ class RetrievedChunk(BaseModel):
 
     rank: int
     score: float
+    rerank_score: float | None = None
     chunk: Chunk
 
     def to_record(self) -> dict[str, Any]:

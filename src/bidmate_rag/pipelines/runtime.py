@@ -164,6 +164,7 @@ def build_runtime_pipeline(
         metadata_store=metadata_store,
         reranker_model=reranker,
         enable_multiturn=runtime.retrieval.enable_multiturn,
+        boost_config=runtime.retrieval.boost.model_dump(),
     )
     pipeline = RAGChatPipeline(retriever=retriever, llm=llm)
     

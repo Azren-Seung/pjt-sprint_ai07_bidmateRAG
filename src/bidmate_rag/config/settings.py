@@ -16,9 +16,16 @@ class ProjectConfig(BaseModel):
     default_chunk_overlap: int = 150
 
 
+class BoostConfig(BaseModel):
+    section: float = 0.12
+    table: float = 0.08
+    max_total: float = 0.15
+
+
 class RetrievalConfig(BaseModel):
     reranker_model: str | None = None
     enable_multiturn: bool = True
+    boost: BoostConfig = Field(default_factory=BoostConfig)
 
 
 class ProviderConfig(BaseModel):

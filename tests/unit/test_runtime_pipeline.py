@@ -29,7 +29,11 @@ def test_build_runtime_pipeline_passes_multiturn_flag_to_retriever(
 
     monkeypatch.setattr(runtime_module, "build_embedding_provider", lambda _: object())
     monkeypatch.setattr(runtime_module, "build_llm_provider", lambda _: object())
-    monkeypatch.setattr(runtime_module, "ChromaVectorStore", lambda **kwargs: object())
+    class FakeVectorStore:
+        def count(self):
+            return 1
+
+    monkeypatch.setattr(runtime_module, "ChromaVectorStore", lambda **kwargs: FakeVectorStore())
     monkeypatch.setattr(runtime_module, "_load_reranker", lambda _: None)
     monkeypatch.setattr(runtime_module, "RAGRetriever", FakeRetriever)
     monkeypatch.setattr(runtime_module, "RAGChatPipeline", FakePipeline)
@@ -43,4 +47,5 @@ def test_build_runtime_pipeline_passes_multiturn_flag_to_retriever(
     )
 
     assert captured["enable_multiturn"] is False
+    assert captured["boost_config"] == {"section": 0.12, "table": 0.08, "max_total": 0.15}
     assert isinstance(pipeline, FakePipeline)

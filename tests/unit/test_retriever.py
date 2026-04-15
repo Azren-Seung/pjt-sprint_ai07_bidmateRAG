@@ -124,7 +124,23 @@ def test_retriever_merges_metadata_range_and_section_filters() -> None:
         "사업 금액": {"$gte": 500000000},
         "공개연도": 2024,
     }
-    assert vector_store.last_kwargs["where_document"] == {"$contains": "보안"}
+    assert vector_store.last_kwargs["where_document"] is None
+    assert vector_store.last_kwargs["top_k"] == 9
+
+
+def test_retriever_expands_candidate_pool_without_reranker() -> None:
+    vector_store = FakeVectorStore()
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+        reranker_model=None,
+    )
+
+    retriever.retrieve("국민연금공단 보안 요구사항 알려줘", top_k=4)
+
+    assert vector_store.last_kwargs["top_k"] == 12
+    assert vector_store.last_kwargs["where_document"] is None
 
 
 def test_retriever_uses_metadata_store_shortlist_when_no_explicit_filter() -> None:
@@ -306,7 +322,8 @@ def test_retriever_applies_cross_encoder_after_multi_agency_fan_out_merge() -> N
     ]
     assert [result.chunk.chunk_id for result in results] == ["ibs-1", "nps-2"]
     assert [result.rank for result in results] == [1, 2]
-    assert [result.score for result in results] == [0.95, 0.9]
+    assert [result.score for result in results] == [0.97, 0.98]
+    assert [result.rerank_score for result in results] == [0.95, 0.9]
 
 
 def test_retriever_rewrites_follow_up_query_and_inherits_recent_agency_filter() -> None:
