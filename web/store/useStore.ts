@@ -25,6 +25,11 @@ interface Store {
   pinnedDocs: DocumentSummary[];
   activeCommand: SlashCommandMeta | null;
 
+  previewDocId: string | null;
+
+  searchFocusToken: number;
+  inputFocusToken: number;
+
   messages: Message[];
   isLoading: boolean;
   lastError: string | null;
@@ -46,6 +51,12 @@ interface Store {
   setCommand: (cmd: SlashCommandMeta | null) => void;
   clearContext: () => void;
 
+  openPreview: (docId: string) => void;
+  closePreview: () => void;
+
+  requestSearchFocus: () => void;
+  requestInputFocus: () => void;
+
   newChat: () => void;
   sendMessage: (text: string) => Promise<void>;
 }
@@ -62,6 +73,11 @@ export const useStore = create<Store>()(
 
       pinnedDocs: [],
       activeCommand: null,
+
+      previewDocId: null,
+
+      searchFocusToken: 0,
+      inputFocusToken: 0,
 
       messages: [],
       isLoading: false,
@@ -92,6 +108,15 @@ export const useStore = create<Store>()(
       setCommand: (cmd) => set({ activeCommand: cmd }),
       clearContext: () => set({ pinnedDocs: [], activeCommand: null }),
 
+      openPreview: (docId) => set({ previewDocId: docId }),
+      closePreview: () => set({ previewDocId: null }),
+
+      requestSearchFocus: () =>
+        set((s) => ({ searchFocusToken: s.searchFocusToken + 1 })),
+
+      requestInputFocus: () =>
+        set((s) => ({ inputFocusToken: s.inputFocusToken + 1 })),
+
       newChat: () =>
         set({
           messages: [],
@@ -106,6 +131,7 @@ export const useStore = create<Store>()(
           id: `user-${Date.now()}`,
           role: "user",
           content: text,
+          createdAt: Date.now(),
         };
         set({
           messages: [...state.messages, userMessage],
@@ -128,6 +154,7 @@ export const useStore = create<Store>()(
             id: `assistant-${Date.now()}`,
             role: "assistant",
             content: response.answer,
+            createdAt: Date.now(),
             citations: response.citations,
             metadata: response.metadata,
           };
@@ -148,6 +175,7 @@ export const useStore = create<Store>()(
                 id: `error-${Date.now()}`,
                 role: "assistant",
                 content: `오류: ${message}`,
+                createdAt: Date.now(),
                 error: message,
               },
             ],
