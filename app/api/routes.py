@@ -302,6 +302,7 @@ def run_benchmark_experiment(
     embedding_config_path: str | Path | None = None, # 시나리오 A 임베딩 설정 경로 (선택)
     llm_config_path: str | Path | None = None, # 시나리오
     adapter_path: str | Path | None = None, # 어댑터 경로 
+    top_k: int = 5, # 검색할 청크 수 (기본값 5, ExperimentConfig.retrieval_top_k로 오버라이드 가능)
 ) -> EvaluationArtifacts:
     """런타임 파이프라인을 조립하고 전체 평가를 실행한다.
 
@@ -356,4 +357,5 @@ def run_benchmark_experiment(
         judge_model=judge_model,
         judge_v2=judge_v2,
         progress_callback=progress_callback,
+        top_k=top_k, # 검색할 청크 수 전달
     )
