@@ -10,31 +10,37 @@ import re
 
 from bidmate_rag.retrieval.filters import is_comparison_query, should_boost_tables
 
+# 부스팅 기본 상수 (boost_config 미지정 시 폴백용)
 SECTION_BOOST = 0.15
 TABLE_BOOST = 0.08
 METADATA_BOOST = 0.12
 MAX_TOTAL_BOOST = 0.30
-MIN_MATCH_LEN = 3
+MIN_MATCH_LEN = 3  # 정규화된 텍스트 최소 매칭 길이
 
 
 def _normalize_text(value: object) -> str:
+    """텍스트를 소문자·특수문자 제거·확장자 제거하여 정규화한다."""
     text = str(value or "").strip().lower()
     text = re.sub(r"\.(pdf|hwp|hwpx|docx|doc)$", "", text)
     return re.sub(r"[\W_]+", "", text)
 
 
 def _contains_normalized(query_norm: str, value: object) -> bool:
+    """정규화된 질의에 대상 텍스트가 포함되는지 확인한다."""
     candidate = _normalize_text(value)
     return len(candidate) >= MIN_MATCH_LEN and candidate in query_norm
 
 
 def _metadata_matches_query(query_norm: str, result) -> bool:
+    """청크의 메타데이터(기관명·사업명·파일명)가 질의와 매칭되는지 확인한다."""
     metadata = result.chunk.metadata
+    # 기관명 후보: 발주 기관, resolved_agency, original_agency
     agency_candidates = (
         metadata.get("발주 기관", ""),
         metadata.get("resolved_agency", ""),
         metadata.get("original_agency", ""),
     )
+    # 사업명 후보: 사업명, 파일명, doc_id
     project_candidates = (
         metadata.get("사업명", ""),
         metadata.get("파일명", ""),
