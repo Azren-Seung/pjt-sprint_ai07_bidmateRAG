@@ -27,6 +27,8 @@ interface Store {
 
   previewDocId: string | null;
 
+  catalogOpen: boolean;
+
   searchFocusToken: number;
   inputFocusToken: number;
 
@@ -54,6 +56,9 @@ interface Store {
   openPreview: (docId: string) => void;
   closePreview: () => void;
 
+  openCatalog: () => void;
+  closeCatalog: () => void;
+
   requestSearchFocus: () => void;
   requestInputFocus: () => void;
 
@@ -75,6 +80,8 @@ export const useStore = create<Store>()(
       activeCommand: null,
 
       previewDocId: null,
+
+      catalogOpen: false,
 
       searchFocusToken: 0,
       inputFocusToken: 0,
@@ -110,6 +117,9 @@ export const useStore = create<Store>()(
 
       openPreview: (docId) => set({ previewDocId: docId }),
       closePreview: () => set({ previewDocId: null }),
+
+      openCatalog: () => set({ catalogOpen: true }),
+      closeCatalog: () => set({ catalogOpen: false }),
 
       requestSearchFocus: () =>
         set((s) => ({ searchFocusToken: s.searchFocusToken + 1 })),
