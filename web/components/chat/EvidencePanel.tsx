@@ -1,3 +1,4 @@
+import { Paperclip } from "lucide-react";
 import type { Citation } from "@/lib/types";
 import { CitationCard } from "./CitationCard";
 
@@ -11,8 +12,9 @@ export function EvidencePanel({ citations }: { citations: Citation[] }) {
   }
   return (
     <div className="sticky top-4 flex flex-col gap-2">
-      <div className="text-xs font-semibold text-muted-foreground">
-        📎 근거 ({citations.length})
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <Paperclip className="size-3.5" />
+        근거 ({citations.length})
       </div>
       {citations.map((c) => (
         <CitationCard key={c.id} citation={c} />

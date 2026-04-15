@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText } from "lucide-react";
 import { useStore } from "@/store/useStore";
 
 export function ChipTray() {
@@ -24,7 +25,8 @@ export function ChipTray() {
           }`}
           title={tooMany ? "4개 이상 멘션 시 답변 품질이 떨어질 수 있어요" : undefined}
         >
-          📄 {doc.title.slice(0, 20)}
+          <FileText className="size-3.5" />
+          {doc.title.slice(0, 20)}
           {doc.title.length > 20 ? "..." : ""}
           <button
             type="button"

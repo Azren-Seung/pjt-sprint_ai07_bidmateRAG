@@ -67,6 +67,7 @@ export interface Message {
   id: string;
   role: MessageRole;
   content: string;
+  createdAt: number;
   citations?: Citation[];
   metadata?: QueryMetadata;
   error?: string;
