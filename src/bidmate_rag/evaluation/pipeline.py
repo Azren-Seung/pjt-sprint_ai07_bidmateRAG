@@ -91,6 +91,9 @@ def execute_evaluation(
     runs_path = Path(runs_dir)
     benchmarks_path = Path(benchmarks_dir)
     resolved_run_id = run_id or f"bench-{uuid4().hex[:8]}"
+    
+    # ExperimentConfig.retrieval_top_k가 비어있으면 ProjectConfig 기본값 5.
+    top_k = top_k or runtime.experiment.retrieval_top_k or runtime.project.default_retrieval_top_k or 5
 
     meta_path = _write_run_meta(
         runs_dir=runs_path,
@@ -101,10 +104,10 @@ def execute_evaluation(
         eval_path=eval_path,
         config_paths=config_paths or {},
         judge_skipped=skip_judge,
+        top_k = top_k
     )
 
-    # ExperimentConfig.retrieval_top_k가 비어있으면 ProjectConfig 기본값 5.
-    top_k = top_k or runtime.experiment.retrieval_top_k or runtime.project.default_retrieval_top_k or 5
+    
 
     def answer_fn(sample: EvalSample) -> GenerationResult:
         # 평가셋의 metadata_filter / history를 retrieval에 실제로 적용
@@ -231,6 +234,7 @@ def _write_run_meta(
     eval_path: str,
     config_paths: dict[str, str | None],
     judge_skipped: bool = False,
+    top_k: int = 5,
 ) -> Path:
     runs_dir.mkdir(parents=True, exist_ok=True)
     now_utc = datetime.now(UTC)
@@ -246,6 +250,7 @@ def _write_run_meta(
         "eval_path": eval_path,
         "collection_name": collection_name,
         "judge_skipped": judge_skipped,
+        "actual_top_k": top_k,
         "judge_total_cost_usd": 0.0,
         "judge_total_tokens": 0,
     }
