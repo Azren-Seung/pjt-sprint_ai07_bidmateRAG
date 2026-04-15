@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import math
+import re
+import unicodedata
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse
 
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.web_api.commands import COMMAND_REGISTRY, SlashCommand
 from bidmate_rag.web_api.retrieval_helpers import web_query
 from bidmate_rag.web_api.schemas import (
     Citation,
+    DocumentContent,
     DocumentDetail,
     DocumentSummary,
     QueryMetadata,
@@ -22,6 +28,30 @@ from bidmate_rag.web_api.schemas import (
 )
 
 router = APIRouter()
+
+PDF_ROOT = Path("data/raw/PDF")
+
+
+def _normalize_filename_stem(name: str) -> str:
+    """파일명을 매칭 키로 정규화.
+
+    메타데이터의 `파일명` 컬럼은 원본 HWP/PDF 파일명을 담고 있는데,
+    `data/raw/PDF/` 디렉토리의 실제 파일명과 미세하게 달라지는 케이스가
+    있다 (공백 ↔ `+`, NBSP, 뒷공백/마침표). NFC 정규화 + 구분자 통합으로
+    98/100 전건 매칭이 된다.
+    """
+    stem = Path(name).stem
+    stem = unicodedata.normalize("NFC", stem)
+    stem = stem.replace("+", " ").replace("\u00a0", " ")
+    stem = re.sub(r"\s+", " ", stem).strip()
+    return stem.rstrip(" .")
+
+
+def _build_pdf_index() -> dict[str, Path]:
+    """PDF 디렉토리의 파일들을 정규화 키로 색인."""
+    if not PDF_ROOT.exists():
+        return {}
+    return {_normalize_filename_stem(p.name): p for p in PDF_ROOT.glob("*.pdf")}
 
 
 def _format_budget_label(amount: float) -> str:
@@ -98,6 +128,73 @@ def get_document(doc_id: str, request: Request) -> dict[str, Any]:
         quick_facts=quick_facts,
     )
     return detail.model_dump()
+
+
+@router.get("/documents/{doc_id}/pdf")
+def get_document_pdf(doc_id: str, request: Request) -> FileResponse:
+    """문서 원본 PDF 스트리밍 (iframe 미리보기용).
+
+    metadata_store에서 `파일명`을 찾아 `data/raw/PDF/`의 해당 PDF 파일을
+    `FileResponse`로 응답한다. 파일명 정규화(공백/+/NBSP/NFC)로 매칭.
+    """
+    frame: pd.DataFrame = request.app.state.metadata_store.frame
+    notice_match = frame["공고 번호"].astype(str) == doc_id
+    filename_match = (
+        frame["파일명"].astype(str) == doc_id if "파일명" in frame.columns else False
+    )
+    match = frame[notice_match | filename_match]
+    if match.empty:
+        raise HTTPException(status_code=404, detail=f"document not found: {doc_id}")
+    row = match.iloc[0]
+    meta_filename = str(row.get("파일명") or "")
+    if not meta_filename:
+        raise HTTPException(status_code=404, detail="no 파일명 in metadata")
+
+    normalized = _normalize_filename_stem(meta_filename)
+    pdf_index = _build_pdf_index()
+    pdf_path = pdf_index.get(normalized)
+    if pdf_path is None or not pdf_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"pdf not found for '{meta_filename}' (normalized: '{normalized}')",
+        )
+    # HTTP 헤더는 latin-1만 허용하므로 한글 파일명은 RFC 5987 형식으로 인코딩.
+    # ASCII fallback + filename*= UTF-8 쌍을 함께 보내면 모든 브라우저가 해석 가능.
+    disposition = (
+        f"inline; filename=\"document.pdf\"; "
+        f"filename*=UTF-8''{quote(pdf_path.name)}"
+    )
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        headers={"Content-Disposition": disposition},
+    )
+
+
+@router.get("/documents/{doc_id}/content")
+def get_document_content(doc_id: str, request: Request) -> dict[str, Any]:
+    """문서 미리보기용: 정제된 마크다운 본문 반환.
+
+    `본문_정제` 컬럼(6종 노이즈 정제 완료)을 그대로 내려준다.
+    원본 kordoc 출력(`본문_마크다운`)이 아니라 cleaner를 거친 버전을 쓴다.
+    """
+    frame: pd.DataFrame = request.app.state.metadata_store.frame
+    notice_match = frame["공고 번호"].astype(str) == doc_id
+    filename_match = (
+        frame["파일명"].astype(str) == doc_id if "파일명" in frame.columns else False
+    )
+    match = frame[notice_match | filename_match]
+    if match.empty:
+        raise HTTPException(status_code=404, detail=f"document not found: {doc_id}")
+    row = match.iloc[0]
+    markdown = str(row.get("본문_정제") or row.get("본문_마크다운") or "")
+    content = DocumentContent(
+        doc_id=_resolve_doc_id(row),
+        title=str(row.get("사업명", "")),
+        markdown=markdown,
+        char_count=len(markdown),
+    )
+    return content.model_dump()
 
 
 @router.get("/commands")

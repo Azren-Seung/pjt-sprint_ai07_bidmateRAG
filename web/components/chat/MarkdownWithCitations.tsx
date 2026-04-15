@@ -21,7 +21,7 @@ function renderTextWithCitations(text: string): ReactNode[] {
       <a
         key={`cite-link-${i++}`}
         href={`#cite-${num}`}
-        className="mx-0.5 inline-flex items-center rounded bg-primary/15 px-1 text-[11px] font-semibold text-primary hover:bg-primary/25"
+        className="mx-0.5 inline-flex items-center rounded bg-[color-mix(in_oklab,var(--imessage-blue)_15%,transparent)] px-1 text-[11px] font-semibold text-[var(--imessage-blue)] hover:bg-[color-mix(in_oklab,var(--imessage-blue)_25%,transparent)]"
       >
         [{num}]
       </a>

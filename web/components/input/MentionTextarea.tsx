@@ -14,16 +14,19 @@ interface Props {
 const mentionStyle = {
   control: {
     backgroundColor: "transparent",
-    fontSize: 14,
-    minHeight: 60,
+    fontSize: 15,
+    minHeight: 32,
   },
   input: {
-    padding: "8px 12px",
-    border: "1px solid hsl(var(--border))",
-    borderRadius: 6,
-    minHeight: 60,
+    padding: "6px 4px",
+    border: "none",
+    borderRadius: 0,
+    minHeight: 32,
+    maxHeight: 140,
+    overflow: "auto",
     outline: "none",
     color: "inherit",
+    lineHeight: "1.4",
   },
   suggestions: {
     list: {

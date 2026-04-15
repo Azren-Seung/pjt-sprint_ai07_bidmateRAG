@@ -28,6 +28,15 @@ class DocumentDetail(DocumentSummary):
     quick_facts: list[dict[str, str]] = Field(default_factory=list)
 
 
+class DocumentContent(BaseModel):
+    """문서 미리보기용 전체 마크다운 본문."""
+
+    doc_id: str
+    title: str
+    markdown: str
+    char_count: int
+
+
 class SlashCommandMeta(BaseModel):
     """프론트 드롭다운용 슬래시 커맨드 메타."""
 

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useStore } from "@/store/useStore";
-import { Button } from "@/components/ui/button";
 import { ChipTray } from "./ChipTray";
 import { QuickCommandBar } from "./QuickCommandBar";
 import { MentionTextarea } from "./MentionTextarea";
@@ -50,26 +49,43 @@ export function InputBar() {
   };
 
   return (
-    <div className="border-t border-border bg-background py-2">
+    <div className="border-t border-border/60 bg-[var(--imessage-chrome)]/95 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-2 backdrop-blur-md">
       <ChipTray />
       <QuickCommandBar />
-      <div className="flex gap-2 px-4">
-        <div className="flex-1">
-          <MentionTextarea
-            value={text}
-            onChange={setText}
-            onEnter={handleSend}
-            disabled={isLoading}
-          />
+      <div className="px-3">
+        <div className="imessage-input flex items-end gap-2 py-1.5 pl-4 pr-1.5">
+          <div className="flex-1">
+            <MentionTextarea
+              value={text}
+              onChange={setText}
+              onEnter={handleSend}
+              disabled={isLoading}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={sendDisabled}
+            title={disabledReason}
+            aria-label="전송"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--imessage-blue)] text-white transition-all duration-150 ease-out active:scale-90 disabled:opacity-30 disabled:active:scale-100"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 19V5" />
+              <path d="M5 12l7-7 7 7" />
+            </svg>
+          </button>
         </div>
-        <Button
-          type="button"
-          onClick={handleSend}
-          disabled={sendDisabled}
-          title={disabledReason}
-        >
-          전송
-        </Button>
       </div>
     </div>
   );
