@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/store/useStore";
 import { ChipTray } from "./ChipTray";
 import { QuickCommandBar } from "./QuickCommandBar";
@@ -19,6 +19,19 @@ function stripMentionMarkup(raw: string): string {
 
 export function InputBar() {
   const [text, setText] = useState("");
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputFocusToken = useStore((s) => s.inputFocusToken);
+
+  useEffect(() => {
+    if (inputFocusToken === 0) return;
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [inputFocusToken]);
 
   const pinnedDocs = useStore((s) => s.pinnedDocs);
   const activeCommand = useStore((s) => s.activeCommand);
@@ -60,6 +73,7 @@ export function InputBar() {
               onChange={setText}
               onEnter={handleSend}
               disabled={isLoading}
+              inputRef={textareaRef}
             />
           </div>
           <button
