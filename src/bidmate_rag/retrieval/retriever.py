@@ -17,6 +17,7 @@ from bidmate_rag.retrieval.filters import (
     extract_section_hint,
     is_comparison_query,
 )
+from bidmate_rag.retrieval.hybrid import hybrid_query, resolve_hybrid_pool_sizes
 from bidmate_rag.retrieval.multiturn import (
     extract_recent_agency_filter,
     rewrite_query_with_history,
@@ -36,9 +37,11 @@ class RAGRetriever:
         vector_store,
         embedder,
         metadata_store=None,
+        sparse_store=None,
         reranker_model=None,
         enable_multiturn: bool = True,
         boost_config: dict | None = None,
+        hybrid_config: dict | None = None,
     ) -> None:
         """RAGRetriever를 초기화
 
@@ -46,16 +49,20 @@ class RAGRetriever:
             vector_store: 벡터 검색에 사용할 벡터 스토어.
             embedder: 쿼리 임베딩 생성기.
             metadata_store: 메타데이터 기반 문서 필터링 스토어.
+            sparse_store: BM25 sparse 검색 스토어.
             reranker_model: Cross-Encoder 리랭킹 모델. None이면 Cross-Encoder 없이 부스팅만 적용.
             enable_multiturn: 이전 대화를 이용한 검색문 보강 사용 여부.
             boost_config: 부스팅 가중치 설정.
+            hybrid_config: 하이브리드 검색 설정.
         """
         self.vector_store = vector_store
         self.embedder = embedder
         self.metadata_store = metadata_store
+        self.sparse_store = sparse_store
         self.reranker = reranker_model
         self.enable_multiturn = enable_multiturn
         self.boost_config = boost_config
+        self.hybrid_config = hybrid_config
 
     # ── fan-out 관련 메서드 ──
     # 비교 질문("A와 B의 예산 차이는?")에서 기관별로 따로 검색하는 로직.
@@ -171,7 +178,12 @@ class RAGRetriever:
         # ── 2단계: 벡터 검색 ──
         # Cross-Encoder가 있으면 후보를 4배 넓게 가져와서 정밀 재정렬한다
         final_top_k = top_k
-        rerank_pool_k = final_top_k * 4 if self.reranker else final_top_k * 3
+        dense_pool_k, sparse_pool_k = resolve_hybrid_pool_sizes(
+            final_top_k,
+            reranker_present=self.reranker is not None,
+            sparse_store=self.sparse_store,
+            hybrid_config=self.hybrid_config,
+        )
         section_hint = extract_section_hint(resolved_query)
         where_document = None
         query_embedding = self.embedder.embed_query(resolved_query)
@@ -179,21 +191,31 @@ class RAGRetriever:
         # 비교 질문이면 기관별 fan-out 검색 → round-robin 병합
         if self._should_run_scoped_queries(resolved_query, where):
             grouped_results = [
-                self.vector_store.query(
+                hybrid_query(
+                    query=resolved_query,
                     query_embedding=query_embedding,
-                    top_k=rerank_pool_k,
+                    vector_store=self.vector_store,
+                    sparse_store=self.sparse_store,
+                    dense_top_k=dense_pool_k,
+                    sparse_top_k=sparse_pool_k,
                     where=scoped_where,
                     where_document=where_document,
+                    hybrid_config=self.hybrid_config,
                 )
                 for scoped_where in self._build_scoped_filters(where)
             ]
-            results = self._merge_round_robin(grouped_results, rerank_pool_k)
+            results = self._merge_round_robin(grouped_results, max(dense_pool_k, sparse_pool_k))
         else:
-            results = self.vector_store.query(
+            results = hybrid_query(
+                query=resolved_query,
                 query_embedding=query_embedding,
-                top_k=rerank_pool_k,
+                vector_store=self.vector_store,
+                sparse_store=self.sparse_store,
+                dense_top_k=dense_pool_k,
+                sparse_top_k=sparse_pool_k,
                 where=where,
                 where_document=where_document,
+                hybrid_config=self.hybrid_config,
             )
 
         # ── 3단계: Cross-Encoder 리랭킹 ──
@@ -201,9 +223,10 @@ class RAGRetriever:
         results = cross_encoder_rerank(self.reranker, resolved_query, results, final_top_k)
 
         # ── 4단계: 섹션/테이블 부스팅 (RFP 특화 미세 조정) ──
-        return rerank_with_boost(
+        reranked = rerank_with_boost(
             results,
             query=resolved_query,
             section_hint=section_hint,
             boost_config=self.boost_config,
         )
+        return _assign_ranks(reranked[:final_top_k])

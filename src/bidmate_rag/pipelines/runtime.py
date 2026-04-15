@@ -15,6 +15,7 @@ from bidmate_rag.config.settings import RuntimeConfig, load_runtime_config
 from bidmate_rag.pipelines.chat import RAGChatPipeline
 from bidmate_rag.providers.llm.registry import build_embedding_provider, build_llm_provider
 from bidmate_rag.retrieval.retriever import RAGRetriever
+from bidmate_rag.retrieval.sparse_store import BM25SparseStore
 from bidmate_rag.retrieval.vector_store import ChromaVectorStore
 from bidmate_rag.storage.metadata_store import MetadataStore
 
@@ -104,6 +105,30 @@ def _resolve_metadata_path(runtime: RuntimeConfig, explicit: str | Path | None) 
     return Path("data/processed/cleaned_documents.parquet")
 
 
+def _resolve_chunks_path(runtime: RuntimeConfig, explicit: str | Path | None = None) -> Path:
+    """실험별 chunks parquet 경로를 자동 결정한다.
+
+    Args:
+        runtime: 런타임 설정.
+        explicit: 명시 경로. None이면 자동 탐지.
+
+    Returns:
+        chunks.parquet 경로.
+    """
+    if explicit:
+        path = Path(explicit)
+        if path.exists():
+            return path
+
+    exp_name = runtime.experiment.name or "ad-hoc"
+    if exp_name not in ("ad-hoc", "default", ""):
+        sub = Path(f"data/processed/{exp_name}/chunks.parquet")
+        if sub.exists():
+            return sub
+
+    return Path("data/processed/chunks.parquet")
+
+
 def build_runtime_pipeline(
     base_config_path: str | Path,
     provider_config_path: str | Path,
@@ -111,6 +136,7 @@ def build_runtime_pipeline(
     retrieval_config_path: str | Path | None = "configs/retrieval.yaml",
     persist_dir: str | Path = "artifacts/chroma_db",
     metadata_path: str | Path | None = None,
+    chunks_path: str | Path | None = None,
 ):
     """설정 파일들로부터 RAGChatPipeline을 조립한다.
 
@@ -138,14 +164,14 @@ def build_runtime_pipeline(
         persist_dir=persist_dir,
         collection_name=collection_name_for_config(runtime),
     )
+    resolved_chunks_path = _resolve_chunks_path(runtime, chunks_path)
     # collection이 비어있으면 자동으로 DB 생성
     if vector_store.count() == 0:
         from bidmate_rag.pipelines.build_index import build_index_from_parquet
-        chunks_path = Path("data/processed/chunks.parquet")
-        if chunks_path.exists():
+        if resolved_chunks_path.exists():
             print(f"[자동 빌드] {collection_name_for_config(runtime)}")
             build_index_from_parquet(
-                str(chunks_path),
+                str(resolved_chunks_path),
                 embedder=embedder,
                 vector_store=vector_store,
             )
@@ -157,14 +183,19 @@ def build_runtime_pipeline(
         if resolved_path.exists()
         else MetadataStore(pd.DataFrame())
     )
+    sparse_store = None
+    if runtime.retrieval.hybrid.enabled and resolved_chunks_path.exists():
+        sparse_store = BM25SparseStore.from_parquet(resolved_chunks_path)
     reranker = _load_reranker(runtime.retrieval.reranker_model)
     retriever = RAGRetriever(
         vector_store=vector_store,
         embedder=embedder,
         metadata_store=metadata_store,
+        sparse_store=sparse_store,
         reranker_model=reranker,
         enable_multiturn=runtime.retrieval.enable_multiturn,
         boost_config=runtime.retrieval.boost.model_dump(),
+        hybrid_config=runtime.retrieval.hybrid.model_dump(),
     )
     pipeline = RAGChatPipeline(retriever=retriever, llm=llm)
     
