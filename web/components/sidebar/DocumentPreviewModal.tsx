@@ -218,7 +218,7 @@ export function DocumentPreviewModal() {
           <iframe
             src={pdfUrl}
             title={displayDoc?.title ?? "문서 미리보기"}
-            className="w-full border-0 bg-muted"
+            className="h-full w-full border-0 bg-muted"
           />
         </div>
       </div>
