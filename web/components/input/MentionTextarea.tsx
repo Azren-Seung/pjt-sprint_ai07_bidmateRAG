@@ -9,6 +9,7 @@ interface Props {
   onChange: (text: string) => void;
   onEnter: () => void;
   disabled?: boolean;
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 const mentionStyle = {
@@ -47,7 +48,7 @@ const mentionStyle = {
   },
 };
 
-export function MentionTextarea({ value, onChange, onEnter, disabled }: Props) {
+export function MentionTextarea({ value, onChange, onEnter, disabled, inputRef }: Props) {
   const documents = useStore((s) => s.documents);
   const pinDoc = useStore((s) => s.pinDoc);
   const setCommand = useStore((s) => s.setCommand);
@@ -84,6 +85,7 @@ export function MentionTextarea({ value, onChange, onEnter, disabled }: Props) {
       placeholder="질문 입력. @로 문서 · /로 커맨드"
       style={mentionStyle}
       disabled={disabled}
+      inputRef={inputRef as unknown as React.Ref<HTMLInputElement>}
       allowSuggestionsAboveCursor
     >
       <Mention
