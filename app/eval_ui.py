@@ -203,6 +203,7 @@ def render_eval_tabs(
     list_chunking_configs,
     list_scenario_a_embeddings, # 시나리오 A 임베딩 옵션 로딩 함수
     list_scenario_a_llms, # 시나리오 A LLM 옵션 로딩 함수
+    list_prompt_configs, # 프롬프트 설정 로딩 함수
     load_benchmark_frames,
     load_run_records,
 ):
@@ -243,12 +244,12 @@ def render_eval_tabs(
 
     # ── 서브탭 1: 평가 실행 ──
     with run_tab:
-        _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms, ) # 시나리오 A 옵션 전달 추가
+        _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms, list_prompt_configs) # 시나리오 A 옵션 전달 추가
 
     # ── 서브탭 2: 질문 디버깅 ──
     with debug_tab:
         _render_debug_tab(
-            st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms   # 시나리오 A 옵션 전달 추가
+            st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms, list_prompt_configs   # 시나리오 A 옵션 전달 추가
         )
 
     # ── 서브탭 3: 결과 비교 ──
@@ -260,7 +261,7 @@ def render_eval_tabs(
         _render_edit_tab(st, eval_set)
 
 
-def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms): # 시나리오 A 옵션 인자 추가
+def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms, list_prompt_configs): # 시나리오 A 옵션 인자 추가
     """평가셋 일괄 실행 탭. CLI(``bidmate-eval``)와 정확히 같은 코드 경로를 호출한다.
 
     UX 단순화 원칙:
@@ -293,6 +294,17 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
         st, list_chunking_configs, key_prefix="run"
     )  # 청킹 선택 추가
     top_k = st.slider("Top-K (검색 청크 수)", 1, 20, 5, key="run_topk")
+    prompt_configs = list_prompt_configs()
+    selected_prompt = None
+    if prompt_configs:
+        selected_prompt_config = st.selectbox(
+            "프롬프트 버전",
+            [None] + prompt_configs,
+            format_func=lambda p: "기본값" if p is None else _yaml.safe_load(p.read_text()).get("description", p.stem),
+            key="run_prompt_config",
+        )
+        if selected_prompt_config:
+            selected_prompt = _yaml.safe_load(selected_prompt_config.read_text()).get("system_prompt")
 
     opt_col1, opt_col2 = st.columns(2)
     with opt_col1:
@@ -329,6 +341,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
             progress_callback=_on_progress,
             embedding_config_path=selected_embedding,  # 시나리오 A 임베딩 전달,
             llm_config_path=selected_llm,  # 시나리오 A LLM 전달
+            system_prompt=selected_prompt,  # 프롬프트 버전 전달
         )
     except Exception as exc:
         progress_bar.empty()
@@ -455,7 +468,7 @@ def _fmt_metric(value) -> str:
         return "N/A"
 
 
-def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms): # 시나리오 A 옵션 인자 추가
+def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_chunking_configs, list_scenario_a_embeddings, list_scenario_a_llms, list_prompt_configs): # 시나리오 A 옵션 인자 추가
     """질문별 디버깅 탭. 평가셋에서 질문 하나를 선택해 검색/생성 결과와 메트릭을 상세히 보여준다."""
     st.subheader("질문별 디버깅")
 
@@ -504,6 +517,18 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
     if provider is None and selected_embedding is None:
         return
     top_k = st.slider("Top-K", 1, 20, 5, key="debug_topk")
+    # 프롬프트 버전 선택 ← 추가
+    prompt_configs = list_prompt_configs()
+    selected_prompt = None
+    if prompt_configs:
+        selected_prompt_config = st.selectbox(
+            "프롬프트 버전",
+            [None] + prompt_configs,
+            format_func=lambda p: "기본값" if p is None else _yaml.safe_load(p.read_text()).get("description", p.stem),
+            key="debug_prompt_config",
+        )
+        if selected_prompt_config:
+            selected_prompt = _yaml.safe_load(selected_prompt_config.read_text()).get("system_prompt")
     chunking = _render_chunking_selector(
         st, list_chunking_configs, key_prefix="debug"
     )  # 청킹 선택 추가
@@ -534,6 +559,7 @@ def _render_debug_tab(st, eval_set, run_live_query, list_provider_configs, list_
                     chat_history=history,
                     embedding_config_path=selected_embedding,  # 시나리오 A 임베딩 전달,
                     llm_config_path=selected_llm,  # 시나리오 A LLM 전달
+                    system_prompt=selected_prompt,  # 프롬프트 버전 전달
                 )
                 status.update(label="완료", state="complete")
 

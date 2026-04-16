@@ -31,6 +31,10 @@ def list_provider_configs(config_dir: str | Path = "configs/providers") -> list[
 def list_chunking_configs(config_dir: str | Path = "configs/chunking") -> list[Path]:
     return sorted(Path(config_dir).glob("*.yaml"))
 
+# 프롬프트 설정
+def list_prompt_configs(config_dir: str | Path = "configs/prompts") -> list[Path]:
+    return sorted(Path(config_dir).glob("*.yaml"))
+
 # 학습된 어댑터 목록
 def list_adapters() -> list[Path]:
     """artifacts/training/ 폴더에서 학습된 어댑터 목록 반환."""
@@ -303,6 +307,7 @@ def run_benchmark_experiment(
     llm_config_path: str | Path | None = None, # 시나리오
     adapter_path: str | Path | None = None, # 어댑터 경로 
     top_k: int = 5, # 검색할 청크 수 (기본값 5, ExperimentConfig.retrieval_top_k로 오버라이드 가능)
+    system_prompt: str | None = None, # 시스템 프롬프트 오버라이드 (선택)
 ) -> EvaluationArtifacts:
     """런타임 파이프라인을 조립하고 전체 평가를 실행한다.
 
@@ -358,4 +363,5 @@ def run_benchmark_experiment(
         judge_v2=judge_v2,
         progress_callback=progress_callback,
         top_k=top_k, # 검색할 청크 수 전달
+        system_prompt=system_prompt, # 시스템 프롬프트 전달
     )
