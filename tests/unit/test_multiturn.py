@@ -6,13 +6,21 @@ from bidmate_rag.retrieval.multiturn import (
 )
 
 
-def _make_mock_llm(rewritten_text: str) -> MagicMock:
+def _make_mock_llm(
+    rewritten_text: str,
+    *,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+) -> MagicMock:
+    from bidmate_rag.providers.llm.base import RewriteResponse
+
     mock_llm = MagicMock()
-    mock_choice = MagicMock()
-    mock_choice.message.content = rewritten_text
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_llm.client.chat.completions.create.return_value = mock_response
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=rewritten_text,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=prompt_tokens + completion_tokens,
+    )
     mock_llm.model_name = "gpt-5-mini"
     return mock_llm
 
@@ -42,7 +50,7 @@ def test_rewrite_query_with_history_uses_llm_for_implicit_followup() -> None:
     )
 
     assert rewritten == "국민연금공단 차세대 ERP 사업의 평가기준은?"
-    mock_llm.client.chat.completions.create.assert_called_once()
+    mock_llm.rewrite.assert_called_once()
     assert trace["rewrite_reason"] == "llm"
     assert trace["rewrite_applied"] is True
 
@@ -65,7 +73,7 @@ def test_rewrite_query_with_history_includes_slot_memory_in_llm_prompt() -> None
         },
     )
 
-    prompt = mock_llm.client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+    prompt = mock_llm.rewrite.call_args.args[0]
     assert "발주기관: 국민연금공단" in prompt
     assert "사업명: 차세대 ERP 사업" in prompt
     assert "관심속성: 평가기준" in prompt
@@ -83,14 +91,14 @@ def test_rewrite_query_with_history_skips_llm_when_no_history() -> None:
     )
 
     assert rewritten == "서버 구축 사업 찾아줘"
-    mock_llm.client.chat.completions.create.assert_not_called()
+    mock_llm.rewrite.assert_not_called()
     assert trace["rewrite_reason"] == "original"
 
 
 def test_rewrite_query_with_history_falls_back_to_rule_based_on_llm_error() -> None:
     mock_llm = MagicMock()
     mock_llm.model_name = "gpt-5-mini"
-    mock_llm.client.chat.completions.create.side_effect = Exception("timeout")
+    mock_llm.rewrite.side_effect = Exception("timeout")
 
     rewritten, trace = rewrite_query_with_history(
         query="그 사업 예산은?",

@@ -94,12 +94,15 @@ class FakeSparseStore:
 
 
 def _make_mock_llm(rewritten_text: str) -> MagicMock:
+    from bidmate_rag.providers.llm.base import RewriteResponse
+
     mock_llm = MagicMock()
-    mock_choice = MagicMock()
-    mock_choice.message.content = rewritten_text
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_llm.client.chat.completions.create.return_value = mock_response
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=rewritten_text,
+        prompt_tokens=0,
+        completion_tokens=0,
+        total_tokens=0,
+    )
     mock_llm.model_name = "gpt-5-mini"
     return mock_llm
 
@@ -690,9 +693,9 @@ def test_retriever_uses_llm_rewrite_for_implicit_followup() -> None:
         ],
     )
 
-    prompt = mock_llm.client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+    prompt = mock_llm.rewrite.call_args.args[0]
     assert embedder.queries == ["국민연금공단 차세대 ERP 사업의 평가기준"]
-    mock_llm.client.chat.completions.create.assert_called_once()
+    mock_llm.rewrite.assert_called_once()
     assert "발주기관: 국민연금공단" in prompt
     assert "사업명" in prompt
     assert retriever._last_debug["rewrite_reason"] == "llm"
