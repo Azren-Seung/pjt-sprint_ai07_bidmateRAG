@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from typing import Protocol
 
 from bidmate_rag.config.prompts import SYSTEM_PROMPT
+from bidmate_rag.generation.context_builder import build_numbered_context_block
 from bidmate_rag.providers.llm.base import StreamDelta
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.web_api.pipeline_cache import get_pipeline
@@ -145,7 +146,10 @@ def web_query_stream(
     """Streaming 버전의 `web_query`.
 
     이벤트 스트림을 (event_type, payload) 튜플로 방출:
-      1. ("retrieval", list[RetrievedChunk]) — 검색 완료 직후 1회
+      1. ("retrieval", list[RetrievedChunk]) — 검색 완료 직후 1회.
+         **컨텍스트 예산으로 절단될 청크는 이미 제외된 상태**로 방출되므로,
+         프론트가 즉시 표시하는 Citation 카드 개수와 LLM이 답변에 쓰는 `[n]`
+         번호가 1:1로 일치한다.
       2. ("token", str)                      — LLM delta마다
       3. ("done", GenerationResult)          — 스트림 종료 시 1회
     """
@@ -158,7 +162,12 @@ def web_query_stream(
         mentioned_doc_ids=mentioned_doc_ids,
         top_k=top_k,
     )
-    yield ("retrieval", chunks)
+
+    # 컨텍스트 예산 기반으로 절단될 청크를 미리 제거 — retrieval 이벤트에서
+    # 프론트가 받는 카드 수와 LLM이 실제로 보는 청크 수를 처음부터 맞춘다.
+    _, used_indices = build_numbered_context_block(chunks, max_chars=max_context_chars)
+    visible_chunks = [chunks[i] for i in used_indices]
+    yield ("retrieval", visible_chunks)
 
     gen_config = {
         "max_context_chars": max_context_chars,
@@ -169,7 +178,7 @@ def web_query_stream(
     }
     for item in llm.generate_stream(
         question=question,
-        context_chunks=chunks,
+        context_chunks=visible_chunks,
         history=[],
         generation_config=gen_config,
         system_prompt=system_prompt or SYSTEM_PROMPT,
