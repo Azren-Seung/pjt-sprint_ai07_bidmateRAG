@@ -148,15 +148,12 @@ def web_query_stream(
       1. ("retrieval", list[RetrievedChunk]) — 검색 완료 직후 1회
       2. ("token", str)                      — LLM delta마다
       3. ("done", GenerationResult)          — 스트림 종료 시 1회
-
-    호출자는 이벤트 순서대로 프론트에 SSE로 중계한다.
     """
     pipeline, runtime, embedder, llm = get_pipeline(provider_config, chunking_config)
-    vector_store = pipeline.retriever.vector_store
+    retriever = pipeline.retriever
 
     chunks = vector_search(
-        vector_store,
-        embedder,
+        retriever,
         query=augmented_query,
         mentioned_doc_ids=mentioned_doc_ids,
         top_k=top_k,
