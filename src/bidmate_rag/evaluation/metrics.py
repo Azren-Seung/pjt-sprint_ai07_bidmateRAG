@@ -151,3 +151,66 @@ def summarize_generation_results(results: list[GenerationResult]) -> dict[str, f
         # 전체 결과의 누적 API 비용 (USD)
         "total_cost_usd": round(sum(result.cost_usd for result in results), 6),
     }
+
+
+def summarize_run_operations(
+    results: list[GenerationResult],
+    *,
+    judge_total_cost_usd: float = 0.0,
+) -> dict[str, float]:
+    """평가 실행의 비용/토큰/지연 운영 지표를 요약한다.
+
+    Args:
+        results: GenerationResult 리스트.
+        judge_total_cost_usd: Judge가 사용한 누적 비용.
+
+    Returns:
+        생성 비용, judge 비용, 총 비용, 토큰, 평균 지연을 담은 딕셔너리.
+        재작성 토큰(`rewrite_*`)이 없으면 0으로 채운다.
+    """
+    if not results:
+        return {
+            "generation_cost_usd": 0.0,
+            "judge_cost_usd": round(float(judge_total_cost_usd or 0.0), 6),
+            "total_cost_usd": round(float(judge_total_cost_usd or 0.0), 6),
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "rewrite_prompt_tokens": 0,
+            "rewrite_completion_tokens": 0,
+            "rewrite_total_tokens": 0,
+            "total_tokens": 0,
+            "avg_latency_ms": 0.0,
+        }
+
+    generation_cost = round(sum(float(result.cost_usd or 0.0) for result in results), 6)
+    prompt_tokens = sum(int((result.token_usage or {}).get("prompt", 0) or 0) for result in results)
+    completion_tokens = sum(
+        int((result.token_usage or {}).get("completion", 0) or 0) for result in results
+    )
+    rewrite_prompt_tokens = sum(
+        int((result.token_usage or {}).get("rewrite_prompt", 0) or 0) for result in results
+    )
+    rewrite_completion_tokens = sum(
+        int((result.token_usage or {}).get("rewrite_completion", 0) or 0) for result in results
+    )
+    rewrite_total_tokens = sum(
+        int((result.token_usage or {}).get("rewrite_total", 0) or 0) for result in results
+    )
+    generation_total_tokens = sum(
+        int((result.token_usage or {}).get("total", 0) or 0) for result in results
+    )
+    avg_latency_ms = round(sum(float(result.latency_ms or 0.0) for result in results) / len(results), 3)
+    judge_cost = round(float(judge_total_cost_usd or 0.0), 6)
+
+    return {
+        "generation_cost_usd": generation_cost,
+        "judge_cost_usd": judge_cost,
+        "total_cost_usd": round(generation_cost + judge_cost, 6),
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "rewrite_prompt_tokens": rewrite_prompt_tokens,
+        "rewrite_completion_tokens": rewrite_completion_tokens,
+        "rewrite_total_tokens": rewrite_total_tokens,
+        "total_tokens": generation_total_tokens + rewrite_total_tokens,
+        "avg_latency_ms": avg_latency_ms,
+    }

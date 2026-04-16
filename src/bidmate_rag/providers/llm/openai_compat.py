@@ -66,7 +66,16 @@ class OpenAICompatibleLLM(BaseLLMProvider):
                 if "assistant" in item:
                     messages.append({"role": "assistant", "content": item["assistant"]})
         messages.append(
-            {"role": "user", "content": build_rag_user_prompt(question, context)}
+            {
+                "role": "user",
+                "content": build_rag_user_prompt(
+                    question,
+                    context,
+                    rewritten_query=generation_config.get("rewritten_query"),
+                    memory_summary=generation_config.get("memory_summary"),
+                    memory_slots=generation_config.get("memory_slots"),
+                ),
+            }
         )
         return messages, context
 

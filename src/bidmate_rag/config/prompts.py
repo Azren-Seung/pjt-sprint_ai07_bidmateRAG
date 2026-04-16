@@ -32,14 +32,30 @@ faithfulness, relevance, context_precision, context_recall을
 반드시 JSON만 출력하세요."""
 
 
-def build_rag_user_prompt(question: str, context: str) -> str:
-    return f"""다음 RFP 문서 내용을 참고하여 질문에 답변해주세요.
+def build_rag_user_prompt(
+    question: str,
+    context: str,
+    *,
+    rewritten_query: str | None = None,
+    memory_summary: str | None = None,
+    memory_slots: dict | None = None,
+) -> str:
+    sections = ["다음 RFP 문서 내용을 참고하여 질문에 답변해주세요."]
 
-## 참고 문서
-{context}
+    if rewritten_query and rewritten_query != question:
+        sections.append(f"## 재작성된 검색 질문\n{rewritten_query}")
 
-## 질문
-{question}"""
+    if memory_summary:
+        sections.append(f"## 대화 요약 메모리\n{memory_summary}")
+
+    if memory_slots:
+        slot_lines = [f"- {key}: {value}" for key, value in memory_slots.items() if value]
+        if slot_lines:
+            sections.append("## 슬롯 메모리\n" + "\n".join(slot_lines))
+
+    sections.append(f"## 참고 문서\n{context}")
+    sections.append(f"## 질문\n{question}")
+    return "\n\n".join(sections)
 
 
 def build_judge_user_prompt(question: str, context: str, answer: str) -> str:

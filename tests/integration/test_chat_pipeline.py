@@ -1,8 +1,22 @@
 from bidmate_rag.pipelines.chat import RAGChatPipeline
+from bidmate_rag.retrieval.memory import ConversationMemory
 from bidmate_rag.schema import Chunk, GenerationResult, RetrievedChunk
 
 
 class FakeRetriever:
+    _last_debug = {
+        "original_query": "요구사항 알려줘",
+        "rewritten_query": "요구사항 알려줘",
+        "rewrite_applied": False,
+        "rewrite_reason": "original",
+        "rewrite_prompt_tokens": 0,
+        "rewrite_completion_tokens": 0,
+        "rewrite_total_tokens": 0,
+        "rewrite_cost_usd": 0.0,
+        "retrieved_chunks_before_rerank": [],
+        "retrieved_chunks_after_rerank": [],
+    }
+
     def retrieve(
         self,
         query: str,
@@ -55,3 +69,24 @@ def test_chat_pipeline_returns_generation_result() -> None:
     assert result.answer == "문서 기준 답변"
     assert result.retrieved_chunk_ids == ["chunk-1"]
     assert result.llm_model == "fake-model"
+
+
+def test_chat_pipeline_includes_memory_debug() -> None:
+    pipeline = RAGChatPipeline(
+        retriever=FakeRetriever(),
+        llm=FakeLLM(),
+        memory=ConversationMemory(
+            max_recent_turns=4,
+            max_summary_chars=120,
+            agency_list=["국민연금공단"],
+        ),
+    )
+
+    result = pipeline.answer(
+        "평가기준은?",
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
+    )
+
+    assert "memory_summary" in result.debug
+    assert "memory_slots" in result.debug
+    assert result.debug["generation_cost_usd"] == 0.0

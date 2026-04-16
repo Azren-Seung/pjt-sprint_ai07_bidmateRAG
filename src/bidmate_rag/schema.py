@@ -91,6 +91,7 @@ class GenerationResult(BaseModel):
     cost_usd: float = 0.0
     judge_scores: dict[str, Any] = Field(default_factory=dict)
     human_scores: dict[str, Any] = Field(default_factory=dict)
+    debug: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
     context: str = ""
 
@@ -113,6 +114,7 @@ class GenerationResult(BaseModel):
             "cost_usd": self.cost_usd,
             "judge_scores": self.judge_scores,
             "human_scores": self.human_scores,
+            "debug": self.debug,
             "error": self.error,
             "context": self.context,
         }
