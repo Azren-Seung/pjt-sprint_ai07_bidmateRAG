@@ -72,6 +72,16 @@ interface Store {
   sendMessage: (text: string) => Promise<void>;
 }
 
+function toChatHistory(messages: Message[]): Array<{ role: Message["role"]; content: string }> {
+  return messages
+    .filter(
+      (message) =>
+        (message.role === "user" || message.role === "assistant") &&
+        message.content.trim().length > 0
+    )
+    .map((message) => ({ role: message.role, content: message.content }));
+}
+
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
@@ -153,6 +163,7 @@ export const useStore = create<Store>()(
           createdAt: Date.now(),
           citations: [],
         };
+        const history = toChatHistory(state.messages);
         set({
           messages: [...state.messages, userMessage, assistantMessage],
           isLoading: true,
@@ -181,6 +192,7 @@ export const useStore = create<Store>()(
             {
               question: text,
               mentioned_doc_ids: state.pinnedDocs.map((d) => d.id),
+              history,
               command: state.activeCommand?.id ?? null,
             },
             (event) => {
