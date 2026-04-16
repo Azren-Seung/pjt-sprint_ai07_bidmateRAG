@@ -18,6 +18,10 @@ def test_build_runtime_pipeline_passes_multiturn_flag_to_retriever(
 
     captured: dict = {}
 
+    class FakeVectorStore:
+        def count(self) -> int:
+            return 1
+
     class FakeRetriever:
         def __init__(self, **kwargs) -> None:
             captured.update(kwargs)
@@ -29,7 +33,7 @@ def test_build_runtime_pipeline_passes_multiturn_flag_to_retriever(
 
     monkeypatch.setattr(runtime_module, "build_embedding_provider", lambda _: object())
     monkeypatch.setattr(runtime_module, "build_llm_provider", lambda _: object())
-    monkeypatch.setattr(runtime_module, "ChromaVectorStore", lambda **kwargs: object())
+    monkeypatch.setattr(runtime_module, "ChromaVectorStore", lambda **kwargs: FakeVectorStore())
     monkeypatch.setattr(runtime_module, "_load_reranker", lambda _: None)
     monkeypatch.setattr(runtime_module, "RAGRetriever", FakeRetriever)
     monkeypatch.setattr(runtime_module, "RAGChatPipeline", FakePipeline)
