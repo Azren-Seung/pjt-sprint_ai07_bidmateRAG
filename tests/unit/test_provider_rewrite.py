@@ -102,3 +102,52 @@ def test_hf_local_provider_rewrite_uses_local_generator() -> None:
     assert generator.last_call["max_new_tokens"] == 256
     assert generator.last_call["do_sample"] is False
     assert generator.last_call["return_full_text"] is False
+
+
+def test_hf_local_provider_rewrite_handles_none_generated_text() -> None:
+    """generator가 generated_text=None을 반환해도 크래시 없이 빈 응답."""
+    from bidmate_rag.providers.llm.hf_local import HFLocalLLM
+
+    class _FakeTokenizer:
+        def encode(self, text: str) -> list[int]:
+            return list(range(len(text)))
+
+    class _FakeGenerator:
+        def __init__(self) -> None:
+            self.tokenizer = _FakeTokenizer()
+
+        def __call__(self, prompt: str, **kwargs) -> list[dict]:
+            return [{"generated_text": None}]  # 일부 pipeline wrapper가 에러 시 반환
+
+    provider = HFLocalLLM(
+        model_name="hf-test", provider_name="huggingface", generator=_FakeGenerator()
+    )
+
+    response = provider.rewrite("prompt", max_tokens=128)
+    assert response.text == ""
+    assert response.completion_tokens == 0
+
+
+def test_hf_local_provider_rewrite_handles_empty_list_response() -> None:
+    """generator가 []를 반환해도 크래시 없이 빈 응답."""
+    from bidmate_rag.providers.llm.hf_local import HFLocalLLM
+
+    class _FakeTokenizer:
+        def encode(self, text: str) -> list[int]:
+            return list(range(len(text)))
+
+    class _FakeGenerator:
+        def __init__(self) -> None:
+            self.tokenizer = _FakeTokenizer()
+
+        def __call__(self, prompt: str, **kwargs) -> list[dict]:
+            return []
+
+    provider = HFLocalLLM(
+        model_name="hf-test", provider_name="huggingface", generator=_FakeGenerator()
+    )
+
+    response = provider.rewrite("prompt", max_tokens=128)
+    assert response.text == ""
+    assert response.completion_tokens == 0
+    assert response.prompt_tokens == len("prompt")

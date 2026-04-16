@@ -150,7 +150,7 @@ class HFLocalLLM(BaseLLMProvider):
             do_sample=False,
             return_full_text=False,
         )
-        text = response[0]["generated_text"].strip() if response else ""
+        text = (response[0].get("generated_text") or "").strip() if response else ""
         completion_tokens = len(tokenizer.encode(text)) if text else 0
         return RewriteResponse(
             text=text,
