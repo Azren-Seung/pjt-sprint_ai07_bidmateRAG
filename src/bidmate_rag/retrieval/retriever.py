@@ -302,6 +302,19 @@ class RAGRetriever:
             )
         )
 
+        # Generation용 memory state는 rewritten_query를 반영해 한 번 더 빌드.
+        # rewrite LLM이 본 slot_memory와 generation LLM이 보는 slot_memory를
+        # 소스 단일화 — chat 파이프라인이 이 state만 재사용한다.
+        generation_memory_state = (
+            self.memory.build(
+                chat_history or [],
+                current_question=query,
+                rewritten_query=resolved_query,
+            )
+            if self.enable_multiturn and self.memory is not None
+            else None
+        )
+
         base_where: dict | None = None
         if metadata_filter is not None:
             base_where = dict(metadata_filter) if metadata_filter else None
@@ -423,6 +436,7 @@ class RAGRetriever:
                 "where_document": where_document,
                 "retrieved_chunks_before_rerank": self._serialize_results(before_rerank[:final_top_k]),
                 "retrieved_chunks_after_rerank": self._serialize_results(final_results),
+                "memory_state": generation_memory_state,
             }
         else:
             self._last_debug = {}

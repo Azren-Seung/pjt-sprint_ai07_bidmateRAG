@@ -70,15 +70,19 @@ class RAGChatPipeline:
             metadata_filter=metadata_filter,
         )
         retrieval_debug = getattr(self.retriever, "_last_debug", {}) or {}
-        memory_state = (
-            self.memory.build(
-                chat_history or [],
-                current_question=question,
-                rewritten_query=retrieval_debug.get("rewritten_query", question),
+        # Retriever가 generation용 memory state를 소유한다 — 있으면 재사용.
+        # 없는 경우(레거시 retriever, memory 비활성화)만 폴백으로 빌드.
+        memory_state = retrieval_debug.get("memory_state")
+        if memory_state is None:
+            memory_state = (
+                self.memory.build(
+                    chat_history or [],
+                    current_question=question,
+                    rewritten_query=retrieval_debug.get("rewritten_query", question),
+                )
+                if self.memory is not None
+                else {"recent_turns": [], "summary_buffer": "", "slot_memory": {}}
             )
-            if self.memory is not None
-            else {"recent_turns": [], "summary_buffer": "", "slot_memory": {}}
-        )
         config = {**self.default_generation_config, **(generation_config or {})}
         if question_id is not None:
             config["question_id"] = question_id
