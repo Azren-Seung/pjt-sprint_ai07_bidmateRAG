@@ -76,7 +76,13 @@ class HFLocalLLM(BaseLLMProvider):
         )
         # LLM이 실제로 본 청크만 유지 — 본문 [n]과 Citation 카드 매칭 일치.
         visible_chunks = [context_chunks[i] for i in used_indices]
-        prompt = build_rag_user_prompt(question, context)
+        prompt = build_rag_user_prompt(
+            question,
+            context,
+            rewritten_query=generation_config.get("rewritten_query"),
+            memory_summary=generation_config.get("memory_summary"),
+            memory_slots=generation_config.get("memory_slots"),
+        )
         generator = self._get_generator()
         tokenizer = generator.tokenizer
         full_input = f"{system_prompt}\n\n{prompt}"
