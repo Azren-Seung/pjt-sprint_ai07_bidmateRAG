@@ -284,8 +284,22 @@ def _result_to_response(
     )
 
 
+def _resolve_web_defaults(req: QueryRequest, web_config: dict) -> tuple[str, str | None, int, int]:
+    """요청 값이 None이면 `configs/web.yaml`에서 폴백 — 웹 UI 조합 단일 출처.
+
+    반환: (provider_config, chunking_config, top_k, max_context_chars)
+    """
+    provider = req.provider_config or web_config["provider_config"]
+    chunking = req.chunking_config if req.chunking_config is not None else web_config.get("chunking_config")
+    top_k = req.top_k if req.top_k is not None else web_config["top_k"]
+    max_context = (
+        req.max_context_chars if req.max_context_chars is not None else web_config["max_context_chars"]
+    )
+    return provider, chunking, top_k, max_context
+
+
 @router.post("/query", response_model=QueryResponse)
-def query(req: QueryRequest) -> QueryResponse:
+def query(req: QueryRequest, request: Request) -> QueryResponse:
     cmd = COMMAND_REGISTRY.get(req.command) if req.command else None
 
     # 1. 알 수 없는 커맨드
@@ -308,19 +322,22 @@ def query(req: QueryRequest) -> QueryResponse:
     # 5. 시스템 프롬프트
     system_prompt = cmd.system_prompt if cmd and cmd.system_prompt else None
 
-    # 6. top_k
-    top_k = cmd.top_k if cmd else req.top_k
+    # 6. 웹 디폴트 폴백 + top_k (커맨드가 오버라이드)
+    provider_config, chunking_config, default_top_k, max_context_chars = _resolve_web_defaults(
+        req, request.app.state.web_config
+    )
+    top_k = cmd.top_k if cmd else default_top_k
 
     # 7. 통합 RAG 경로 — `web_query`가 멘션 0/1/N+ 모두 처리
     result = web_query(
         question=req.question,
         augmented_query=augmented_query,
         mentioned_doc_ids=req.mentioned_doc_ids,
-        provider_config=req.provider_config,
-        chunking_config=req.chunking_config,
+        provider_config=provider_config,
+        chunking_config=chunking_config,
         system_prompt=system_prompt,
         top_k=top_k,
-        max_context_chars=req.max_context_chars,
+        max_context_chars=max_context_chars,
     )
 
     # 8. metadata 라벨링 (멘션 개수에 따라)
@@ -376,7 +393,7 @@ def _build_metadata(
 
 
 @router.post("/query/stream")
-def query_stream(req: QueryRequest) -> StreamingResponse:
+def query_stream(req: QueryRequest, request: Request) -> StreamingResponse:
     """`/query`의 SSE 스트리밍 버전.
 
     이벤트 순서:
@@ -398,14 +415,17 @@ def query_stream(req: QueryRequest) -> StreamingResponse:
     if cmd:
         _validate_command(cmd, req.mentioned_doc_ids)
 
-    # 3. 증강 쿼리 / system prompt / top_k (동일 로직)
+    # 3. 증강 쿼리 / system prompt / 디폴트 폴백 / top_k (동일 로직)
     augmented_query = req.question
     if cmd and cmd.query_augmentation:
         augmented_query = f"{req.question} {cmd.query_augmentation}".strip()
     system_prompt = cmd.system_prompt if cmd and cmd.system_prompt else None
-    top_k = cmd.top_k if cmd else req.top_k
+    provider_config, chunking_config, default_top_k, max_context_chars = _resolve_web_defaults(
+        req, request.app.state.web_config
+    )
+    top_k = cmd.top_k if cmd else default_top_k
 
-    # 4. strategy 라벨링 (사전 결정 — 실제 per_doc_k는 vector_search 내부와 일치)
+    # 4. strategy 라벨링 (사전 결정 — 실제 per_doc_k는 _retriever_search 내부와 일치)
     mention_count = len(req.mentioned_doc_ids)
     if mention_count >= 2:
         strategy = "per_doc_split"
@@ -444,11 +464,11 @@ def query_stream(req: QueryRequest) -> StreamingResponse:
                 question=req.question,
                 augmented_query=augmented_query,
                 mentioned_doc_ids=req.mentioned_doc_ids,
-                provider_config=req.provider_config,
-                chunking_config=req.chunking_config,
+                provider_config=provider_config,
+                chunking_config=chunking_config,
                 system_prompt=system_prompt,
                 top_k=top_k,
-                max_context_chars=req.max_context_chars,
+                max_context_chars=max_context_chars,
             ):
                 if event_type == "retrieval":
                     chunks = payload  # list[RetrievedChunk]

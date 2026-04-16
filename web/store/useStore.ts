@@ -46,10 +46,6 @@ interface Store {
   isLoading: boolean;
   lastError: string | null;
 
-  providerConfig: string;
-  chunkingConfig: string | null;
-  topK: number;
-
   setSidebarCollapsed: (v: boolean) => void;
   toggleSidebar: () => void;
   setActiveTab: (tab: "chat" | "documents") => void;
@@ -99,10 +95,6 @@ export const useStore = create<Store>()(
       messages: [],
       isLoading: false,
       lastError: null,
-
-      providerConfig: "openai_gpt5mini",
-      chunkingConfig: null,
-      topK: 5,
 
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
       toggleSidebar: () =>
@@ -188,12 +180,8 @@ export const useStore = create<Store>()(
           await postQueryStream(
             {
               question: text,
-              provider_config: state.providerConfig,
-              chunking_config: state.chunkingConfig,
               mentioned_doc_ids: state.pinnedDocs.map((d) => d.id),
               command: state.activeCommand?.id ?? null,
-              top_k: state.topK,
-              max_context_chars: 8000,
             },
             (event) => {
               switch (event.type) {
