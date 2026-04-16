@@ -70,3 +70,35 @@ def test_openai_provider_rewrite_handles_empty_content() -> None:
 
     response = provider.rewrite("test", max_tokens=1000)
     assert response.text == ""
+
+
+def test_hf_local_provider_rewrite_uses_local_generator() -> None:
+    from bidmate_rag.providers.llm.hf_local import HFLocalLLM
+
+    class _FakeTokenizer:
+        def encode(self, text: str) -> list[int]:
+            return list(range(len(text)))
+
+    class _FakeGenerator:
+        def __init__(self) -> None:
+            self.tokenizer = _FakeTokenizer()
+            self.last_call: dict | None = None
+
+        def __call__(self, prompt: str, **kwargs) -> list[dict]:
+            self.last_call = {"prompt": prompt, **kwargs}
+            return [{"generated_text": "재작성된 쿼리"}]
+
+    generator = _FakeGenerator()
+    provider = HFLocalLLM(
+        model_name="hf-test", provider_name="huggingface", generator=generator
+    )
+
+    response = provider.rewrite("재작성 프롬프트", max_tokens=256)
+
+    assert response.text == "재작성된 쿼리"
+    assert response.prompt_tokens == len("재작성 프롬프트")
+    assert response.completion_tokens == len("재작성된 쿼리")
+    assert response.total_tokens == response.prompt_tokens + response.completion_tokens
+    assert generator.last_call["max_new_tokens"] == 256
+    assert generator.last_call["do_sample"] is False
+    assert generator.last_call["return_full_text"] is False

@@ -7,7 +7,7 @@ from uuid import uuid4
 from pathlib import Path
 from bidmate_rag.config.prompts import build_rag_user_prompt
 from bidmate_rag.generation.context_builder import build_numbered_context_block
-from bidmate_rag.providers.llm.base import BaseLLMProvider
+from bidmate_rag.providers.llm.base import BaseLLMProvider, RewriteResponse
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 
 
@@ -126,4 +126,35 @@ class HFLocalLLM(BaseLLMProvider):
             },
             cost_usd=0.0,
             context=context,
+        )
+
+    def rewrite(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int = 256,
+        timeout: int | None = None,
+    ) -> RewriteResponse:
+        """로컬 HF pipeline으로 짧은 텍스트 생성.
+
+        timeout은 무시된다 — transformers pipeline은 동기 실행이라 강제 종료 불가.
+        기본 max_tokens가 OpenAI 대비 낮은 이유: 로컬 모델은 reasoning 토큰이
+        없으므로 256이면 한 줄 재작성에 충분.
+        """
+        generator = self._get_generator()
+        tokenizer = generator.tokenizer
+        prompt_tokens = len(tokenizer.encode(prompt))
+        response = generator(
+            prompt,
+            max_new_tokens=max_tokens,
+            do_sample=False,
+            return_full_text=False,
+        )
+        text = response[0]["generated_text"].strip() if response else ""
+        completion_tokens = len(tokenizer.encode(text)) if text else 0
+        return RewriteResponse(
+            text=text,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
         )
