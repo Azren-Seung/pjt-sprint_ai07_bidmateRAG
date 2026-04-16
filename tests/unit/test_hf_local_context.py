@@ -54,13 +54,13 @@ def test_hf_local_provider_uses_metadata_aware_context_and_honors_context_limit(
         chunk_id="chunk-1",
         text="핵심 요구사항",
         budget="약 3억원",
-        filename="kogas_erp.hwp",
+        filename="한국가스공사_erp.hwp",
     )
     second_chunk = _make_chunk(
         chunk_id="chunk-2",
         text="두번째 문단 " + ("B" * 400),
         budget="약 5억원",
-        filename="kogas_erp_2.hwp",
+        filename="한국가스공사_erp_2.hwp",
     )
 
     result = provider.generate(
@@ -86,10 +86,10 @@ def test_hf_local_provider_uses_metadata_aware_context_and_honors_context_limit(
     assert "차세대 ERP 구축 사업의 예산은 얼마인가요?" in full_input
     assert "이전 대화에서 차세대 ERP 구축 사업 개요를 확인했다." in full_input
     assert "발주기관: 한국가스공사" in full_input
-    assert "[출처: 차세대 ERP 구축 | 한국가스공사 | kogas_erp.hwp]" in full_input
+    assert "[출처: 차세대 ERP 구축 | 한국가스공사 | 한국가스공사_erp.hwp]" in full_input
     assert "사업 금액=약 3억원" in full_input
     assert "핵심 요구사항" in full_input
     assert "두번째 문단" not in full_input
     assert generator.last_call["max_new_tokens"] == 64
-    assert result.context.startswith("[1] [출처: 차세대 ERP 구축 | 한국가스공사 | kogas_erp.hwp]")
+    assert result.context.startswith("[1] [출처: 차세대 ERP 구축 | 한국가스공사 | 한국가스공사_erp.hwp]")
     assert "두번째 문단" not in result.context

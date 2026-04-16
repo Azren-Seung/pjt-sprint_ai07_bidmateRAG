@@ -53,7 +53,7 @@ def _make_retrieved_chunk() -> RetrievedChunk:
         metadata={
             "사업명": "차세대 ERP 구축",
             "발주 기관": "한국가스공사",
-            "파일명": "kogas_erp.hwp",
+            "파일명": "한국가스공사_erp.hwp",
             "사업 금액": "약 3억원",
         },
     )
@@ -90,7 +90,7 @@ def test_openai_provider_builds_metadata_aware_context_block() -> None:
     assert "차세대 ERP 구축 사업의 예산은 얼마인가요?" in prompt
     assert "이전 대화에서 차세대 ERP 구축 사업 개요를 확인했다." in prompt
     assert "발주기관: 한국가스공사" in prompt
-    assert "[출처: 차세대 ERP 구축 | 한국가스공사 | kogas_erp.hwp]" in prompt
+    assert "[출처: 차세대 ERP 구축 | 한국가스공사 | 한국가스공사_erp.hwp]" in prompt
     assert "사업 금액=약 3억원" in prompt
     assert "핵심 요구사항" in prompt
-    assert result.context.startswith("[1] [출처: 차세대 ERP 구축 | 한국가스공사 | kogas_erp.hwp]")
+    assert result.context.startswith("[1] [출처: 차세대 ERP 구축 | 한국가스공사 | 한국가스공사_erp.hwp]")
