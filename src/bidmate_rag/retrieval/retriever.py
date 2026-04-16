@@ -306,8 +306,8 @@ class RAGRetriever:
         if metadata_filter is not None:
             base_where = dict(metadata_filter) if metadata_filter else None
             where = dict(base_where) if base_where else None
-            where = self._augment_where_with_project_docs(query, where)
-            where = self._augment_where_with_history_docs(query, where, chat_history)
+            where = self._augment_where_with_project_docs(resolved_query, where)
+            where = self._augment_where_with_history_docs(resolved_query, where, chat_history)
         else:
             base_where = extract_metadata_filters(
                 resolved_query,
@@ -337,8 +337,8 @@ class RAGRetriever:
                 where = {**(where or {}), **range_filter}
                 base_where = {**(base_where or {}), **range_filter}
 
-            where = self._augment_where_with_project_docs(query, where)
-            where = self._augment_where_with_history_docs(query, where, chat_history)
+            where = self._augment_where_with_project_docs(resolved_query, where)
+            where = self._augment_where_with_history_docs(resolved_query, where, chat_history)
 
             if where is None and self.metadata_store is not None:
                 relevant_docs = self.metadata_store.find_relevant_docs(resolved_query, top_n=3)
