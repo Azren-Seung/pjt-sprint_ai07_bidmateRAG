@@ -61,6 +61,16 @@ export interface QueryRequest {
   max_context_chars: number;
 }
 
+export type QueryStreamEvent =
+  | {
+      type: "retrieval";
+      citations: Citation[];
+      retrieval_strategy: "single" | "per_doc_split" | "static";
+    }
+  | { type: "token"; delta: string }
+  | { type: "done"; metadata: QueryMetadata }
+  | { type: "error"; message: string };
+
 export type MessageRole = "user" | "assistant";
 
 export interface Message {

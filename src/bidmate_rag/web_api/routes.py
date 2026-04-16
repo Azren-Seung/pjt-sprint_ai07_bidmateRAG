@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import unicodedata
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.web_api.commands import COMMAND_REGISTRY, SlashCommand
-from bidmate_rag.web_api.retrieval_helpers import web_query
+from bidmate_rag.web_api.retrieval_helpers import web_query, web_query_stream
 from bidmate_rag.web_api.schemas import (
     Citation,
     DocumentContent,
@@ -342,4 +344,143 @@ def query(req: QueryRequest) -> QueryResponse:
         filter_applied=filter_applied,
         strategy=strategy,
         per_doc_k=per_doc_k_val,
+    )
+
+
+def _sse_event(payload: dict[str, Any]) -> str:
+    """SSE 프레임 포맷: `data: <json>\\n\\n`.
+
+    JSON 내부 개행은 `json.dumps`가 `\\n`으로 이스케이프하므로 SSE 프레임
+    경계(`\\n\\n`)와 충돌하지 않는다.
+    """
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _build_metadata(
+    result: GenerationResult,
+    cmd: SlashCommand | None,
+    filter_applied: dict | None,
+    strategy: str,
+    per_doc_k: int | None,
+) -> dict[str, Any]:
+    return QueryMetadata(
+        model=result.llm_model,
+        token_usage=result.token_usage,
+        latency_ms=result.latency_ms,
+        cost_usd=result.cost_usd,
+        command_applied=cmd.id if cmd else None,
+        filter_applied=filter_applied,
+        retrieval_strategy=strategy,
+        per_doc_k=per_doc_k,
+    ).model_dump()
+
+
+@router.post("/query/stream")
+def query_stream(req: QueryRequest) -> StreamingResponse:
+    """`/query`의 SSE 스트리밍 버전.
+
+    이벤트 순서:
+      1. `retrieval` — 검색 직후, 근거 카드 즉시 표시용
+      2. `token`     — LLM delta (여러 번)
+      3. `done`      — 최종 metadata (usage, cost, latency)
+      4. `error`     — 중간 실패 시
+
+    정적 응답 커맨드(/도움말, /초기화)는 스트리밍 대신 단일 `done`만 방출.
+    Validation 실패는 HTTPException으로 (200 스트림 시작 전에 에러 코드).
+    """
+    cmd = COMMAND_REGISTRY.get(req.command) if req.command else None
+
+    # 1. 알 수 없는 커맨드
+    if req.command and cmd is None:
+        raise HTTPException(status_code=400, detail=f"unknown command: {req.command}")
+
+    # 2. validation (스트림 시작 전)
+    if cmd:
+        _validate_command(cmd, req.mentioned_doc_ids)
+
+    # 3. 증강 쿼리 / system prompt / top_k (동일 로직)
+    augmented_query = req.question
+    if cmd and cmd.query_augmentation:
+        augmented_query = f"{req.question} {cmd.query_augmentation}".strip()
+    system_prompt = cmd.system_prompt if cmd and cmd.system_prompt else None
+    top_k = cmd.top_k if cmd else req.top_k
+
+    # 4. strategy 라벨링 (사전 결정 — 실제 per_doc_k는 vector_search 내부와 일치)
+    mention_count = len(req.mentioned_doc_ids)
+    if mention_count >= 2:
+        strategy = "per_doc_split"
+        filter_applied: dict | None = {"doc_id": {"$in": req.mentioned_doc_ids}}
+        per_doc_k_val: int | None = max(top_k // mention_count, 3) + 2
+    elif mention_count == 1:
+        strategy = "single"
+        filter_applied = {"doc_id": req.mentioned_doc_ids[0]}
+        per_doc_k_val = None
+    else:
+        strategy = "single"
+        filter_applied = None
+        per_doc_k_val = None
+
+    # 5. 정적 응답 — 스트리밍 불필요, done 1회만
+    if cmd and cmd.static_response:
+        static = _static_response(cmd)
+
+        def static_gen() -> Iterator[str]:
+            yield _sse_event(
+                {"type": "token", "delta": static.answer}
+            )
+            yield _sse_event(
+                {"type": "done", "metadata": static.metadata.model_dump()}
+            )
+
+        return StreamingResponse(
+            static_gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    def event_generator() -> Iterator[str]:
+        try:
+            for event_type, payload in web_query_stream(
+                question=req.question,
+                augmented_query=augmented_query,
+                mentioned_doc_ids=req.mentioned_doc_ids,
+                provider_config=req.provider_config,
+                chunking_config=req.chunking_config,
+                system_prompt=system_prompt,
+                top_k=top_k,
+                max_context_chars=req.max_context_chars,
+            ):
+                if event_type == "retrieval":
+                    chunks = payload  # list[RetrievedChunk]
+                    citations = [c.model_dump() for c in _build_citations(chunks)]
+                    yield _sse_event(
+                        {
+                            "type": "retrieval",
+                            "citations": citations,
+                            "retrieval_strategy": strategy,
+                        }
+                    )
+                elif event_type == "token":
+                    yield _sse_event({"type": "token", "delta": payload})
+                elif event_type == "done":
+                    metadata = _build_metadata(
+                        payload,  # GenerationResult
+                        cmd,
+                        filter_applied=filter_applied,
+                        strategy=strategy,
+                        per_doc_k=per_doc_k_val,
+                    )
+                    yield _sse_event({"type": "done", "metadata": metadata})
+        except Exception as exc:  # noqa: BLE001
+            # 스트리밍 중 실패는 error 이벤트로 전달 (HTTP는 이미 200)
+            yield _sse_event({"type": "error", "message": str(exc)})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            # nginx / next.js proxy 버퍼링 방지
+            "X-Accel-Buffering": "no",
+        },
     )

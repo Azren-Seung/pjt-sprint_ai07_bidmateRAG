@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import os
+import time as _time
+from collections.abc import Iterator
 from uuid import uuid4
 
 from openai import OpenAI
 
 from bidmate_rag.config.prompts import build_rag_user_prompt
 from bidmate_rag.generation.context_builder import build_context_block
-from bidmate_rag.providers.llm.base import BaseLLMProvider
+from bidmate_rag.providers.llm.base import BaseLLMProvider, StreamDelta
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.tracking.pricing import calc_llm_cost, load_pricing
 
@@ -32,18 +34,23 @@ class OpenAICompatibleLLM(BaseLLMProvider):
         )
         self.pricing = load_pricing()
 
-    def generate(
+    def _build_messages(
         self,
         question: str,
         context_chunks: list[RetrievedChunk],
         history: list[dict],
         generation_config: dict,
         system_prompt: str,
-    ) -> GenerationResult:
+    ) -> tuple[list[dict], str]:
+        """공통 메시지 빌드 — generate/generate_stream이 공유.
+
+        Returns:
+            (messages, context_block)
+        """
         context = build_context_block(
             context_chunks, max_chars=generation_config.get("max_context_chars", 8000)
         )
-        messages = [{"role": "system", "content": system_prompt}]
+        messages: list[dict] = [{"role": "system", "content": system_prompt}]
         # history는 두 가지 형식을 모두 지원:
         #  1. legacy: [{"user": "...", "assistant": "..."}]
         #  2. OpenAI 표준: [{"role": "user", "content": "..."}, {"role": "assistant", ...}]
@@ -51,29 +58,32 @@ class OpenAICompatibleLLM(BaseLLMProvider):
             if not isinstance(item, dict):
                 continue
             if "role" in item and "content" in item:
-                # OpenAI 표준 형식 — system을 제외한 메시지만 통과
                 if item["role"] in ("user", "assistant"):
                     messages.append({"role": item["role"], "content": item["content"]})
             elif "user" in item or "assistant" in item:
-                # legacy 형식 — 한 turn에 user/assistant 둘 다 들어 있음
                 if "user" in item:
                     messages.append({"role": "user", "content": item["user"]})
                 if "assistant" in item:
                     messages.append({"role": "assistant", "content": item["assistant"]})
-        messages.append({"role": "user", "content": build_rag_user_prompt(question, context)})
-        import time as _time
-        _start = _time.time()
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            max_completion_tokens=generation_config.get("max_completion_tokens", 16000),
+        messages.append(
+            {"role": "user", "content": build_rag_user_prompt(question, context)}
         )
-        _elapsed_ms = (_time.time() - _start) * 1000
-        usage = getattr(response, "usage", None)
-        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
-        completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
-        prompt_details = getattr(usage, "prompt_tokens_details", None)
-        cached_tokens = int(getattr(prompt_details, "cached_tokens", 0) or 0)
+        return messages, context
+
+    def _build_result(
+        self,
+        *,
+        question: str,
+        context_chunks: list[RetrievedChunk],
+        context: str,
+        generation_config: dict,
+        answer: str,
+        latency_ms: float,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cached_tokens: int,
+        total_tokens: int,
+    ) -> GenerationResult:
         computed_cost = calc_llm_cost(
             self.model_name,
             prompt_tokens,
@@ -90,17 +100,112 @@ class OpenAICompatibleLLM(BaseLLMProvider):
             embedding_model=generation_config.get("embedding_model", ""),
             llm_provider=self.provider_name,
             llm_model=self.model_name,
-            answer=response.choices[0].message.content or "(응답 없음)",
+            answer=answer or "(응답 없음)",
             retrieved_chunk_ids=[chunk.chunk.chunk_id for chunk in context_chunks],
             retrieved_doc_ids=[chunk.chunk.doc_id for chunk in context_chunks],
             retrieved_chunks=context_chunks,
-            latency_ms=round(_elapsed_ms, 1),
+            latency_ms=round(latency_ms, 1),
             token_usage={
                 "prompt": prompt_tokens,
                 "completion": completion_tokens,
                 "cached": cached_tokens,
-                "total": int(getattr(usage, "total_tokens", 0) or 0),
+                "total": total_tokens,
             },
             cost_usd=float(generation_config.get("cost_usd", computed_cost)),
             context=context,
+        )
+
+    def generate(
+        self,
+        question: str,
+        context_chunks: list[RetrievedChunk],
+        history: list[dict],
+        generation_config: dict,
+        system_prompt: str,
+    ) -> GenerationResult:
+        messages, context = self._build_messages(
+            question, context_chunks, history, generation_config, system_prompt
+        )
+        _start = _time.time()
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            max_completion_tokens=generation_config.get("max_completion_tokens", 16000),
+        )
+        _elapsed_ms = (_time.time() - _start) * 1000
+        usage = getattr(response, "usage", None)
+        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        prompt_details = getattr(usage, "prompt_tokens_details", None)
+        cached_tokens = int(getattr(prompt_details, "cached_tokens", 0) or 0)
+        total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
+        return self._build_result(
+            question=question,
+            context_chunks=context_chunks,
+            context=context,
+            generation_config=generation_config,
+            answer=response.choices[0].message.content or "",
+            latency_ms=_elapsed_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cached_tokens=cached_tokens,
+            total_tokens=total_tokens,
+        )
+
+    def generate_stream(
+        self,
+        question: str,
+        context_chunks: list[RetrievedChunk],
+        history: list[dict],
+        generation_config: dict,
+        system_prompt: str,
+    ) -> Iterator[StreamDelta | GenerationResult]:
+        """OpenAI SDK 네이티브 스트리밍. 토큰 delta를 yield하고 마지막에
+        완성된 `GenerationResult`를 yield한다. usage는 `stream_options`의
+        `include_usage=True`로 마지막 청크에 포함되며, 이를 기반으로 cost 계산."""
+        messages, context = self._build_messages(
+            question, context_chunks, history, generation_config, system_prompt
+        )
+        _start = _time.time()
+        stream = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            max_completion_tokens=generation_config.get("max_completion_tokens", 16000),
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+        full_text_parts: list[str] = []
+        prompt_tokens = 0
+        completion_tokens = 0
+        cached_tokens = 0
+        total_tokens = 0
+        for chunk in stream:
+            # 토큰 delta
+            choices = getattr(chunk, "choices", None) or []
+            if choices:
+                delta = getattr(choices[0], "delta", None)
+                content = getattr(delta, "content", None) if delta else None
+                if content:
+                    full_text_parts.append(content)
+                    yield StreamDelta(text=content)
+            # 마지막 청크에 usage 포함 (include_usage=True 시)
+            usage = getattr(chunk, "usage", None)
+            if usage is not None:
+                prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+                completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+                prompt_details = getattr(usage, "prompt_tokens_details", None)
+                cached_tokens = int(getattr(prompt_details, "cached_tokens", 0) or 0)
+                total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
+        _elapsed_ms = (_time.time() - _start) * 1000
+        yield self._build_result(
+            question=question,
+            context_chunks=context_chunks,
+            context=context,
+            generation_config=generation_config,
+            answer="".join(full_text_parts),
+            latency_ms=_elapsed_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cached_tokens=cached_tokens,
+            total_tokens=total_tokens,
         )
