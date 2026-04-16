@@ -140,3 +140,28 @@ def test_rewrite_query_with_history_passes_config_to_provider() -> None:
     call_kwargs = mock_llm.rewrite.call_args.kwargs
     assert call_kwargs["max_tokens"] == 8000
     assert call_kwargs["timeout"] == 60
+
+
+def test_rewrite_config_rejects_non_positive_values() -> None:
+    """RewriteConfig는 max_completion_tokens/timeout_seconds를 양수로만 받는다."""
+    import pytest
+    from pydantic import ValidationError
+
+    from bidmate_rag.config.settings import RewriteConfig
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(max_completion_tokens=0)
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(max_completion_tokens=-1)
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(timeout_seconds=0)
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(timeout_seconds=-5)
+
+    # 정상값은 그대로 통과.
+    cfg = RewriteConfig(max_completion_tokens=1, timeout_seconds=1)
+    assert cfg.max_completion_tokens == 1
+    assert cfg.timeout_seconds == 1
