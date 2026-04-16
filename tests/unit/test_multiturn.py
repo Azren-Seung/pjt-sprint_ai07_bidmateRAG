@@ -123,3 +123,20 @@ def test_extract_recent_agency_filter_prefers_latest_single_agency_from_history(
     )
 
     assert agency_filter == {"발주 기관": "국민연금공단"}
+
+
+def test_rewrite_query_with_history_passes_config_to_provider() -> None:
+    mock_llm = _make_mock_llm("재작성 결과")
+
+    rewrite_query_with_history(
+        query="그 사업 예산은?",
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
+        agency_list=["국민연금공단"],
+        llm=mock_llm,
+        max_completion_tokens=8000,
+        timeout_seconds=60,
+    )
+
+    call_kwargs = mock_llm.rewrite.call_args.kwargs
+    assert call_kwargs["max_tokens"] == 8000
+    assert call_kwargs["timeout"] == 60

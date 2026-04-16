@@ -47,6 +47,8 @@ class RAGRetriever:
         hybrid_config: dict | None = None,
         rewrite_llm=None,
         rewrite_mode: str = "llm_with_rule_fallback",
+        rewrite_max_completion_tokens: int = 16000,
+        rewrite_timeout_seconds: int = 30,
         memory=None,
         debug_trace_enabled: bool = True,
     ) -> None:
@@ -61,6 +63,8 @@ class RAGRetriever:
         self.hybrid_config = hybrid_config
         self.rewrite_llm = rewrite_llm
         self.rewrite_mode = rewrite_mode
+        self.rewrite_max_completion_tokens = rewrite_max_completion_tokens
+        self.rewrite_timeout_seconds = rewrite_timeout_seconds
         self.memory = memory
         self.debug_trace_enabled = debug_trace_enabled
         self._last_debug: dict = {}
@@ -285,6 +289,8 @@ class RAGRetriever:
                 llm=self.rewrite_llm,
                 mode=self.rewrite_mode,
                 slot_memory=rewrite_slot_memory,
+                max_completion_tokens=self.rewrite_max_completion_tokens,
+                timeout_seconds=self.rewrite_timeout_seconds,
             )
             if self.enable_multiturn
             else (

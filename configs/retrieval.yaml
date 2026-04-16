@@ -21,6 +21,10 @@ enable_multiturn: true
 
 rewrite:
   mode: llm_with_rule_fallback
+  # gpt-5 계열은 reasoning 토큰이 completion에 포함되므로 넉넉하게 (CLAUDE.md 참조).
+  # 로컬 HF 모델은 HFLocalLLM.rewrite()가 내부적으로 256 제한을 사용.
+  max_completion_tokens: 16000
+  timeout_seconds: 30
 
 memory:
   enabled: true

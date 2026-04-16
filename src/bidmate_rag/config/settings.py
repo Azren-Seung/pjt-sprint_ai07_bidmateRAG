@@ -39,6 +39,8 @@ class RewriteConfig(BaseModel):
     """멀티턴 쿼리 재작성 설정."""
 
     mode: str = "llm_with_rule_fallback"
+    max_completion_tokens: int = 16000
+    timeout_seconds: int = 30
 
 
 class SummaryBufferConfig(BaseModel):

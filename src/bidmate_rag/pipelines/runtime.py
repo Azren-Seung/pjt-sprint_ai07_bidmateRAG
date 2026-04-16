@@ -216,6 +216,8 @@ def build_runtime_pipeline(
         hybrid_config=runtime.retrieval.hybrid.model_dump(),
         rewrite_llm=llm if runtime.retrieval.enable_multiturn else None,
         rewrite_mode=runtime.retrieval.rewrite.mode,
+        rewrite_max_completion_tokens=runtime.retrieval.rewrite.max_completion_tokens,
+        rewrite_timeout_seconds=runtime.retrieval.rewrite.timeout_seconds,
         memory=memory,
         debug_trace_enabled=runtime.retrieval.debug_trace.enabled,
     )
