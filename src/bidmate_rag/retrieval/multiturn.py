@@ -156,6 +156,8 @@ def _llm_rewrite(
     llm: object,
     *,
     slot_memory: dict[str, str] | None = None,
+    max_completion_tokens: int = 16000,
+    timeout_seconds: int = 30,
 ) -> tuple[str, dict[str, object]]:
     """LLM을 사용해 후속 질문을 독립적인 검색 쿼리로 재작성한다."""
 
@@ -170,18 +172,15 @@ def _llm_rewrite(
     )
 
     try:
-        response = llm.client.chat.completions.create(
-            model=llm.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=200,
-            timeout=5,
+        response = llm.rewrite(
+            prompt,
+            max_tokens=max_completion_tokens,
+            timeout=timeout_seconds,
         )
-        usage = getattr(response, "usage", None)
-        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
-        completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
-        total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
-        rewritten = (response.choices[0].message.content or "").strip()
-        rewritten = _WHITESPACE_PATTERN.sub(" ", rewritten).strip()
+        prompt_tokens = response.prompt_tokens
+        completion_tokens = response.completion_tokens
+        total_tokens = response.total_tokens
+        rewritten = _WHITESPACE_PATTERN.sub(" ", response.text).strip()
         if rewritten and rewritten != query:
             logger.info("쿼리 재작성: '%s' -> '%s'", query, rewritten)
             return rewritten, _build_rewrite_trace(
@@ -247,6 +246,8 @@ def rewrite_query_with_history(
     llm: object | None = None,
     mode: str = "llm_with_rule_fallback",
     slot_memory: dict[str, str] | None = None,
+    max_completion_tokens: int = 16000,
+    timeout_seconds: int = 30,
 ) -> tuple[str, dict[str, object]]:
     """Rewrite underspecified follow-up questions using recent chat history."""
 
@@ -270,6 +271,8 @@ def rewrite_query_with_history(
         chat_history,
         llm,
         slot_memory=slot_memory,
+        max_completion_tokens=max_completion_tokens,
+        timeout_seconds=timeout_seconds,
     )
     if mode == "llm_only" or llm_rewritten != query:
         return llm_rewritten, llm_trace

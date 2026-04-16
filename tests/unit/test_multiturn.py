@@ -6,13 +6,21 @@ from bidmate_rag.retrieval.multiturn import (
 )
 
 
-def _make_mock_llm(rewritten_text: str) -> MagicMock:
+def _make_mock_llm(
+    rewritten_text: str,
+    *,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+) -> MagicMock:
+    from bidmate_rag.providers.llm.base import RewriteResponse
+
     mock_llm = MagicMock()
-    mock_choice = MagicMock()
-    mock_choice.message.content = rewritten_text
-    mock_response = MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_llm.client.chat.completions.create.return_value = mock_response
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=rewritten_text,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=prompt_tokens + completion_tokens,
+    )
     mock_llm.model_name = "gpt-5-mini"
     return mock_llm
 
@@ -42,7 +50,7 @@ def test_rewrite_query_with_history_uses_llm_for_implicit_followup() -> None:
     )
 
     assert rewritten == "국민연금공단 차세대 ERP 사업의 평가기준은?"
-    mock_llm.client.chat.completions.create.assert_called_once()
+    mock_llm.rewrite.assert_called_once()
     assert trace["rewrite_reason"] == "llm"
     assert trace["rewrite_applied"] is True
 
@@ -65,7 +73,7 @@ def test_rewrite_query_with_history_includes_slot_memory_in_llm_prompt() -> None
         },
     )
 
-    prompt = mock_llm.client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+    prompt = mock_llm.rewrite.call_args.args[0]
     assert "발주기관: 국민연금공단" in prompt
     assert "사업명: 차세대 ERP 사업" in prompt
     assert "관심속성: 평가기준" in prompt
@@ -83,14 +91,14 @@ def test_rewrite_query_with_history_skips_llm_when_no_history() -> None:
     )
 
     assert rewritten == "서버 구축 사업 찾아줘"
-    mock_llm.client.chat.completions.create.assert_not_called()
+    mock_llm.rewrite.assert_not_called()
     assert trace["rewrite_reason"] == "original"
 
 
 def test_rewrite_query_with_history_falls_back_to_rule_based_on_llm_error() -> None:
     mock_llm = MagicMock()
     mock_llm.model_name = "gpt-5-mini"
-    mock_llm.client.chat.completions.create.side_effect = Exception("timeout")
+    mock_llm.rewrite.side_effect = Exception("timeout")
 
     rewritten, trace = rewrite_query_with_history(
         query="그 사업 예산은?",
@@ -115,3 +123,45 @@ def test_extract_recent_agency_filter_prefers_latest_single_agency_from_history(
     )
 
     assert agency_filter == {"발주 기관": "국민연금공단"}
+
+
+def test_rewrite_query_with_history_passes_config_to_provider() -> None:
+    mock_llm = _make_mock_llm("재작성 결과")
+
+    rewrite_query_with_history(
+        query="그 사업 예산은?",
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
+        agency_list=["국민연금공단"],
+        llm=mock_llm,
+        max_completion_tokens=8000,
+        timeout_seconds=60,
+    )
+
+    call_kwargs = mock_llm.rewrite.call_args.kwargs
+    assert call_kwargs["max_tokens"] == 8000
+    assert call_kwargs["timeout"] == 60
+
+
+def test_rewrite_config_rejects_non_positive_values() -> None:
+    """RewriteConfig는 max_completion_tokens/timeout_seconds를 양수로만 받는다."""
+    import pytest
+    from pydantic import ValidationError
+
+    from bidmate_rag.config.settings import RewriteConfig
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(max_completion_tokens=0)
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(max_completion_tokens=-1)
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(timeout_seconds=0)
+
+    with pytest.raises(ValidationError):
+        RewriteConfig(timeout_seconds=-5)
+
+    # 정상값은 그대로 통과.
+    cfg = RewriteConfig(max_completion_tokens=1, timeout_seconds=1)
+    assert cfg.max_completion_tokens == 1
+    assert cfg.timeout_seconds == 1

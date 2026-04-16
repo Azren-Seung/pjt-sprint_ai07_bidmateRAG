@@ -47,6 +47,8 @@ class RAGRetriever:
         hybrid_config: dict | None = None,
         rewrite_llm=None,
         rewrite_mode: str = "llm_with_rule_fallback",
+        rewrite_max_completion_tokens: int = 16000,
+        rewrite_timeout_seconds: int = 30,
         memory=None,
         debug_trace_enabled: bool = True,
     ) -> None:
@@ -61,6 +63,8 @@ class RAGRetriever:
         self.hybrid_config = hybrid_config
         self.rewrite_llm = rewrite_llm
         self.rewrite_mode = rewrite_mode
+        self.rewrite_max_completion_tokens = rewrite_max_completion_tokens
+        self.rewrite_timeout_seconds = rewrite_timeout_seconds
         self.memory = memory
         self.debug_trace_enabled = debug_trace_enabled
         self._last_debug: dict = {}
@@ -285,6 +289,8 @@ class RAGRetriever:
                 llm=self.rewrite_llm,
                 mode=self.rewrite_mode,
                 slot_memory=rewrite_slot_memory,
+                max_completion_tokens=self.rewrite_max_completion_tokens,
+                timeout_seconds=self.rewrite_timeout_seconds,
             )
             if self.enable_multiturn
             else (
@@ -302,12 +308,25 @@ class RAGRetriever:
             )
         )
 
+        # Generation용 memory state는 rewritten_query를 반영해 한 번 더 빌드.
+        # rewrite LLM이 본 slot_memory와 generation LLM이 보는 slot_memory를
+        # 소스 단일화 — chat 파이프라인이 이 state만 재사용한다.
+        generation_memory_state = (
+            self.memory.build(
+                chat_history or [],
+                current_question=query,
+                rewritten_query=resolved_query,
+            )
+            if self.enable_multiturn and self.memory is not None
+            else None
+        )
+
         base_where: dict | None = None
         if metadata_filter is not None:
             base_where = dict(metadata_filter) if metadata_filter else None
             where = dict(base_where) if base_where else None
-            where = self._augment_where_with_project_docs(query, where)
-            where = self._augment_where_with_history_docs(query, where, chat_history)
+            where = self._augment_where_with_project_docs(resolved_query, where)
+            where = self._augment_where_with_history_docs(resolved_query, where, chat_history)
         else:
             base_where = extract_metadata_filters(
                 resolved_query,
@@ -337,8 +356,8 @@ class RAGRetriever:
                 where = {**(where or {}), **range_filter}
                 base_where = {**(base_where or {}), **range_filter}
 
-            where = self._augment_where_with_project_docs(query, where)
-            where = self._augment_where_with_history_docs(query, where, chat_history)
+            where = self._augment_where_with_project_docs(resolved_query, where)
+            where = self._augment_where_with_history_docs(resolved_query, where, chat_history)
 
             if where is None and self.metadata_store is not None:
                 relevant_docs = self.metadata_store.find_relevant_docs(resolved_query, top_n=3)
@@ -423,7 +442,9 @@ class RAGRetriever:
                 "where_document": where_document,
                 "retrieved_chunks_before_rerank": self._serialize_results(before_rerank[:final_top_k]),
                 "retrieved_chunks_after_rerank": self._serialize_results(final_results),
+                "memory_state": generation_memory_state,
             }
         else:
-            self._last_debug = {}
+            # debug_trace가 꺼져도 memory_state는 노출 — chat이 중복 빌드 피하기 위해.
+            self._last_debug = {"memory_state": generation_memory_state}
         return final_results
