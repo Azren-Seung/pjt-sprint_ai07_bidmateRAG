@@ -34,9 +34,9 @@ def _contains_normalized(query_norm: str, value: object) -> bool:
 def _metadata_matches_query(query_norm: str, result) -> bool:
     """청크의 메타데이터(기관명·사업명·파일명)가 질의와 매칭되는지 확인한다."""
     metadata = result.chunk.metadata
-    # 기관명 후보: 발주 기관, resolved_agency, original_agency
+    # 기관명 후보: resolved_agency, original_agency
+    # 일반 발주 기관명은 너무 넓게 매칭되어 점수 왜곡이 커서 제외한다.
     agency_candidates = (
-        metadata.get("발주 기관", ""),
         metadata.get("resolved_agency", ""),
         metadata.get("original_agency", ""),
     )
@@ -155,7 +155,7 @@ def rerank_with_boost(
 
     ordered = sorted(
         enumerate(results),
-        key=lambda item: (boosted_score(item[1]), item[1].score, -item[0]),
+        key=lambda item: boosted_score(item[1]),
         reverse=True,
     )
     reranked = []

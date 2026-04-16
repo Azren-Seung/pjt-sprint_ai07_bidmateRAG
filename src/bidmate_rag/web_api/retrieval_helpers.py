@@ -7,9 +7,11 @@ Document mentions are handled here by converting them into explicit
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Protocol
 
 from bidmate_rag.config.prompts import SYSTEM_PROMPT
+from bidmate_rag.providers.llm.base import StreamDelta
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 from bidmate_rag.web_api.pipeline_cache import get_pipeline
 
@@ -127,6 +129,58 @@ def web_query(
         },
         system_prompt=system_prompt or SYSTEM_PROMPT,
     )
+
+
+def web_query_stream(
+    *,
+    question: str,
+    augmented_query: str,
+    mentioned_doc_ids: list[str],
+    provider_config: str,
+    chunking_config: str | None,
+    system_prompt: str | None,
+    top_k: int,
+    max_context_chars: int,
+) -> Iterator[tuple[str, object]]:
+    """Streaming 버전의 `web_query`.
+
+    이벤트 스트림을 (event_type, payload) 튜플로 방출:
+      1. ("retrieval", list[RetrievedChunk]) — 검색 완료 직후 1회
+      2. ("token", str)                      — LLM delta마다
+      3. ("done", GenerationResult)          — 스트림 종료 시 1회
+
+    호출자는 이벤트 순서대로 프론트에 SSE로 중계한다.
+    """
+    pipeline, runtime, embedder, llm = get_pipeline(provider_config, chunking_config)
+    vector_store = pipeline.retriever.vector_store
+
+    chunks = vector_search(
+        vector_store,
+        embedder,
+        query=augmented_query,
+        mentioned_doc_ids=mentioned_doc_ids,
+        top_k=top_k,
+    )
+    yield ("retrieval", chunks)
+
+    gen_config = {
+        "max_context_chars": max_context_chars,
+        "scenario": runtime.provider.scenario or runtime.provider.provider,
+        "run_id": f"web-{provider_config}",
+        "embedding_provider": embedder.provider_name,
+        "embedding_model": embedder.model_name,
+    }
+    for item in llm.generate_stream(
+        question=question,
+        context_chunks=chunks,
+        history=[],
+        generation_config=gen_config,
+        system_prompt=system_prompt or SYSTEM_PROMPT,
+    ):
+        if isinstance(item, StreamDelta):
+            yield ("token", item.text)
+        elif isinstance(item, GenerationResult):
+            yield ("done", item)
 
 
 # Backward-compat alias: kept for tests + existing imports
