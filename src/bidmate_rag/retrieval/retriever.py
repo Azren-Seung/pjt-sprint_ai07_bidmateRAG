@@ -439,5 +439,6 @@ class RAGRetriever:
                 "memory_state": generation_memory_state,
             }
         else:
-            self._last_debug = {}
+            # debug_trace가 꺼져도 memory_state는 노출 — chat이 중복 빌드 피하기 위해.
+            self._last_debug = {"memory_state": generation_memory_state}
         return final_results
