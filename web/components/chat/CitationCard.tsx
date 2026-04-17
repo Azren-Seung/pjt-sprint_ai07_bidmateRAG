@@ -1,11 +1,21 @@
+"use client";
+
 import type { Citation } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { useStore } from "@/store/useStore";
+import { cn } from "@/lib/utils";
 
 export function CitationCard({ citation }: { citation: Citation }) {
+  const highlightedCitationId = useStore((s) => s.highlightedCitationId);
+  const isHighlighted = highlightedCitationId === citation.id;
+
   return (
     <div
       id={`cite-${citation.id}`}
-      className="rounded-md border border-border bg-card p-3 text-xs"
+      className={cn(
+        "scroll-mt-12 rounded-md border border-border bg-card p-3 text-xs transition-colors",
+        isHighlighted && "citation-flash"
+      )}
     >
       <div className="mb-1 flex items-center gap-2">
         <Badge variant="default" className="text-[10px]">
