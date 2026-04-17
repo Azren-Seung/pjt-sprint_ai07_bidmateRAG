@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from bidmate_rag.evaluation.metrics import (
+    aggregate_retrieval_metrics_by_type,
     calc_hit_rate,
     calc_map,
     calc_mrr,
     calc_ndcg,
     summarize_run_operations,
 )
-from bidmate_rag.schema import Chunk, GenerationResult, RetrievedChunk
+from bidmate_rag.schema import Chunk, EvalSample, GenerationResult, RetrievedChunk
 
 
 def _make_chunk(
@@ -196,9 +197,6 @@ def test_summarize_run_operations_returns_zeroed_defaults_for_empty_results() ->
     assert summary["total_tokens"] == 0
     assert summary["avg_latency_ms"] == 0.0
 
-
-from bidmate_rag.evaluation.metrics import aggregate_retrieval_metrics_by_type
-from bidmate_rag.schema import Chunk, EvalSample, GenerationResult, RetrievedChunk
 
 
 def _make_sample(
