@@ -1,0 +1,23 @@
+00_metadata:
+  experiment_id: "prompt_P0_C3_F1_S2_T2"
+  name: "prompt_P0_C3_F1_S2_T2"
+  description: "P0 + C3 + F1 + S2 + T2 조합"
+  is_english_cot: false
+  char_count: 222
+  control_score: 12
+
+persona: ""
+
+constraints:
+  - |
+    [철칙] 외부지식 배제 / [필수] 답변 전 관련 수치/조건 전수 추출 서술 / [제약] 추출 목록 내 정보만 답변 채택
+output_format:
+  - |
+    [양식] 간결한 서술형 요약
+few_shot_examples:
+  - |
+    [예시 1] - Q: 예산은? / - A: 제안요청서(5p) 근거, 50억 원입니다.
+    [예시 2] - Q: 제출처는? / - A: 공고문(2p) 근거, e-발주 시스템입니다.
+thought_trigger:
+  - |
+    1. 근거추출: 관련 문장 확보 / 2. 사실확인: 데이터 대조 / 3. 답변

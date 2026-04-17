@@ -1,0 +1,18 @@
+00_metadata:
+  experiment_id: "prompt_P0_C0_F5_S0_T0"
+  name: "prompt_P0_C0_F5_S0_T0"
+  description: "P0 + C0 + F5 + S0 + T0 조합"
+  is_english_cot: true
+  char_count: 120
+  control_score: 5
+
+persona: ""
+
+constraints:
+output_format:
+  - |
+    [Bilingual_Format]
+    <thought_en>: Step-by-step reasoning and fact listing in English.
+    <answer_ko>: 한국어 최종 답변 및 근거 페이지 표기.
+few_shot_examples:
+thought_trigger:

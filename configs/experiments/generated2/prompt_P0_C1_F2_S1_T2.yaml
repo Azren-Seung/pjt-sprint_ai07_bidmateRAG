@@ -1,0 +1,23 @@
+00_metadata:
+  experiment_id: "prompt_P0_C1_F2_S1_T2"
+  name: "prompt_P0_C1_F2_S1_T2"
+  description: "P0 + C1 + F2 + S1 + T2 조합"
+  is_english_cot: false
+  char_count: 141
+  control_score: 8
+
+persona: ""
+
+constraints:
+  - |
+    참조: 제공된 문서 한정
+output_format:
+  - |
+    [구성] 결론 중심 단답 / [근거] 관련 수치 + 페이지 번호 명시
+few_shot_examples:
+  - |
+    [예시 1] Q. 사업목적? A. 시스템 구축
+    [예시 2] Q. 총예산? A. 50억
+thought_trigger:
+  - |
+    1. 근거추출: 관련 문장 확보 / 2. 사실확인: 데이터 대조 / 3. 답변

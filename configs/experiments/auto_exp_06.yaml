@@ -1,0 +1,19 @@
+title: auto_exp_06
+name: auto_exp_06
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 40
+top_k: 40
+rerank_k: 8
+retrieval_merge: round-robin
+hypothesis:
+  - 기관별 서브검색 결과를 라운드로빈으로 합치면 다기관 비교 질의에서 기관 간 커버리지 균형이 맞는다 (정합성은 실험으로 검증).
+changes:
+  - retrieval_merge round-robin, rerank_k 8 (Merge RR)
+  - 추론 모델용 — temperature 미사용
+expected_outcome:
+  - 비교형 질문에서 특정 기관 편향 완화
+next_actions:
+  - 기관별 hit 균등도 메트릭 추가 검토

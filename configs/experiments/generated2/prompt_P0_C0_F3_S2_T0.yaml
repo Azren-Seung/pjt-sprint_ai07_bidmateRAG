@@ -1,0 +1,19 @@
+00_metadata:
+  experiment_id: "prompt_P0_C0_F3_S2_T0"
+  name: "prompt_P0_C0_F3_S2_T0"
+  description: "P0 + C0 + F3 + S2 + T0 조합"
+  is_english_cot: false
+  char_count: 149
+  control_score: 8
+
+persona: ""
+
+constraints:
+output_format:
+  - |
+    [섹션1_분석] 본문 내 수치·조건 전수 나열 -> [섹션2_최종] 나열 정보 기반 정답 산출
+few_shot_examples:
+  - |
+    [예시 1] - Q: 예산은? / - A: 제안요청서(5p) 근거, 50억 원입니다.
+    [예시 2] - Q: 제출처는? / - A: 공고문(2p) 근거, e-발주 시스템입니다.
+thought_trigger:

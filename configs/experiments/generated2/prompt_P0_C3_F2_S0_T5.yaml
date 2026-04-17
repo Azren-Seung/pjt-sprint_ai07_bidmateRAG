@@ -1,0 +1,23 @@
+00_metadata:
+  experiment_id: "prompt_P0_C3_F2_S0_T5"
+  name: "prompt_P0_C3_F2_S0_T5"
+  description: "P0 + C3 + F2 + S0 + T5 조합"
+  is_english_cot: true
+  char_count: 284
+  control_score: 13
+
+persona: ""
+
+constraints:
+  - |
+    [철칙] 외부지식 배제 / [필수] 답변 전 관련 수치/조건 전수 추출 서술 / [제약] 추출 목록 내 정보만 답변 채택
+output_format:
+  - |
+    [구성] 결론 중심 단답 / [근거] 관련 수치 + 페이지 번호 명시
+few_shot_examples:
+thought_trigger:
+  - |
+    [English_Logic_Engine]
+    Analysis: Extract and list all relevant data in English.
+    Verification: Cross-check conditions and values in English.
+    Output: Provide final answer in Korean.

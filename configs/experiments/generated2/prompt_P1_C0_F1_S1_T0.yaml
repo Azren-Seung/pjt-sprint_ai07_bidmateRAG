@@ -1,0 +1,20 @@
+00_metadata:
+  experiment_id: "prompt_P1_C0_F1_S1_T0"
+  name: "prompt_P1_C0_F1_S1_T0"
+  description: "P1 + C0 + F1 + S1 + T0 조합"
+  is_english_cot: false
+  char_count: 115
+  control_score: 3
+
+persona: |
+  [Identity] 입찰 정보 분석가 / [Adherence] 제공 문서를 바탕으로 객관적 답변
+
+constraints:
+output_format:
+  - |
+    [양식] 간결한 서술형 요약
+few_shot_examples:
+  - |
+    [예시 1] Q. 사업목적? A. 시스템 구축
+    [예시 2] Q. 총예산? A. 50억
+thought_trigger:

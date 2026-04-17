@@ -1,0 +1,21 @@
+00_metadata:
+  experiment_id: "prompt_P0_C1_F0_S1_T1"
+  name: "prompt_P0_C1_F0_S1_T1"
+  description: "P0 + C1 + F0 + S1 + T1 조합"
+  is_english_cot: false
+  char_count: 89
+  control_score: 3
+
+persona: ""
+
+constraints:
+  - |
+    참조: 제공된 문서 한정
+output_format:
+few_shot_examples:
+  - |
+    [예시 1] Q. 사업목적? A. 시스템 구축
+    [예시 2] Q. 총예산? A. 50억
+thought_trigger:
+  - |
+    [Trigger] Think step by step.

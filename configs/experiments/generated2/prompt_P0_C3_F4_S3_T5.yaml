@@ -1,0 +1,30 @@
+00_metadata:
+  experiment_id: "prompt_P0_C3_F4_S3_T5"
+  name: "prompt_P0_C3_F4_S3_T5"
+  description: "P0 + C3 + F4 + S3 + T5 조합"
+  is_english_cot: true
+  char_count: 504
+  control_score: 20
+
+persona: ""
+
+constraints:
+  - |
+    [철칙] 외부지식 배제 / [필수] 답변 전 관련 수치/조건 전수 추출 서술 / [제약] 추출 목록 내 정보만 답변 채택
+output_format:
+  - |
+    [필수_3단_양식]
+    [근거_색인]: 질문 관련 수치(금액/날짜) 및 조항 원문 복사 리스트.
+    [비교_논증]: 추출 사실 vs 질문 요구사항 간 일대일 부합 여부 서술.
+    [최종_제시]: 검증 완료된 팩트 중심의 압축 결론.
+    *누락 섹션 존재 시 오답 처리.
+few_shot_examples:
+  - |
+    [성공 예시] Q: 참가자격? / [분석] 자본 10억, 실적 필요 명시(3p) / [정답] 위 요건 충족 기업
+    [거절 예시] Q: 야간수당? / [분석] 본문 내 관련 수당 언급 없음 / [정답] 정보 없음
+thought_trigger:
+  - |
+    [English_Logic_Engine]
+    Analysis: Extract and list all relevant data in English.
+    Verification: Cross-check conditions and values in English.
+    Output: Provide final answer in Korean.
