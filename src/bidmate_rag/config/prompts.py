@@ -59,8 +59,9 @@ def build_rag_user_prompt(
         if slot_lines:
             sections.append("## 슬롯 메모리\n" + "\n".join(slot_lines))
 
-    sections.append(f"## 참고 문서\n{context}")
     sections.append(f"## 질문\n{question}")
+    sections.append(f"## 참고 문서\n{context}")
+    
     return "\n\n".join(sections)
 
 
