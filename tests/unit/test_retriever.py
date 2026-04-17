@@ -703,6 +703,55 @@ def test_retriever_uses_llm_rewrite_for_implicit_followup() -> None:
     assert retriever._last_debug["rewrite_slot_memory"]["발주기관"] == "국민연금공단"
 
 
+def test_retriever_keeps_minimal_runtime_state_when_debug_trace_disabled() -> None:
+    from bidmate_rag.providers.llm.base import RewriteResponse
+
+    vector_store = FakeVectorStore()
+    embedder = FakeEmbedder()
+    mock_llm = MagicMock()
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text="국민연금공단 차세대 ERP 사업의 평가기준",
+        prompt_tokens=12,
+        completion_tokens=7,
+        total_tokens=19,
+    )
+    mock_llm.model_name = "gpt-5-mini"
+    memory = ConversationMemory(
+        max_recent_turns=4,
+        max_summary_chars=120,
+        agency_list=["국민연금공단"],
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=embedder,
+        metadata_store=FakeMetadataStore(),
+        rewrite_llm=mock_llm,
+        memory=memory,
+        debug_trace_enabled=False,
+    )
+
+    retriever.retrieve(
+        "평가기준은?",
+        top_k=2,
+        chat_history=[
+            {"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"},
+            {
+                "role": "assistant",
+                "content": "해당 사업은 국민연금공단의 차세대 ERP 구축 사업입니다.",
+            },
+        ],
+    )
+
+    assert retriever._last_debug["rewritten_query"] == "국민연금공단 차세대 ERP 사업의 평가기준"
+    assert retriever._last_debug["rewrite_prompt_tokens"] == 12
+    assert retriever._last_debug["rewrite_completion_tokens"] == 7
+    assert retriever._last_debug["rewrite_total_tokens"] == 19
+    assert retriever._last_debug["rewrite_cost_usd"] > 0.0
+    assert retriever._last_debug["memory_state"]["slot_memory"]["발주기관"] == "국민연금공단"
+    assert "retrieved_chunks_before_rerank" not in retriever._last_debug
+    assert "where" not in retriever._last_debug
+
+
 def test_retriever_can_disable_multiturn_rewrite_and_history_filter() -> None:
     vector_store = FakeVectorStore()
     embedder = FakeEmbedder()

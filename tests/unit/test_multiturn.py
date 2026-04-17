@@ -165,3 +165,32 @@ def test_rewrite_config_rejects_non_positive_values() -> None:
     cfg = RewriteConfig(max_completion_tokens=1, timeout_seconds=1)
     assert cfg.max_completion_tokens == 1
     assert cfg.timeout_seconds == 1
+
+
+def test_rewrite_query_with_history_excludes_detailed_assistant_facts_from_prompt() -> None:
+    mock_llm = _make_mock_llm(
+        "한국한의학연구원 통합정보시스템 성능 기준을 초과하면 수행사는 어떻게 처리해야 하나요?"
+    )
+
+    rewrite_query_with_history(
+        query="해당 성능 기준을 초과하면 수행사는 어떻게 처리해야 하나요?",
+        chat_history=[
+            {
+                "role": "user",
+                "content": "한국한의학연구원 통합정보시스템 성능 테스트 기준을 알려주세요.",
+            },
+            {
+                "role": "assistant",
+                "content": "성능 테스트 기준은 평균 2초 이내, 최대 지연은 5초 이내여야 합니다.",
+            },
+        ],
+        agency_list=["한국한의학연구원"],
+        llm=mock_llm,
+        slot_memory={"발주기관": "한국한의학연구원"},
+    )
+
+    prompt = mock_llm.rewrite.call_args.args[0]
+    assert "한국한의학연구원 통합정보시스템 성능 테스트 기준을 알려주세요." in prompt
+    assert "평균 2초" not in prompt
+    assert "최대 지연은 5초" not in prompt
+    assert "현재 질문에 없는 새로운 사실은 추가하지 마세요." in prompt

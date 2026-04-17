@@ -140,7 +140,10 @@ def _print_summary(
             f"total_cost_usd=${float(ops_metrics.get('total_cost_usd', 0.0)):.4f}",
             f"total_tokens={int(ops_metrics.get('total_tokens', 0) or 0)}",
         ]
+        rewrite_cost = float(ops_metrics.get("rewrite_cost_usd", 0.0) or 0.0)
         rewrite_total = int(ops_metrics.get("rewrite_total_tokens", 0) or 0)
+        if rewrite_cost > 0.0:
+            ops_parts.insert(1, f"rewrite_cost_usd=${rewrite_cost:.4f}")
         if rewrite_total:
             ops_parts.append(f"rewrite_total_tokens={rewrite_total}")
         print(f"ops:       {'  '.join(ops_parts)}")
@@ -191,11 +194,17 @@ def _print_artifacts(artifacts: EvaluationArtifacts) -> None:
     print(f"meta:      {artifacts.meta_path}")
     ops_metrics = getattr(artifacts, "ops_metrics", {})
     if ops_metrics:
-        print(
-            f"costs:     generation=${float(ops_metrics.get('generation_cost_usd', 0.0)):.4f} "
-            f"judge=${float(ops_metrics.get('judge_cost_usd', 0.0)):.4f} "
-            f"total=${float(ops_metrics.get('total_cost_usd', 0.0)):.4f}"
+        cost_parts = [f"generation=${float(ops_metrics.get('generation_cost_usd', 0.0)):.4f}"]
+        rewrite_cost = float(ops_metrics.get("rewrite_cost_usd", 0.0) or 0.0)
+        if rewrite_cost > 0.0:
+            cost_parts.append(f"rewrite=${rewrite_cost:.4f}")
+        cost_parts.extend(
+            [
+                f"judge=${float(ops_metrics.get('judge_cost_usd', 0.0)):.4f}",
+                f"total=${float(ops_metrics.get('total_cost_usd', 0.0)):.4f}",
+            ]
         )
+        print(f"costs:     {' '.join(cost_parts)}")
     # LLM 판정을 실행했으면 비용/토큰 출력
     if not artifacts.judge_skipped:
         print(

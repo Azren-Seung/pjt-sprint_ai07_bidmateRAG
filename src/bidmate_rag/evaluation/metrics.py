@@ -7,6 +7,17 @@ import math
 from bidmate_rag.schema import GenerationResult, RetrievedChunk
 
 
+def _rewrite_cost_usd(result: GenerationResult) -> float:
+    """Return the rewrite cost recorded for a generation result."""
+    debug = result.debug or {}
+    if "rewrite_cost_usd" in debug:
+        return float(debug.get("rewrite_cost_usd", 0.0) or 0.0)
+    total_cost = debug.get("total_cost_usd")
+    if total_cost is None:
+        return 0.0
+    return max(round(float(total_cost or 0.0) - float(result.cost_usd or 0.0), 6), 0.0)
+
+
 def _match_expected(chunk: RetrievedChunk, expected_doc_ids: list[str]) -> bool:
     """검색된 청크가 정답 문서에 해당하는지 확인
 
@@ -171,6 +182,7 @@ def summarize_run_operations(
     if not results:
         return {
             "generation_cost_usd": 0.0,
+            "rewrite_cost_usd": 0.0,
             "judge_cost_usd": round(float(judge_total_cost_usd or 0.0), 6),
             "total_cost_usd": round(float(judge_total_cost_usd or 0.0), 6),
             "prompt_tokens": 0,
@@ -183,6 +195,7 @@ def summarize_run_operations(
         }
 
     generation_cost = round(sum(float(result.cost_usd or 0.0) for result in results), 6)
+    rewrite_cost = round(sum(_rewrite_cost_usd(result) for result in results), 6)
     prompt_tokens = sum(int((result.token_usage or {}).get("prompt", 0) or 0) for result in results)
     completion_tokens = sum(
         int((result.token_usage or {}).get("completion", 0) or 0) for result in results
@@ -204,8 +217,9 @@ def summarize_run_operations(
 
     return {
         "generation_cost_usd": generation_cost,
+        "rewrite_cost_usd": rewrite_cost,
         "judge_cost_usd": judge_cost,
-        "total_cost_usd": round(generation_cost + judge_cost, 6),
+        "total_cost_usd": round(generation_cost + rewrite_cost + judge_cost, 6),
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "rewrite_prompt_tokens": rewrite_prompt_tokens,

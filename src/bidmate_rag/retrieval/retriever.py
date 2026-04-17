@@ -445,6 +445,23 @@ class RAGRetriever:
                 "memory_state": generation_memory_state,
             }
         else:
-            # debug_trace가 꺼져도 memory_state는 노출 — chat이 중복 빌드 피하기 위해.
-            self._last_debug = {"memory_state": generation_memory_state}
+            # Keep the minimum runtime contract even when verbose tracing is off.
+            # chat still needs rewritten_query and rewrite token/cost values to keep
+            # generation input and cost accounting aligned with the retrieval step.
+            self._last_debug = {
+                "rewritten_query": resolved_query,
+                "rewrite_prompt_tokens": int(
+                    rewrite_trace.get("rewrite_prompt_tokens", 0) or 0
+                ),
+                "rewrite_completion_tokens": int(
+                    rewrite_trace.get("rewrite_completion_tokens", 0) or 0
+                ),
+                "rewrite_total_tokens": int(
+                    rewrite_trace.get("rewrite_total_tokens", 0) or 0
+                ),
+                "rewrite_cost_usd": float(
+                    rewrite_trace.get("rewrite_cost_usd", 0.0) or 0.0
+                ),
+                "memory_state": generation_memory_state,
+            }
         return final_results

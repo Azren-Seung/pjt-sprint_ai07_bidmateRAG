@@ -165,6 +165,7 @@ def test_summarize_run_operations_aggregates_cost_tokens_and_latency() -> None:
                 "rewrite_total": 50,
             },
             cost_usd=0.002,
+            debug={"rewrite_cost_usd": 0.0003},
         ),
     ]
 
@@ -172,8 +173,9 @@ def test_summarize_run_operations_aggregates_cost_tokens_and_latency() -> None:
 
     assert summary == {
         "generation_cost_usd": 0.003,
+        "rewrite_cost_usd": 0.0003,
         "judge_cost_usd": 0.0008,
-        "total_cost_usd": 0.0038,
+        "total_cost_usd": 0.0041,
         "prompt_tokens": 300,
         "completion_tokens": 70,
         "rewrite_prompt_tokens": 40,
@@ -188,6 +190,7 @@ def test_summarize_run_operations_returns_zeroed_defaults_for_empty_results() ->
     summary = summarize_run_operations([], judge_total_cost_usd=0.0008)
 
     assert summary["generation_cost_usd"] == 0.0
+    assert summary["rewrite_cost_usd"] == 0.0
     assert summary["judge_cost_usd"] == 0.0008
     assert summary["total_cost_usd"] == 0.0008
     assert summary["total_tokens"] == 0

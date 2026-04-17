@@ -54,21 +54,60 @@ _REWRITE_PROMPT_TEMPLATE = """당신은 공공입찰 RAG 검색용 쿼리 재작
 재작성 질문:"""
 
 
-def _iter_history_texts(chat_history: list[dict] | None) -> list[tuple[str, str]]:
+_SAFE_REWRITE_PROMPT_TEMPLATE = """당신은 공공입찰 RAG 검색용 후속 질문 재작성 도우미입니다.
+
+반드시 재작성된 질문 한 문장만 출력하고, 그 외 설명은 출력하지 마세요.
+
+규칙:
+- 현재 질문의 뜻을 유지하세요.
+- 기관명, 사업명, 문서명, 섹션명, 항목명처럼 생략된 대상만 보완하세요.
+- 현재 질문에 없는 새로운 사실은 추가하지 마세요.
+- 이전 assistant 답변에만 있던 자세한 사실은 가져오지 마세요.
+- 현재 질문에 없는 괄호 설명, 예시, 수치 기준, 날짜, 인용은 덧붙이지 마세요.
+- 현재 질문이 이미 충분히 분명하면 그대로 반환하세요.
+
+메모리 슬롯:
+{slot_memory}
+
+최근 참고 대화:
+{history}
+
+현재 질문: {question}
+
+재작성 질문:"""
+
+
+def _iter_history_texts(
+    chat_history: list[dict] | None,
+    *,
+    roles: tuple[str, ...] | None = None,
+) -> list[tuple[str, str]]:
     texts: list[tuple[str, str]] = []
+    allowed_roles = set(roles) if roles else None
     for message in reversed(chat_history or []):
         if not isinstance(message, dict):
             continue
         role = str(message.get("role") or "")
         content = message.get("content")
         if isinstance(content, str) and content.strip():
-            texts.append((role, content.strip()))
+            if allowed_roles is None or role in allowed_roles:
+                texts.append((role, content.strip()))
             continue
         for legacy_role in ("user", "assistant"):
+            if allowed_roles is not None and legacy_role not in allowed_roles:
+                continue
             legacy_content = message.get(legacy_role)
             if isinstance(legacy_content, str) and legacy_content.strip():
                 texts.append((legacy_role, legacy_content.strip()))
     return texts
+
+
+def _build_rewrite_history_lines(chat_history: list[dict] | None) -> list[str]:
+    # Prefer recent user turns so the rewrite model resolves omitted targets
+    # without copying factual details from prior assistant answers into the query.
+    recent_user_turns = _iter_history_texts(chat_history, roles=("user",))[:4]
+    reference_turns = recent_user_turns or _iter_history_texts(chat_history)[:4]
+    return [f"{role}: {text}" for role, text in reversed(reference_turns)]
 
 
 def _normalize_topic_candidate(text: str) -> str:
@@ -161,11 +200,9 @@ def _llm_rewrite(
 ) -> tuple[str, dict[str, object]]:
     """LLM을 사용해 후속 질문을 독립적인 검색 쿼리로 재작성한다."""
 
-    history_lines: list[str] = []
-    for role, text in reversed(_iter_history_texts(chat_history)[:4]):
-        history_lines.append(f"{role}: {text}")
+    history_lines = _build_rewrite_history_lines(chat_history)
 
-    prompt = _REWRITE_PROMPT_TEMPLATE.format(
+    prompt = _SAFE_REWRITE_PROMPT_TEMPLATE.format(
         history="\n".join(history_lines) or "(없음)",
         slot_memory=_format_slot_memory(slot_memory),
         question=query,

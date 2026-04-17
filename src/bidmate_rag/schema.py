@@ -143,7 +143,31 @@ class BenchmarkRunResult(BaseModel):
 
     def to_summary_record(self) -> dict[str, Any]:
         latencies = [result.latency_ms for result in self.results if result.latency_ms is not None]
-        costs = [result.cost_usd for result in self.results if result.cost_usd is not None]
+        generation_cost = float(
+            self.metrics.get(
+                "generation_cost_usd",
+                sum(result.cost_usd for result in self.results if result.cost_usd is not None),
+            )
+            or 0.0
+        )
+        rewrite_cost = float(
+            self.metrics.get(
+                "rewrite_cost_usd",
+                sum(
+                    float((result.debug or {}).get("rewrite_cost_usd", 0.0) or 0.0)
+                    for result in self.results
+                ),
+            )
+            or 0.0
+        )
+        judge_cost = float(self.metrics.get("judge_cost_usd", 0.0) or 0.0)
+        total_cost = float(
+            self.metrics.get(
+                "total_cost_usd",
+                generation_cost + rewrite_cost + judge_cost,
+            )
+            or 0.0
+        )
         return {
             "experiment_name": self.experiment_name,
             "run_id": self.run_id,
@@ -151,6 +175,9 @@ class BenchmarkRunResult(BaseModel):
             "provider_label": self.provider_label,
             "num_samples": len(self.samples) or len(self.results),
             "avg_latency_ms": round(mean(latencies), 3) if latencies else 0.0,
-            "total_cost_usd": round(sum(costs), 6),
+            "generation_cost_usd": round(generation_cost, 6),
+            "rewrite_cost_usd": round(rewrite_cost, 6),
+            "judge_cost_usd": round(judge_cost, 6),
+            "total_cost_usd": round(total_cost, 6),
             **self.metrics,
         }

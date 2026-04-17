@@ -168,6 +168,75 @@ def test_chat_pipeline_reuses_memory_state_from_retriever_debug() -> None:
     assert result.debug["memory_summary"] == "테스트 요약"
 
 
+def test_chat_pipeline_uses_minimal_rewrite_state_when_debug_trace_disabled() -> None:
+    class CapturingLLM(FakeLLM):
+        def __init__(self) -> None:
+            self.last_generation_config = None
+
+        def generate(self, question, context_chunks, history, generation_config, system_prompt):
+            self.last_generation_config = dict(generation_config)
+            return super().generate(
+                question,
+                context_chunks,
+                history,
+                generation_config,
+                system_prompt,
+            )
+
+    class RetrieverWithMinimalRuntimeState:
+        _last_debug = {
+            "rewritten_query": "국민연금공단 차세대 ERP 사업의 평가기준은?",
+            "rewrite_prompt_tokens": 12,
+            "rewrite_completion_tokens": 7,
+            "rewrite_total_tokens": 19,
+            "rewrite_cost_usd": 0.000123,
+            "memory_state": {
+                "recent_turns": [],
+                "summary_buffer": "요약-노디버그",
+                "slot_memory": {"발주기관": "국민연금공단"},
+            },
+        }
+
+        def retrieve(self, query, chat_history=None, top_k=5, metadata_filter=None):
+            chunk = Chunk(
+                chunk_id="c-1",
+                doc_id="d-1",
+                text="t",
+                text_with_meta="t",
+                char_count=1,
+                section="요구사항",
+                content_type="text",
+                chunk_index=0,
+                metadata={"파일명": "a.hwp"},
+            )
+            return [RetrievedChunk(rank=1, score=0.9, chunk=chunk)]
+
+    llm = CapturingLLM()
+    pipeline = RAGChatPipeline(
+        retriever=RetrieverWithMinimalRuntimeState(),
+        llm=llm,
+        memory=ConversationMemory(
+            max_recent_turns=4,
+            max_summary_chars=120,
+            agency_list=["국민연금공단"],
+        ),
+        debug_trace_enabled=False,
+    )
+
+    result = pipeline.answer(
+        "평가기준은?",
+        chat_history=[{"role": "user", "content": "국민연금공단 ERP 사업 알려줘"}],
+    )
+
+    assert llm.last_generation_config["rewritten_query"] == "국민연금공단 차세대 ERP 사업의 평가기준은?"
+    assert llm.last_generation_config["memory_summary"] == "요약-노디버그"
+    assert llm.last_generation_config["memory_slots"] == {"발주기관": "국민연금공단"}
+    assert result.token_usage["rewrite_prompt"] == 12
+    assert result.token_usage["rewrite_completion"] == 7
+    assert result.token_usage["rewrite_total"] == 19
+    assert result.debug == {}
+
+
 def test_chat_pipeline_reuses_memory_state_when_debug_trace_disabled() -> None:
     """debug_trace_enabled=False 경로에서도 retriever의 memory_state를 재사용해야 한다."""
 
