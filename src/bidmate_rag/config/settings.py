@@ -23,6 +23,7 @@ class BoostConfig(BaseModel):
 
     section: float = 0.12    # 섹션 힌트 일치 시 가산
     table: float = 0.08      # 표(table) 청크 가산
+    metadata: float = 0.12   # 기관명/사업명/파일명 메타 매칭 가산
     max_total: float = 0.15  # 부스팅 합산 상한
 
 
