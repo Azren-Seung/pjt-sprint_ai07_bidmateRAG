@@ -959,26 +959,55 @@ def test_retriever_retries_without_shortlist_when_augmented_where_returns_no_res
     assert [result.chunk.chunk_id for result in results] == ["fallback-hit"]
 
 
-def test_retriever_retries_without_where_document_when_section_filter_over_prunes() -> None:
-    vector_store = SequenceFakeVectorStore(
-        responses=[
-            [],
-            [_retrieved_chunk("section-fallback", 0.81, agency="한국원자력연구원")],
-        ]
-    )
+def test_retriever_never_sets_where_document_hard_filter() -> None:
+    """Soft boost 전환 후 where_document은 항상 None이어야 한다."""
+    vector_store = FakeVectorStore()
     retriever = RAGRetriever(
         vector_store=vector_store,
         embedder=FakeEmbedder(),
         metadata_store=FakeMetadataStore(),
     )
 
-    results = retriever.retrieve(
+    retriever.retrieve(
         "이 사업의 예산 규모를 알려줘",
         top_k=5,
         metadata_filter={"발주 기관": "한국원자력연구원"},
     )
 
-    assert len(vector_store.calls) == 2
-    assert vector_store.calls[0]["where_document"] == {"$contains": "예산"}
-    assert vector_store.calls[1]["where_document"] is None
-    assert [result.chunk.chunk_id for result in results] == ["section-fallback"]
+    assert vector_store.last_kwargs["where_document"] is None
+
+
+def test_retriever_forwards_rewrite_section_hint_to_rerank_boost() -> None:
+    """rewrite trace의 section_hint가 rerank_with_boost까지 전달돼야 한다."""
+    vector_store = FakeVectorStore(
+        query_results=[
+            _retrieved_chunk("overview", 0.91, agency="국민연금공단", section="사업개요"),
+            _retrieved_chunk("budget", 0.80, agency="국민연금공단", section="예산"),
+        ]
+    )
+    mock_llm = _make_mock_llm(
+        '{"rewritten_query": "국민연금공단 차세대 ERP 예산", "section_hint": "예산"}'
+    )
+    memory = ConversationMemory(
+        max_recent_turns=4,
+        max_summary_chars=120,
+        agency_list=["국민연금공단"],
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+        rewrite_llm=mock_llm,
+        memory=memory,
+    )
+
+    results = retriever.retrieve(
+        "예산은?",
+        top_k=2,
+        chat_history=[
+            {"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"},
+        ],
+    )
+
+    # section_hint가 "예산"으로 들어오면 budget chunk가 boost로 1위가 됨
+    assert results[0].chunk.chunk_id == "budget"

@@ -17,7 +17,6 @@ from bidmate_rag.retrieval.filters import (
     extract_metadata_filters,
     extract_project_clues,
     extract_range_filters,
-    extract_section_hint,
     should_fan_out_multi_source_query,
 )
 from bidmate_rag.retrieval.hybrid import hybrid_query, resolve_hybrid_pool_sizes
@@ -218,11 +217,12 @@ class RAGRetriever:
         *,
         force_scoped: bool = False,
     ) -> dict | None:
-        if not section_hint:
-            return None
-        if self._should_run_scoped_queries(query, where, force_scoped=force_scoped):
-            return None
-        return {"$contains": section_hint}
+        """Chroma 본문 $contains hard filter는 오탐 시 핵심 chunk를 배제하므로 비활성화한다.
+
+        section_hint는 rerank_with_boost의 soft boost 신호로만 사용한다.
+        """
+        _ = (query, where, section_hint, force_scoped)  # 시그니처 호환 유지
+        return None
 
     def _query_vector_store(
         self,
@@ -387,16 +387,12 @@ class RAGRetriever:
             sparse_store=self.sparse_store,
             hybrid_config=self.hybrid_config,
         )
-        section_hint = extract_section_hint(resolved_query)
-        where_document = (
-            self._build_where_document(
-                resolved_query,
-                where,
-                section_hint,
-                force_scoped=force_scoped,
-            )
-            if metadata_filter is not None
-            else None
+        section_hint = rewrite_trace.get("section_hint") if isinstance(rewrite_trace, dict) else None
+        where_document = self._build_where_document(
+            resolved_query,
+            where,
+            section_hint,
+            force_scoped=force_scoped,
         )
         query_embedding = self.embedder.embed_query(resolved_query)
 
