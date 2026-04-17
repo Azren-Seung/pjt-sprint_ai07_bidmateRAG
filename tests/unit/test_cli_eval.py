@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from bidmate_rag.cli.eval import _print_summary
 from bidmate_rag.config.settings import (
     ExperimentConfig,
     ProjectConfig,
@@ -232,14 +233,8 @@ def test_print_summary_hides_rewrite_sections_when_unused(capsys) -> None:
     assert " rewrite=" not in out
 
 
-def test_print_summary_renders_per_type_retrieval_section() -> None:
+def test_print_summary_renders_per_type_retrieval_section(capsys) -> None:
     """overall_metrics에 retrieval_by_type가 있으면 CLI가 별도 섹션으로 출력한다."""
-    from io import StringIO
-    from contextlib import redirect_stdout
-
-    from bidmate_rag.cli.eval import _print_summary
-    from bidmate_rag.schema import EvalSample, GenerationResult
-
     samples = [
         EvalSample(
             question_id="q1",
@@ -301,11 +296,8 @@ def test_print_summary_renders_per_type_retrieval_section() -> None:
         },
     }
 
-    buffer = StringIO()
-    with redirect_stdout(buffer):
-        _print_summary(samples, results, overall_metrics)
-
-    output = buffer.getvalue()
+    _print_summary(samples, results, overall_metrics)
+    output = capsys.readouterr().out
     assert "by type (retrieval)" in output
     # Type A row must appear before Type C row (alphabetical order).
     a_idx = output.find("A  ")
