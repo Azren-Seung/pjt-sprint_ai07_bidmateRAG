@@ -63,6 +63,7 @@ def execute_evaluation(
     judge_v2: bool = False,
     progress_callback: ProgressCallback | None = None,
     top_k: int | None = None,
+    system_prompt: str | None = None, # 시나리오 A 시스템 프롬프트 추가
 ) -> EvaluationArtifacts:
     """Run an evaluation end-to-end and write all artifacts to disk.
 
@@ -107,8 +108,8 @@ def execute_evaluation(
         top_k = top_k
     )
 
-    
-
+    if system_prompt:
+        pipeline.system_prompt = system_prompt
     def answer_fn(sample: EvalSample) -> GenerationResult:
         # 평가셋의 metadata_filter / history를 retrieval에 실제로 적용
         # (이전엔 dataset.py가 sample.metadata에 저장만 하고 무시되던 상태)
