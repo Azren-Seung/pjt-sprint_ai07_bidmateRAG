@@ -1,0 +1,21 @@
+00_metadata:
+  experiment_id: "prompt_P0_C0_F3_S0_T5"
+  name: "prompt_P0_C0_F3_S0_T5"
+  description: "P0 + C0 + F3 + S0 + T5 조합"
+  is_english_cot: true
+  char_count: 231
+  control_score: 10
+
+persona: ""
+
+constraints:
+output_format:
+  - |
+    [섹션1_분석] 본문 내 수치·조건 전수 나열 -> [섹션2_최종] 나열 정보 기반 정답 산출
+few_shot_examples:
+thought_trigger:
+  - |
+    [English_Logic_Engine]
+    Analysis: Extract and list all relevant data in English.
+    Verification: Cross-check conditions and values in English.
+    Output: Provide final answer in Korean.

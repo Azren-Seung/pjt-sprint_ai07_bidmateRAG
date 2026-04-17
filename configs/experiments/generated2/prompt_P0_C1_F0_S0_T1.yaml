@@ -1,0 +1,18 @@
+00_metadata:
+  experiment_id: "prompt_P0_C1_F0_S0_T1"
+  name: "prompt_P0_C1_F0_S0_T1"
+  description: "P0 + C1 + F0 + S0 + T1 조합"
+  is_english_cot: false
+  char_count: 42
+  control_score: 2
+
+persona: ""
+
+constraints:
+  - |
+    참조: 제공된 문서 한정
+output_format:
+few_shot_examples:
+thought_trigger:
+  - |
+    [Trigger] Think step by step.

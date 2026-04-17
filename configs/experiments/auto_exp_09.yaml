@@ -1,0 +1,19 @@
+title: auto_exp_09
+name: auto_exp_09
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 40
+top_k: 40
+rerank_k: 5
+prompt_template: strict_citation
+hypothesis:
+  - 엄격 인용 모드와 rerank_k 5를 결합하면 근거 인용 강제로 Faithfulness 0.9대를 노릴 수 있다.
+changes:
+  - prompt_template strict_citation, rerank_k 5 (Citation Mode)
+  - 추론 모델용 — temperature 미사용
+expected_outcome:
+  - judge faithfulness 상승, 응답 길이·지연 증가 가능
+next_actions:
+  - 인용 누락 패턴 분류

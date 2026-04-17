@@ -1,0 +1,20 @@
+00_metadata:
+  experiment_id: "prompt_P0_C2_F2_S0_T3"
+  name: "prompt_P0_C2_F2_S0_T3"
+  description: "P0 + C2 + F2 + S0 + T3 조합"
+  is_english_cot: false
+  char_count: 142
+  control_score: 11
+
+persona: ""
+
+constraints:
+  - |
+    - 근거: 문서 내 정보로 국한 (외부지식 금지) / - 출처: 수치 옆 페이지 번호 필수
+output_format:
+  - |
+    [구성] 결론 중심 단답 / [근거] 관련 수치 + 페이지 번호 명시
+few_shot_examples:
+thought_trigger:
+  - |
+    1. 전수조사: 질문 연관 수치·조건 리스팅 / 2. 검증: 항목별 일치 여부 대조 / 3. 답변

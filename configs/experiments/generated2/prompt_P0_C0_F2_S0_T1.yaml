@@ -1,0 +1,18 @@
+00_metadata:
+  experiment_id: "prompt_P0_C0_F2_S0_T1"
+  name: "prompt_P0_C0_F2_S0_T1"
+  description: "P0 + C0 + F2 + S0 + T1 조합"
+  is_english_cot: false
+  char_count: 67
+  control_score: 4
+
+persona: ""
+
+constraints:
+output_format:
+  - |
+    [구성] 결론 중심 단답 / [근거] 관련 수치 + 페이지 번호 명시
+few_shot_examples:
+thought_trigger:
+  - |
+    [Trigger] Think step by step.

@@ -1,0 +1,19 @@
+title: auto_exp_02
+name: auto_exp_02
+mode: full_rag
+notes_path: configs/experiments/notes/example-budget-quality.yaml
+provider_configs:
+  - configs/providers/openai_gpt5mini.yaml
+retrieval_top_k: 30
+top_k: 30
+rerank_k: 5
+alpha: 0.3
+hypothesis:
+  - 벡터 점수 비중을 낮춰 키워드·메타 신호에 더 기대면 예산 수치 정밀도는 희생될 수 있으나 특정 키워드 적중률은 오를 수 있다.
+changes:
+  - top_k 30, rerank_k 5, alpha 0.3 (Keyword Focus)
+  - 추론 모델용 — temperature 미사용
+expected_outcome:
+  - 키워드 밀집 질의에서 개선 가능, 예산 수치형은 모니터링
+next_actions:
+  - 예산 Q 실패 유형 별도 집계

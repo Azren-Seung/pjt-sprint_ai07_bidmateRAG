@@ -1,0 +1,26 @@
+00_metadata:
+  experiment_id: "prompt_P0_C1_F1_S3_T5"
+  name: "prompt_P0_C1_F1_S3_T5"
+  description: "P0 + C1 + F1 + S3 + T5 조합"
+  is_english_cot: true
+  char_count: 323
+  control_score: 12
+
+persona: ""
+
+constraints:
+  - |
+    참조: 제공된 문서 한정
+output_format:
+  - |
+    [양식] 간결한 서술형 요약
+few_shot_examples:
+  - |
+    [성공 예시] Q: 참가자격? / [분석] 자본 10억, 실적 필요 명시(3p) / [정답] 위 요건 충족 기업
+    [거절 예시] Q: 야간수당? / [분석] 본문 내 관련 수당 언급 없음 / [정답] 정보 없음
+thought_trigger:
+  - |
+    [English_Logic_Engine]
+    Analysis: Extract and list all relevant data in English.
+    Verification: Cross-check conditions and values in English.
+    Output: Provide final answer in Korean.
