@@ -60,6 +60,7 @@ def build_rag_user_prompt(
             sections.append("## 슬롯 메모리\n" + "\n".join(slot_lines))
 
     sections.append(f"## 질문\n{question}")
+    sections.append("아래 제공된 문서를 바탕으로 위 질문에 답하세요.")
     sections.append(f"## 참고 문서\n{context}")
     
     return "\n\n".join(sections)
