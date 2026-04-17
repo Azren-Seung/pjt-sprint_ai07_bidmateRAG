@@ -58,26 +58,38 @@ def test_hf_local_provider_uses_metadata_aware_context_and_honors_context_limit(
     )
     second_chunk = _make_chunk(
         chunk_id="chunk-2",
-        text="두번째 문맥 " + ("B" * 400),
+        text="두번째 문단 " + ("B" * 400),
         budget="약 5억원",
         filename="한국가스공사_erp_2.hwp",
     )
 
     result = provider.generate(
-        question="예산이 얼마야?",
+        question="예산은 얼마야?",
         context_chunks=[first_chunk, second_chunk],
         history=[],
-        generation_config={"max_context_chars": 120, "max_new_tokens": 64},
+        generation_config={
+            "max_context_chars": 120,
+            "max_new_tokens": 64,
+            "rewritten_query": "차세대 ERP 구축 사업의 예산은 얼마인가요?",
+            "memory_summary": "이전 대화에서 차세대 ERP 구축 사업 개요를 확인했다.",
+            "memory_slots": {
+                "발주기관": "한국가스공사",
+                "사업명": "차세대 ERP 구축",
+                "관심속성": "예산",
+            },
+        },
         system_prompt="SYSTEM",
     )
 
     full_input = generator.last_call["full_input"]
 
+    assert "차세대 ERP 구축 사업의 예산은 얼마인가요?" in full_input
+    assert "이전 대화에서 차세대 ERP 구축 사업 개요를 확인했다." in full_input
+    assert "발주기관: 한국가스공사" in full_input
     assert "[출처: 차세대 ERP 구축 | 한국가스공사 | 한국가스공사_erp.hwp]" in full_input
     assert "사업 금액=약 3억원" in full_input
     assert "핵심 요구사항" in full_input
-    assert "두번째 문맥" not in full_input
+    assert "두번째 문단" not in full_input
     assert generator.last_call["max_new_tokens"] == 64
-    # 청크 앞에 인용 번호 prefix가 붙는다 — LLM이 답변에서 [1], [2]로 인용할 수 있도록.
     assert result.context.startswith("[1] [출처: 차세대 ERP 구축 | 한국가스공사 | 한국가스공사_erp.hwp]")
-    assert "두번째 문맥" not in result.context
+    assert "두번째 문단" not in result.context
