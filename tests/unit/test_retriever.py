@@ -739,13 +739,27 @@ def test_retriever_reranks_table_and_section_matches_over_higher_raw_score_text(
             ),
         ]
     )
+    mock_llm = _make_mock_llm(
+        '{"rewritten_query": "국민연금공단 예산 표를 알려줘", "section_hint": "예산"}'
+    )
+    memory = ConversationMemory(
+        max_recent_turns=4,
+        max_summary_chars=120,
+        agency_list=["국민연금공단"],
+    )
     retriever = RAGRetriever(
         vector_store=vector_store,
         embedder=FakeEmbedder(),
         metadata_store=FakeMetadataStore(),
+        rewrite_llm=mock_llm,
+        memory=memory,
     )
 
-    results = retriever.retrieve("국민연금공단 예산 표를 알려줘", top_k=2)
+    results = retriever.retrieve(
+        "국민연금공단 예산 표를 알려줘",
+        top_k=2,
+        chat_history=[{"role": "user", "content": "예산 관련 질문"}],
+    )
 
     assert results[0].chunk.chunk_id == "budget-table"
     assert results[0].rank == 1
