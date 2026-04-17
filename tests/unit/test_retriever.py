@@ -799,7 +799,7 @@ def test_retriever_rewrites_follow_up_query_and_inherits_recent_agency_filter() 
         chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
     )
 
-    assert embedder.queries == ["국민연금공단 차세대 ERP 사업 예산은?"]
+    assert embedder.queries == ["국민연금공단 차세대 ERP 사업 예산은?", "그 사업 예산은?"]
     assert vector_store.last_kwargs["where"]["발주 기관"] == "국민연금공단"
     assert vector_store.last_kwargs["where"]["파일명"] == {"$in": ["doc-1.hwp", "doc-2.hwp"]}
     assert retriever._last_debug["rewritten_query"] == "국민연금공단 차세대 ERP 사업 예산은?"
@@ -834,7 +834,7 @@ def test_retriever_uses_llm_rewrite_for_implicit_followup() -> None:
     )
 
     prompt = mock_llm.rewrite.call_args.args[0]
-    assert embedder.queries == ["국민연금공단 차세대 ERP 사업의 평가기준"]
+    assert embedder.queries == ["국민연금공단 차세대 ERP 사업의 평가기준", "평가기준은?"]
     mock_llm.rewrite.assert_called_once()
     assert "발주기관: 국민연금공단" in prompt
     assert "사업명" in prompt
@@ -973,7 +973,7 @@ def test_retriever_retries_without_shortlist_when_augmented_where_returns_no_res
     assert [result.chunk.chunk_id for result in results] == ["fallback-hit"]
 
 
-def test_retriever_never_sets_where_document_hard_filter() -> None:
+def test_retriever_keeps_where_document_none_without_strong_hint() -> None:
     """Soft boost 전환 후 where_document은 항상 None이어야 한다."""
     vector_store = FakeVectorStore()
     retriever = RAGRetriever(
@@ -989,6 +989,22 @@ def test_retriever_never_sets_where_document_hard_filter() -> None:
     )
 
     assert vector_store.last_kwargs["where_document"] is None
+
+
+def test_retriever_uses_dynamic_where_document_anchor_from_query_phrase() -> None:
+    vector_store = FakeVectorStore()
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+    )
+
+    retriever.retrieve(
+        '경상북도 봉화군의 "재난통합관리시스템 고도화 사업"의 사업기간은 며칠로 명시되어 있습니까?',
+        top_k=3,
+    )
+
+    assert vector_store.last_kwargs["where_document"] == {"$contains": "사업기간"}
 
 
 def test_retriever_forwards_rewrite_section_hint_to_rerank_boost() -> None:
@@ -1024,4 +1040,71 @@ def test_retriever_forwards_rewrite_section_hint_to_rerank_boost() -> None:
     )
 
     # section_hint가 "예산"으로 들어오면 budget chunk가 boost로 1위가 됨
+    assert vector_store.last_kwargs["where_document"] is None
     assert results[0].chunk.chunk_id == "budget"
+
+
+def test_retriever_does_not_use_section_hint_as_where_document_anchor() -> None:
+    vector_store = FakeVectorStore(
+        query_results=[
+            _retrieved_chunk("overview", 0.91, agency="국민연금공단", section="사업개요"),
+            _retrieved_chunk("budget", 0.80, agency="국민연금공단", section="예산"),
+        ]
+    )
+    mock_llm = _make_mock_llm(
+        '{"rewritten_query": "국민연금공단 차세대 ERP 예산", "section_hint": "예산"}'
+    )
+    memory = ConversationMemory(
+        max_recent_turns=4,
+        max_summary_chars=120,
+        agency_list=["국민연금공단"],
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+        rewrite_llm=mock_llm,
+        memory=memory,
+    )
+
+    retriever.retrieve(
+        "예산은?",
+        top_k=2,
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
+    )
+
+    assert vector_store.last_kwargs["where_document"] is None
+
+
+def test_retriever_queries_original_text_as_secondary_variant_when_rewrite_applied() -> None:
+    vector_store = SequenceFakeVectorStore(
+        responses=[
+            [_retrieved_chunk("rewritten-hit", 0.91, agency="국민연금공단")],
+            [_retrieved_chunk("original-hit", 0.89, agency="국민연금공단")],
+        ]
+    )
+    embedder = FakeEmbedder()
+    mock_llm = _make_mock_llm(
+        '{"rewritten_query": "국민연금공단 보안 규정", "section_hint": "보안 요구사항"}'
+    )
+    memory = ConversationMemory(
+        max_recent_turns=4,
+        max_summary_chars=120,
+        agency_list=["국민연금공단"],
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=embedder,
+        metadata_store=FakeMetadataStore(),
+        rewrite_llm=mock_llm,
+        memory=memory,
+    )
+
+    results = retriever.retrieve(
+        "USB 반입 반출해도 되나요?",
+        chat_history=[{"role": "user", "content": "국민연금공단 보안 요구사항 알려줘"}],
+        top_k=2,
+    )
+
+    assert embedder.queries == ["국민연금공단 보안 규정", "USB 반입 반출해도 되나요?"]
+    assert [result.chunk.chunk_id for result in results] == ["rewritten-hit", "original-hit"]

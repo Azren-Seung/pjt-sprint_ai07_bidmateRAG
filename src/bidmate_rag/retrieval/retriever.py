@@ -17,6 +17,7 @@ from bidmate_rag.retrieval.filters import (
     extract_metadata_filters,
     extract_project_clues,
     extract_range_filters,
+    extract_where_document_anchor,
     should_fan_out_multi_source_query,
 )
 from bidmate_rag.retrieval.hybrid import hybrid_query, resolve_hybrid_pool_sizes
@@ -139,6 +140,24 @@ class RAGRetriever:
             return _assign_ranks(merged)
         collect(prefer_new_docs=False)
         return _assign_ranks(merged)
+
+    def _merge_query_variant_results(self, primary_results: list, secondary_results: list) -> list:
+        """원 질문/재작성 질문 결과를 합쳐 unique chunk 기준으로 정렬한다."""
+        if not secondary_results:
+            return primary_results
+
+        merged_by_chunk_id: dict[str, object] = {}
+        for item in [*primary_results, *secondary_results]:
+            chunk_id = item.chunk.chunk_id
+            existing = merged_by_chunk_id.get(chunk_id)
+            if existing is None or float(item.score) > float(existing.score):
+                merged_by_chunk_id[chunk_id] = item
+
+        return sorted(
+            merged_by_chunk_id.values(),
+            key=lambda result: float(result.score),
+            reverse=True,
+        )
 
     def _has_doc_level_constraint(self, where: dict | None) -> bool:
         if not where:
@@ -394,6 +413,10 @@ class RAGRetriever:
             section_hint,
             force_scoped=force_scoped,
         )
+        if where_document is None and not force_scoped and where:
+            dynamic_where_document_anchor = extract_where_document_anchor(resolved_query)
+            if dynamic_where_document_anchor:
+                where_document = {"$contains": dynamic_where_document_anchor}
         query_embedding = self.embedder.embed_query(resolved_query)
 
         results = self._query_vector_store(
@@ -406,6 +429,20 @@ class RAGRetriever:
             where_document=where_document,
             force_scoped=force_scoped,
         )
+
+        if rewrite_trace.get("rewrite_applied") and resolved_query != query:
+            original_query_embedding = self.embedder.embed_query(query)
+            original_query_results = self._query_vector_store(
+                query_embedding=original_query_embedding,
+                query=query,
+                top_k=final_top_k,
+                dense_pool_k=dense_pool_k,
+                sparse_pool_k=sparse_pool_k,
+                where=where,
+                where_document=where_document,
+                force_scoped=force_scoped,
+            )
+            results = self._merge_query_variant_results(results, original_query_results)
 
         if not results and where_document is not None:
             results = self._query_vector_store(
