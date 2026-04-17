@@ -1,0 +1,18 @@
+00_metadata:
+  experiment_id: "prompt_P0_C0_F1_S0_T3"
+  name: "prompt_P0_C0_F1_S0_T3"
+  description: "P0 + C0 + F1 + S0 + T3 조합"
+  is_english_cot: false
+  char_count: 69
+  control_score: 6
+
+persona: ""
+
+constraints:
+output_format:
+  - |
+    [양식] 간결한 서술형 요약
+few_shot_examples:
+thought_trigger:
+  - |
+    1. 전수조사: 질문 연관 수치·조건 리스팅 / 2. 검증: 항목별 일치 여부 대조 / 3. 답변
