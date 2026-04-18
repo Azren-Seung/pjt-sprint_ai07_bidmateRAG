@@ -277,3 +277,150 @@ def test_llm_rewrite_section_hint_null_when_missing() -> None:
     )
 
     assert trace["section_hint"] is None
+
+
+def test_llm_rewrite_flags_validation_failure_when_new_number_injected() -> None:
+    mock_llm = MagicMock()
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=json.dumps(
+            {
+                "rewritten_query": "국민연금공단 차세대 ERP 사업의 사업기간 30일",
+                "section_hint": "사업 일정",
+            },
+            ensure_ascii=False,
+        ),
+        prompt_tokens=10,
+        completion_tokens=5,
+        total_tokens=15,
+    )
+    mock_llm.model_name = "gpt-5-mini"
+
+    rewritten, trace = rewrite_query_with_history(
+        query="사업기간은?",
+        chat_history=[
+            {"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"},
+        ],
+        agency_list=["국민연금공단"],
+        llm=mock_llm,
+    )
+
+    assert "30일" not in rewritten
+    assert trace["rewrite_validation"] == "failed"
+    assert trace["rewrite_reason"] in ("rule_fallback", "original")
+
+
+def test_llm_rewrite_flags_validation_failure_when_new_year_injected() -> None:
+    mock_llm = MagicMock()
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=json.dumps(
+            {
+                "rewritten_query": "2024년 국민연금공단 차세대 ERP 사업 예산",
+                "section_hint": "예산",
+            },
+            ensure_ascii=False,
+        ),
+        prompt_tokens=10,
+        completion_tokens=5,
+        total_tokens=15,
+    )
+    mock_llm.model_name = "gpt-5-mini"
+
+    rewritten, trace = rewrite_query_with_history(
+        query="예산은?",
+        chat_history=[
+            {"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"},
+        ],
+        agency_list=["국민연금공단"],
+        llm=mock_llm,
+    )
+
+    assert "2024년" not in rewritten
+    assert trace["rewrite_validation"] == "failed"
+
+
+def test_llm_rewrite_validation_passes_when_rewritten_only_adds_context_terms() -> None:
+    mock_llm = MagicMock()
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=json.dumps(
+            {
+                "rewritten_query": "국민연금공단 차세대 ERP 사업의 예산",
+                "section_hint": "예산",
+            },
+            ensure_ascii=False,
+        ),
+        prompt_tokens=10,
+        completion_tokens=5,
+        total_tokens=15,
+    )
+    mock_llm.model_name = "gpt-5-mini"
+
+    rewritten, trace = rewrite_query_with_history(
+        query="예산은?",
+        chat_history=[
+            {"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"},
+        ],
+        agency_list=["국민연금공단"],
+        llm=mock_llm,
+    )
+
+    assert rewritten == "국민연금공단 차세대 ERP 사업의 예산"
+    assert trace["rewrite_validation"] == "passed"
+    assert trace["rewrite_reason"] == "llm"
+
+
+def test_rewrite_query_with_history_clears_rejected_section_hint_after_rule_fallback() -> None:
+    mock_llm = MagicMock()
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=json.dumps(
+            {
+                "rewritten_query": "국민연금공단 차세대 ERP 사업의 예산 2024년",
+                "section_hint": "예산",
+            },
+            ensure_ascii=False,
+        ),
+        prompt_tokens=10,
+        completion_tokens=5,
+        total_tokens=15,
+    )
+    mock_llm.model_name = "gpt-5-mini"
+
+    rewritten, trace = rewrite_query_with_history(
+        query="그 사업 예산은?",
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
+        agency_list=["국민연금공단"],
+        llm=mock_llm,
+    )
+
+    assert rewritten == "국민연금공단 차세대 ERP 사업 예산은?"
+    assert trace["rewrite_reason"] == "rule_fallback"
+    assert trace["rewrite_validation"] == "failed"
+    assert trace["section_hint"] is None
+
+
+def test_rewrite_query_with_history_clears_rejected_section_hint_when_original_is_kept() -> None:
+    mock_llm = MagicMock()
+    mock_llm.rewrite.return_value = RewriteResponse(
+        text=json.dumps(
+            {
+                "rewritten_query": "2024년 국민연금공단 차세대 ERP 사업 예산",
+                "section_hint": "예산",
+            },
+            ensure_ascii=False,
+        ),
+        prompt_tokens=10,
+        completion_tokens=5,
+        total_tokens=15,
+    )
+    mock_llm.model_name = "gpt-5-mini"
+
+    rewritten, trace = rewrite_query_with_history(
+        query="예산은?",
+        chat_history=[{"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"}],
+        agency_list=["국민연금공단"],
+        llm=mock_llm,
+    )
+
+    assert rewritten == "예산은?"
+    assert trace["rewrite_reason"] == "original"
+    assert trace["rewrite_validation"] == "failed"
+    assert trace["section_hint"] is None

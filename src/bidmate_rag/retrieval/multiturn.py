@@ -11,6 +11,11 @@ from bidmate_rag.tracking.pricing import calc_llm_cost, load_pricing
 logger = logging.getLogger(__name__)
 _PRICING = load_pricing()
 
+# 재작성 결과 검증: 숫자/연도/금액 단위를 기준으로 새 사실 주입을 탐지한다.
+_NUMBER_TOKEN_PATTERN = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_YEAR_TOKEN_PATTERN = re.compile(r"20\d{2}\s*년")
+_MONEY_TOKEN_PATTERN = re.compile(r"\d[\d,]*(?:\.\d+)?\s*(?:억원|억|천만원|백만원|만원|원)")
+
 FOLLOW_UP_TOPIC_KEYWORDS = [
     "그 사업",
     "이 사업",
@@ -104,6 +109,40 @@ def _iter_history_texts(
     return texts
 
 
+def _collect_numeric_tokens(text: str) -> set[str]:
+    if not text:
+        return set()
+    tokens: set[str] = set()
+    tokens.update(_YEAR_TOKEN_PATTERN.findall(text))
+    tokens.update(_MONEY_TOKEN_PATTERN.findall(text))
+    tokens.update(_NUMBER_TOKEN_PATTERN.findall(text))
+    return {token.strip() for token in tokens if token.strip()}
+
+
+def _validate_rewritten_query(
+    original_query: str,
+    rewritten_query: str,
+    chat_history: list[dict] | None,
+) -> bool:
+    """rewritten_query가 원문·최근 user turn에 없던 숫자/연도/금액을 주입했는지 검사.
+
+    허용되는 출처는 다음 두 가지뿐이다.
+    - original_query에 등장한 숫자 토큰
+    - 최근 4개 user turn에 등장한 숫자 토큰 (history inheritance 허용)
+    """
+
+    rewritten_tokens = _collect_numeric_tokens(rewritten_query)
+    if not rewritten_tokens:
+        return True
+
+    allowed_tokens = _collect_numeric_tokens(original_query)
+    for _, text in _iter_history_texts(chat_history, roles=("user",))[:4]:
+        allowed_tokens.update(_collect_numeric_tokens(text))
+
+    leaked = rewritten_tokens - allowed_tokens
+    return not leaked
+
+
 def _build_rewrite_history_lines(chat_history: list[dict] | None) -> list[str]:
     # Prefer recent user turns so the rewrite model resolves omitted targets
     # without copying factual details from prior assistant answers into the query.
@@ -163,6 +202,7 @@ def _build_rewrite_trace(
     total_tokens: int = 0,
     rewrite_error: str | None = None,
     section_hint: str | None = None,
+    rewrite_validation: str = "n/a",
 ) -> dict[str, object]:
     cost_usd = calc_llm_cost(
         model_name,
@@ -180,6 +220,7 @@ def _build_rewrite_trace(
         "rewrite_total_tokens": total_tokens,
         "rewrite_cost_usd": cost_usd,
         "section_hint": section_hint,
+        "rewrite_validation": rewrite_validation,
     }
     if rewrite_error:
         trace["rewrite_error"] = rewrite_error
@@ -258,6 +299,24 @@ def _llm_rewrite(
         total_tokens = response.total_tokens
         rewritten, section_hint = _parse_rewrite_response(response.text)
         if rewritten and rewritten != query:
+            validation_passed = _validate_rewritten_query(query, rewritten, chat_history)
+            if not validation_passed:
+                logger.warning(
+                    "쿼리 재작성 검증 실패 (새 숫자/연도 주입): '%s' -> '%s'",
+                    query,
+                    rewritten,
+                )
+                return query, _build_rewrite_trace(
+                    original_query=query,
+                    rewritten_query=query,
+                    rewrite_reason="validation_failed",
+                    model_name=getattr(llm, "model_name", "gpt-5-mini"),
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    section_hint=None,
+                    rewrite_validation="failed",
+                )
             logger.info("쿼리 재작성: '%s' -> '%s' (section=%s)", query, rewritten, section_hint)
             return rewritten, _build_rewrite_trace(
                 original_query=query,
@@ -268,6 +327,7 @@ def _llm_rewrite(
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
                 section_hint=section_hint,
+                rewrite_validation="passed",
             )
     except Exception as exc:
         logger.warning("LLM 쿼리 재작성 실패, 규칙 기반으로 폴백합니다: %s", exc)
@@ -352,7 +412,10 @@ def rewrite_query_with_history(
         max_completion_tokens=max_completion_tokens,
         timeout_seconds=timeout_seconds,
     )
-    if mode == "llm_only" or llm_rewritten != query:
+    validation_failed = llm_trace.get("rewrite_validation") == "failed"
+    if mode == "llm_only":
+        return llm_rewritten, llm_trace
+    if llm_rewritten != query and not validation_failed:
         return llm_rewritten, llm_trace
 
     rewritten = _rule_based_rewrite(query, chat_history, agency_list)
@@ -360,4 +423,12 @@ def rewrite_query_with_history(
         llm_trace["rewritten_query"] = rewritten
         llm_trace["rewrite_applied"] = True
         llm_trace["rewrite_reason"] = "rule_fallback"
+        if validation_failed:
+            llm_trace["section_hint"] = None
+    elif validation_failed:
+        # validation 실패 후 rule 폴백도 적용되지 않으면 최종 상태는 original.
+        llm_trace["rewritten_query"] = query
+        llm_trace["rewrite_applied"] = False
+        llm_trace["rewrite_reason"] = "original"
+        llm_trace["section_hint"] = None
     return rewritten, llm_trace
