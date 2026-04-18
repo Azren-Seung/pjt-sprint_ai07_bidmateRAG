@@ -5,7 +5,7 @@
   2. 필요하면 멀티턴 rewrite / history agency 상속
   3. 비교/나열형 질문이면 기관별 fan-out 검색
   4. Dense 또는 Hybrid 검색으로 후보 청크 조회
-  5. Cross-Encoder 리랭킹
+  5. 선택적 실험용 Cross-Encoder 리랭킹
   6. 섹션/테이블 부스팅
   7. shortlist / where_document 과적용 시 fallback
 """
@@ -21,6 +21,7 @@ from bidmate_rag.retrieval.filters import (
     should_fan_out_multi_source_query,
 )
 from bidmate_rag.retrieval.hybrid import hybrid_query, resolve_hybrid_pool_sizes
+from bidmate_rag.retrieval.memory import build_rewrite_safe_slot_memory
 from bidmate_rag.retrieval.multiturn import (
     extract_recent_agency_filter,
     rewrite_query_with_history,
@@ -293,6 +294,10 @@ class RAGRetriever:
             hybrid_config=self.hybrid_config,
         )
 
+    def _apply_experimental_rerank(self, query: str, results: list, top_k: int) -> list:
+        """선택적으로 유지 중인 실험용 Cross-Encoder 리랭킹 단계."""
+        return cross_encoder_rerank(self.reranker, query, results, top_k)
+
     def retrieve(
         self,
         query: str,
@@ -312,7 +317,9 @@ class RAGRetriever:
             if self.enable_multiturn and self.memory is not None
             else {"summary_buffer": "", "slot_memory": {}}
         )
-        rewrite_slot_memory = rewrite_memory_state.get("slot_memory", {})
+        rewrite_slot_memory = build_rewrite_safe_slot_memory(
+            rewrite_memory_state.get("slot_memory", {})
+        )
         resolved_query, rewrite_trace = (
             rewrite_query_with_history(
                 query,
@@ -484,7 +491,7 @@ class RAGRetriever:
             )
 
         before_rerank = list(results)
-        results = cross_encoder_rerank(self.reranker, resolved_query, results, final_top_k)
+        results = self._apply_experimental_rerank(resolved_query, results, final_top_k)
         reranked = rerank_with_boost(
             results,
             query=resolved_query,

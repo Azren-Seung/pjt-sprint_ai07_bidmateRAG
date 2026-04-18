@@ -74,7 +74,7 @@ class DebugTraceConfig(BaseModel):
 class RetrievalConfig(BaseModel):
     """검색 전략 설정 (리랭커, 멀티턴, 부스팅, 하이브리드)."""
 
-    reranker_model: str | None = None  # Cross-Encoder 모델명 (null이면 비활성화)
+    reranker_model: str | None = None  # 선택적 실험용 Cross-Encoder 모델명 (null이면 기본 운영 경로)
     enable_multiturn: bool = True      # 멀티턴 검색 보강 사용 여부
     boost: BoostConfig = Field(default_factory=BoostConfig)
     hybrid: HybridConfig = Field(default_factory=HybridConfig)
