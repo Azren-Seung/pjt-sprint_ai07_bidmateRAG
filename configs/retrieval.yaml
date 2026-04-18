@@ -7,6 +7,7 @@ reranker_model: null
 boost:
   section: 0.12    # 섹션 힌트 일치 시 가산 점수
   table: 0.08      # 표(table) 청크 가산 점수
+  metadata: 0.12   # 기관명/사업명/파일명 등 메타데이터 매칭 가산 점수
   max_total: 0.15  # 부스팅 합산 상한
 
 # 하이브리드 검색: Dense 벡터 + BM25 Sparse + RRF 융합
@@ -21,7 +22,7 @@ enable_multiturn: true
 
 # 멀티턴 질의 재작성 설정
 rewrite:
-  mode: llm_with_rule_fallback  # LLM 재작성 우선, 실패 시 규칙 기반으로 폴백
+  mode: rule_only  # LLM 재작성 우선, 실패 시 규칙 기반으로 폴백
   # gpt-5 계열은 reasoning 토큰이 completion에 포함되므로 넉넉하게 (CLAUDE.md 참조).
   # 로컬 HF 모델은 HFLocalLLM.rewrite()가 내부적으로 256 제한을 사용.
   max_completion_tokens: 16000  # rewrite 단계에서 허용할 최대 출력 토큰 수
