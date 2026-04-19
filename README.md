@@ -21,11 +21,15 @@
 
 | 항목 | 링크 |
 |---|---|
+| Team Hub | [Notion Team Hub](https://www.notion.so/sprint-ai07-bidsupportconsulting/Team-Hub-334b6ef436c78097a4d2cf1637bedb18?source=copy_link) |
 | 아키텍처 문서 | [`docs/architecture.md`](docs/architecture.md) |
 | 프로젝트 구조 | [`docs/project-structure.md`](docs/project-structure.md) |
 | 의사결정 기록 | [`docs/decision-log.md`](docs/decision-log.md) |
 | 협업 규칙 | [`docs/collaboration/branch-strategy.md`](docs/collaboration/branch-strategy.md) |
-| 발표 자료 | 추가 예정 |
+| PPT | 추가 예정 |
+| 보고서 | 추가 예정 |
+| 협업 일지 | [Notion Logs](https://www.notion.so/sprint-ai07-bidsupportconsulting/Logs-334b6ef436c780c7976fedcdeae5b672?source=copy_link) |
+| Test Record | [Notion Test Record](https://www.notion.so/sprint-ai07-bidsupportconsulting/Test-Record-335b6ef436c780cb93aac9852858cd2c?source=copy_link) |
 
 ## 🧭 Project Overview
 
