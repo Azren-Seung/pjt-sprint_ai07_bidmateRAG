@@ -13,9 +13,10 @@ boost:
 # 하이브리드 검색: Dense 벡터 + BM25 Sparse + RRF 융합
 hybrid:
   enabled: true              # 하이브리드 검색 활성화 여부
-  dense_pool_multiplier: 3   # Dense 후보 풀 배수
-  sparse_pool_multiplier: 3  # Sparse 후보 풀 배수
+  dense_pool_multiplier: 5   # Dense 후보 풀 배수
+  sparse_pool_multiplier: 5  # Sparse 후보 풀 배수
   rrf_k: 60                  # RRF 순위 융합 상수
+  anchor_auxiliary: true     # fact형 질의에 anchor 보조 검색 1회 추가
 
 # 멀티턴 검색 보강 (이전 대화 기반 질의 재작성 + 기관 필터 계승)
 enable_multiturn: true
