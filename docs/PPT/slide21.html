@@ -4,118 +4,169 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>리랭커 하나로 MRR +0.18</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;display=swap" rel="stylesheet"/>
+<title>Hard Filter → Soft Boost + 원질문·재작성 병렬 조회</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;family=Nanum+Gothic+Coding:wght@400;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
 </head>
 <body style="margin: 0; padding: 0; overflow: hidden; background: #FAFAFA;">
 <div class="slide-container" style="position: relative; width: 1280px; height: 720px; overflow: hidden; background: #FAFAFA;">
 <!-- Header Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 400px; z-index: 10;">
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 500px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #607196; letter-spacing: 0.5px; margin: 0;">
-<span style="color: #FF7B9C;">★ 임팩트</span> · 리랭크 전략
-    </p>
+<span style="color: #FF7B9C;">★ 의사결정</span> · 섹션 ④ · 드라마
+</p>
 </div>
 <!-- Header Right -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 800px; width: 400px; text-align: right; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 500; color: #607196; letter-spacing: 0.5px; margin: 0;">
-        슬라이드 21
-    </p>
+슬라이드 21
+</p>
 </div>
 <!-- Top Divider -->
 <div data-object="true" data-object-type="shape" style="position: absolute; top: 75px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
 <!-- Main Title -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 105px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
-<p style="font-family: 'Black Han Sans', sans-serif; font-size: 44px; color: #1F2937; letter-spacing: -1.5px; margin: 0; line-height: 1.2;">
-        리랭커 하나로 MRR +0.18
-    </p>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 98px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
+<p style="font-family: 'Black Han Sans', sans-serif; font-size: 38px; color: #1F2937; letter-spacing: -1.2px; margin: 0; line-height: 1.15;">
+Hard Filter → Soft Boost + 원질문·재작성 병렬 조회
+</p>
 </div>
-<!-- Hook Box Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 180px; left: 80px; width: 1120px; height: 70px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #FF7B9C; border-radius: 4px; z-index: 1;"></div>
-<!-- Hook Box Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 202px; left: 104px; width: 1072px; height: 35px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 20px; font-weight: 500; color: #1F2937; margin: 0; line-height: 1.5;">
-        "Top-20을 뽑고, Top-5로 재정렬 — 정밀도와 속도의 균형"
-    </p>
+<!-- Subtitle -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 148px; left: 80px; width: 1120px; height: 30px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 500; color: #607196; margin: 0;">
+"정답 청크를 아예 차단하던 버그" → 점수 가산으로 전환, 상한선 설정으로 CE 점수 보호
+</p>
 </div>
-<!-- Pipeline Stage 1 Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 290px; left: 80px; width: 320px; height: 210px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 6px solid #607196; border-radius: 6px; box-shadow: 0 4px 12px rgba(96,113,150,0.08); z-index: 1;"></div>
-<!-- Pipeline Stage 1 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 310px; left: 100px; width: 280px; height: 170px; z-index: 10;">
-<div style="display: flex; flex-direction: column; align-items: center; text-align: center; font-family: 'Noto Sans KR', sans-serif; height: 100%;">
-<span style="font-size: 14px; font-weight: 700; color: #607196; margin-bottom: 4px;">KURE-v1 Dense · Top-20 추출</span>
-<span style="font-family: 'Black Han Sans', sans-serif; font-size: 48px; color: #1F2937; margin-bottom: 8px;">0.78</span>
-<div style="background: #F3F4F6; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #8B99B6; width: 100%; box-sizing: border-box; margin-top: auto;">
-        Recall 중시, Precision 부족
-    </div>
+<!-- Sample Size Warning Badge -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 105px; left: 980px; width: 220px; height: 46px; background: #D49B25; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 105px; left: 980px; width: 220px; height: 46px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 700; color: #FFFFFF; margin: 0; line-height: 1.3; padding-top: 8px; text-align: center;">
+⚠️ Type C 멀티턴 13문항<br/><span style="font-weight: 500; font-size: 11px;">한정 개선 실험 (80문항 아님)</span>
+</p>
 </div>
-</div>
-<!-- Pipeline Stage 2 Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 290px; left: 480px; width: 320px; height: 210px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 6px solid #607196; border-radius: 6px; box-shadow: 0 4px 12px rgba(96,113,150,0.08); z-index: 1;"></div>
-<!-- Pipeline Stage 2 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 310px; left: 500px; width: 280px; height: 170px; z-index: 10;">
-<div style="display: flex; flex-direction: column; align-items: center; text-align: center; font-family: 'Noto Sans KR', sans-serif; height: 100%;">
-<span style="font-size: 14px; font-weight: 700; color: #607196; margin-bottom: 4px;">BGE-Reranker-v2-m3 · Top-5 재정렬</span>
-<span style="font-family: 'Black Han Sans', sans-serif; font-size: 48px; color: #1F2937; margin-bottom: 8px;">0.96</span>
-<div style="background: #F3F4F6; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #8B99B6; width: 100%; box-sizing: border-box; margin-top: auto;">
-        Cross-Encoder 정밀 스코어링
-    </div>
+<!-- ============ BEFORE / AFTER Flow Diagram ============ -->
+<!-- Before Box (Left) -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 195px; left: 80px; width: 560px; height: 220px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 4px solid #BABFD1; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 213px; left: 100px; width: 520px; z-index: 10;">
+<div style="display: flex; align-items: center; justify-content: space-between;">
+<div style="display: flex; align-items: center;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; font-weight: 700; color: #FFFFFF; background: #607196; padding: 3px 8px; border-radius: 10px;">BEFORE</span>
+<span style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; font-weight: 700; color: #1F2937; margin-left: 8px;">Hard Filter 방식</span>
 </div>
 </div>
-<!-- Pipeline Stage 3 Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 290px; left: 880px; width: 320px; height: 210px; background: #FFF5F7; border: 1px solid #FF7B9C; border-top: 6px solid #FF7B9C; border-left: 4px solid #FF7B9C; border-radius: 6px; box-shadow: 0 4px 12px rgba(255,123,156,0.15); z-index: 1;"></div>
-<!-- Pipeline Stage 3 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 310px; left: 900px; width: 280px; height: 170px; z-index: 10;">
-<div style="display: flex; flex-direction: column; align-items: center; text-align: center; font-family: 'Noto Sans KR', sans-serif; height: 100%;">
-<span style="font-size: 14px; font-weight: 900; color: #FF7B9C; margin-bottom: 4px;">최종 Context</span>
-<span style="font-family: 'Black Han Sans', sans-serif; font-size: 48px; color: #1F2937; margin-bottom: 8px;">0.9733</span>
-<div style="background: #FFFFFF; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: 700; color: #FF7B9C; border: 1px dashed rgba(255,123,156,0.5); width: 100%; box-sizing: border-box; margin-top: auto;">
-        LLM 입력 준비 완료
-    </div>
+</div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 250px; left: 100px; width: 520px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; color: #1F2937; margin: 0 0 12px 0; line-height: 1.5;">
+LLM이 추론한 섹션을 <span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700;">where_document</span>로 강제 필터 → 추론이 틀리면 정답 청크가 <span style="font-weight: 700; color: #DC2626;">아예 차단</span>
+</p>
+</div>
+<!-- Before Flow Visualization -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 310px; left: 100px; width: 520px; height: 90px; background: #FEF2F2; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 322px; left: 114px; width: 492px; z-index: 10;">
+<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+<div style="flex: 1; padding: 8px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 4px; text-align: center; font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #1F2937;">LLM section 추론</div>
+<i class="fa-solid fa-arrow-right" style="color: #DC2626; font-size: 14px;"></i>
+<div style="flex: 1; padding: 8px; background: #FFFFFF; border: 1px solid #DC2626; border-radius: 4px; text-align: center; font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #DC2626; font-weight: 700;">where_document 강제</div>
+<i class="fa-solid fa-arrow-right" style="color: #DC2626; font-size: 14px;"></i>
+<div style="flex: 1.2; padding: 8px; background: #DC2626; border-radius: 4px; text-align: center; font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #FFFFFF; font-weight: 700;">❌ 정답 청크 차단</div>
+</div>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 8px 0 0 0; text-align: center;">
+추론이 틀리면 <span style="font-weight: 700; color: #DC2626;">복구 불가</span> — all-or-nothing
+</p>
+</div>
+<!-- After Box (Right) -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 195px; left: 660px; width: 540px; height: 220px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 4px solid #10B981; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 213px; left: 680px; width: 500px; z-index: 10;">
+<div style="display: flex; align-items: center;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; font-weight: 700; color: #FFFFFF; background: #10B981; padding: 3px 8px; border-radius: 10px;">AFTER</span>
+<span style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; font-weight: 700; color: #1F2937; margin-left: 8px;">Soft Boost + 병렬 조회</span>
 </div>
 </div>
-<!-- Arrow 1 to 2 -->
-<div data-object="true" data-object-type="icon" style="position: absolute; top: 370px; left: 415px; width: 50px; height: 50px; z-index: 10; text-align: center;">
-<i class="fas fa-chevron-right" style="color: #BABFD1; font-size: 32px; line-height: 50px;"></i>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 250px; left: 680px; width: 500px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; color: #1F2937; margin: 0 0 12px 0; line-height: 1.5;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700;">section_hint</span> 히트 시 <span style="font-weight: 700; color: #10B981;">+0.12 가산</span> — 차단 없이 랭킹 보조 (상한 0.15)
+</p>
 </div>
-<!-- Annotation 1 to 2 -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 335px; left: 395px; width: 90px; height: 25px; z-index: 15; text-align: center;">
-<span style="background: #FFC759; color: #1F2937; font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 12px; white-space: nowrap;">MRR +0.18 ↑</span>
+<!-- After Flow Visualization -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 310px; left: 680px; width: 500px; height: 90px; background: #F0FDF4; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 322px; left: 694px; width: 472px; z-index: 10;">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+<div style="flex: 1; padding: 6px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 4px; text-align: center; font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937;">원질문 + 재작성<br/>병렬 조회</div>
+<i class="fa-solid fa-arrow-right" style="color: #10B981; font-size: 12px;"></i>
+<div style="flex: 1; padding: 6px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 4px; text-align: center; font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937;">Hybrid 후보 풀</div>
+<i class="fa-solid fa-arrow-right" style="color: #10B981; font-size: 12px;"></i>
+<div style="flex: 1.1; padding: 6px; background: #10B981; border-radius: 4px; text-align: center; font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #FFFFFF; font-weight: 700;">✅ Top-K 선발</div>
 </div>
-<!-- Arrow 2 to 3 -->
-<div data-object="true" data-object-type="icon" style="position: absolute; top: 370px; left: 815px; width: 50px; height: 50px; z-index: 10; text-align: center;">
-<i class="fas fa-chevron-right" style="color: #BABFD1; font-size: 32px; line-height: 50px;"></i>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #10B981; margin: 8px 0 0 0; text-align: center;">
+<span style="font-weight: 700;">section · table · metadata</span> boost (max_total=0.15 상한)
+</p>
 </div>
-<!-- Before Card Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 540px; left: 80px; width: 440px; height: 110px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #BABFD1; border-radius: 6px; z-index: 1;"></div>
-<!-- Before Card Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 565px; left: 104px; width: 396px; height: 60px; z-index: 10;">
-<div style="font-family: 'Noto Sans KR', sans-serif; text-align: center;">
-<p style="font-size: 14px; font-weight: 700; color: #BABFD1; margin: 0 0 8px 0;">Before (단일 검색)</p>
-<p style="font-size: 20px; font-weight: 900; color: #607196; margin: 0;">MRR 0.78 · 오답률 22%</p>
+<!-- ============ Change Points (4-item row) ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 430px; left: 80px; width: 1120px; height: 108px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 445px; left: 100px; width: 1080px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0 0 10px 0;">
+🔧 4가지 변경 포인트
+</p>
+<div style="display: flex; gap: 14px;">
+<div style="flex: 1; padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; font-weight: 700; color: #FF7B9C; margin: 0 0 3px 0;">① section_hint</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #1F2937; margin: 0; line-height: 1.4;">hard filter → <span style="font-weight: 700;">soft boost</span>로만 사용</p>
+</div>
+<div style="flex: 1; padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; font-weight: 700; color: #FF7B9C; margin: 0 0 3px 0;">② 병렬 조회</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #1F2937; margin: 0; line-height: 1.4;">원 질문 + 재작성 <span style="font-weight: 700;">동시 검색</span></p>
+</div>
+<div style="flex: 1; padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; font-weight: 700; color: #FF7B9C; margin: 0 0 3px 0;">③ 동적 anchor</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #1F2937; margin: 0; line-height: 1.4;">질문별 <span style="font-weight: 700;">키워드 가중치</span> 자동 조정</p>
+</div>
+<div style="flex: 1; padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; font-weight: 700; color: #FF7B9C; margin: 0 0 3px 0;">④ 메타 boost</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #1F2937; margin: 0; line-height: 1.4;">기관·사업명 일치 시 <span style="font-weight: 700;">추가 가산</span></p>
 </div>
 </div>
-<!-- Before/After Arrow + Text -->
-<div data-object="true" data-object-type="icon" style="position: absolute; top: 570px; left: 530px; width: 220px; height: 50px; z-index: 10; text-align: center;">
-<div style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 900; color: #FF7B9C; margin-bottom: 6px;">+23%p 정확도 향상</div>
-<i class="fas fa-long-arrow-alt-right" style="color: #FF7B9C; font-size: 24px;"></i>
 </div>
-<!-- After Card Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 540px; left: 760px; width: 440px; height: 110px; background: #FFFDF5; border: 1px solid #FFC759; border-left: 4px solid #FFC759; border-radius: 6px; box-shadow: 0 4px 8px rgba(255,199,89,0.15); z-index: 1;"></div>
-<!-- After Card Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 565px; left: 784px; width: 396px; height: 60px; z-index: 10;">
-<div style="font-family: 'Noto Sans KR', sans-serif; text-align: center;">
-<p style="font-size: 14px; font-weight: 700; color: #D49B25; margin: 0 0 8px 0;"><span style="background: #FFC759; color: #1F2937; padding: 2px 8px; border-radius: 10px; margin-right: 6px;">채택</span>After (2단계)</p>
-<p style="font-size: 20px; font-weight: 900; color: #1F2937; margin: 0;">MRR 0.97 · 오답률 3%</p>
+<!-- ============ Type C Result Table ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 555px; left: 80px; width: 1120px; height: 115px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 568px; left: 100px; width: 1080px; z-index: 10;">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
+📊 Apr 17 Type C 실험 결과 <span style="font-weight: 500; color: #607196;">(13문항 한정)</span>
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0;">
+run_id bench-706eacba · 2026-04-17
+</p>
+</div>
+<div style="display: flex; gap: 20px;">
+<div style="flex: 1; padding: 10px 14px; background: #FFFFFF; border-radius: 4px; display: flex; flex-direction: column; align-items: center;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">Faithfulness</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 15px; color: #1F2937; margin: 0;">
+<span style="color: #BABFD1;">0.7692</span> → <span style="font-weight: 700; color: #10B981;">0.8462</span>
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; font-weight: 700; color: #10B981; margin: 2px 0 0 0;">+7.7%</p>
+</div>
+<div style="flex: 1; padding: 10px 14px; background: #FFFFFF; border-radius: 4px; display: flex; flex-direction: column; align-items: center;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">Context Recall</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 15px; color: #1F2937; margin: 0;">
+<span style="color: #BABFD1;">0.7500</span> → <span style="font-weight: 700; color: #10B981;">0.8462</span>
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; font-weight: 700; color: #10B981; margin: 2px 0 0 0;">+9.6%</p>
+</div>
+<div style="flex: 1.3; padding: 10px 14px; background: #FFFFFF; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0 0 6px 0; font-weight: 700;">상한 보호</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #1F2937; margin: 0; line-height: 1.5;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700;">MAX_TOTAL_BOOST = 0.15</span>
+<br/><span style="color: #607196;">Cross-Encoder 점수 역전 방지</span>
+</p>
 </div>
 </div>
-<!-- Footer Divider -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 685px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
-<!-- Footer Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 695px; left: 80px; width: 600px; height: 20px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 400; color: #BABFD1; margin: 0;">
-        reranker_bench_0418.csv · BGE-Reranker-v2-m3
-    </p>
+</div>
+<!-- Bottom Divider -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 680px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
+<!-- Footer -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 693px; left: 80px; width: 1120px; height: 20px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500; color: #607196; margin: 0;">
+⚠️ Type C(멀티턴 계열) 13문항 한정 개선 실험 · 80문항 전체 기준 일반화 주의 · run_id bench-706eacba · 2026-04-17
+</p>
 </div>
 </div>
 </body>
