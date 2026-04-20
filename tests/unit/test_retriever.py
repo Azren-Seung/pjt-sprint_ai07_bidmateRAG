@@ -722,7 +722,8 @@ def test_retriever_applies_cross_encoder_after_multi_agency_fan_out_merge() -> N
     ]
     assert [result.chunk.chunk_id for result in results] == ["ibs-1", "nps-2"]
     assert [result.rank for result in results] == [1, 2]
-    assert [result.score for result in results] == [0.97, 0.98]
+    # CE 점수가 score에 반영돼 boost가 CE 기준으로 재정렬한다.
+    assert [result.score for result in results] == [0.95, 0.9]
     assert [result.rerank_score for result in results] == [0.95, 0.9]
 
 
@@ -841,6 +842,91 @@ def test_retriever_uses_llm_rewrite_for_implicit_followup() -> None:
     assert retriever._last_debug["rewrite_reason"] == "llm"
     assert retriever._last_debug["rewritten_query"] == "국민연금공단 차세대 ERP 사업의 평가기준"
     assert retriever._last_debug["rewrite_slot_memory"]["발주기관"] == "국민연금공단"
+
+
+def test_retriever_filters_numeric_slots_before_passing_memory_to_rewrite() -> None:
+    vector_store = FakeVectorStore()
+    embedder = FakeEmbedder()
+    mock_llm = _make_mock_llm(
+        '{"rewritten_query": "국민연금공단 차세대 ERP 사업의 예산", "section_hint": "예산"}'
+    )
+    memory = ConversationMemory(
+        max_recent_turns=4,
+        max_summary_chars=120,
+        agency_list=["국민연금공단"],
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=embedder,
+        metadata_store=FakeMetadataStore(),
+        rewrite_llm=mock_llm,
+        memory=memory,
+    )
+
+    retriever.retrieve(
+        "예산은?",
+        top_k=2,
+        chat_history=[
+            {"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"},
+            {"role": "assistant", "content": "예산은 5억원입니다."},
+        ],
+    )
+
+    prompt = mock_llm.rewrite.call_args.args[0]
+    assert "발주기관: 국민연금공단" in prompt
+    assert "사업명: 국민연금공단 차세대 ERP 사업" in prompt
+    assert "관심속성: 예산" in prompt
+    assert "예산: 5억원" not in prompt
+    assert retriever._last_debug["rewrite_slot_memory"] == {
+        "발주기관": "국민연금공단",
+        "사업명": "국민연금공단 차세대 ERP 사업",
+        "관심속성": "예산",
+    }
+
+
+def test_retriever_keeps_full_generation_memory_when_rewrite_slots_are_filtered() -> None:
+    vector_store = FakeVectorStore()
+    embedder = FakeEmbedder()
+    mock_llm = _make_mock_llm(
+        '{"rewritten_query": "국민연금공단 차세대 ERP 사업의 예산", "section_hint": "예산"}'
+    )
+    memory = ConversationMemory(
+        max_recent_turns=4,
+        max_summary_chars=120,
+        agency_list=["국민연금공단"],
+    )
+    retriever = RAGRetriever(
+        vector_store=vector_store,
+        embedder=embedder,
+        metadata_store=FakeMetadataStore(),
+        rewrite_llm=mock_llm,
+        memory=memory,
+    )
+
+    retriever.retrieve(
+        "예산은?",
+        top_k=2,
+        chat_history=[
+            {"role": "user", "content": "국민연금공단 차세대 ERP 사업 알려줘"},
+            {"role": "assistant", "content": "예산은 5억원입니다."},
+        ],
+    )
+
+    assert retriever._last_debug["memory_state"]["slot_memory"]["예산"] == "5억원"
+
+
+def test_retriever_apply_experimental_rerank_returns_original_results_when_disabled() -> None:
+    results = [_retrieved_chunk("chunk-1", 0.9, agency="국민연금공단")]
+    retriever = RAGRetriever(
+        vector_store=FakeVectorStore(),
+        embedder=FakeEmbedder(),
+        metadata_store=FakeMetadataStore(),
+        reranker_model=None,
+    )
+
+    reranked = retriever._apply_experimental_rerank("질문", results, 1)
+
+    assert reranked is results
 
 
 def test_retriever_keeps_minimal_runtime_state_when_debug_trace_disabled() -> None:

@@ -298,9 +298,9 @@ def main() -> None:
         help="LLM model used by the judge (default: gpt-4o-mini).",
     )
     parser.add_argument(
-        "--judge-v2",
+        "--judge-v1",
         action="store_true",
-        help="Use evidence-first judge v2 (keeps v1 as default).",
+        help="Use legacy judge v1 (keeps v2 as default).",
     )
     parser.add_argument(
         "--strict",

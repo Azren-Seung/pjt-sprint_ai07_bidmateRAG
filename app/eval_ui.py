@@ -306,15 +306,23 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
         if selected_prompt_config:
             selected_prompt = _yaml.safe_load(selected_prompt_config.read_text()).get("system_prompt")
 
-    opt_col1, opt_col2 = st.columns(2)
+    opt_col1, opt_col2, opt_col3 = st.columns(3)
     with opt_col1:
         skip_judge = st.checkbox(
-            "Judge 끄기 (faithfulness 등)",
+            "Judge 끄기",
             value=False,
             key="run_skip_judge",
-            help="LLM judge는 추가 API 호출이라 비용/시간이 늘어납니다. 빠른 실행에 사용",
+            help="LLM judge는 추가 API 호출이라 비용/시간이 늘어납니다.",
         )
     with opt_col2:
+        judge_v2 = st.checkbox(
+            "Judge V2 사용",
+            value=True,
+            disabled=skip_judge,
+            key="run_judge_v2",
+            help="증거 기반의 더 정교한 평가 모델을 사용합니다.",
+        )
+    with opt_col3:
         judge_model = st.selectbox(
             "Judge 모델",
             ["gpt-4o-mini", "gpt-5-mini"],
@@ -337,6 +345,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
             experiment_config_path=chunking,  # 청킹 전략 전달
             skip_judge=skip_judge,
             judge_model=judge_model,
+            judge_v2=judge_v2,
             top_k=top_k,  # 검색할 top_k 전달
             progress_callback=_on_progress,
             embedding_config_path=selected_embedding,  # 시나리오 A 임베딩 전달,

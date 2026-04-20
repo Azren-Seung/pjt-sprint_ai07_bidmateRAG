@@ -67,7 +67,7 @@ def execute_evaluation(
     run_id: str | None = None,
     skip_judge: bool = False,
     judge_model: str = "gpt-4o-mini",
-    judge_v2: bool = False,
+    judge_v2: bool = True,
     progress_callback: ProgressCallback | None = None,
     top_k: int | None = None,
     system_prompt: str | None = None, # 시나리오 A 시스템 프롬프트 추가
@@ -216,7 +216,7 @@ def _run_judge(
     benchmark: BenchmarkRunResult,
     judge_model: str,
     *,
-    judge_v2: bool = False,
+    judge_v2: bool = True,
 ) -> tuple[float, int]:
     """Run LLM judge on each sample, mutate result.judge_scores, return cost/tokens."""
     judge = LLMJudgeV2(model=judge_model) if judge_v2 else LLMJudge(model=judge_model)
