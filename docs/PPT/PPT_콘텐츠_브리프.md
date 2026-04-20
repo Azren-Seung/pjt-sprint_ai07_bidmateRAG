@@ -351,7 +351,7 @@
 
 **각주**: run_id bench-1dc90326, 2026-04-15, eval_batch_35 80문항
 
-### 슬라이드 21 — Hard Filter에서 Soft Boost로의 전환 + 원질문·재작성 병렬 조회 ★
+### 슬라이드 21 — Hard Filter에서 Soft Boost로의 전환과 병렬 조회 ★
 
 **핵심 텍스트**:
 - 초기 Hard Filter: LLM이 추론한 섹션을 `where_document`로 강제 필터 → 추론 틀리면 정답 청크 완전 차단
