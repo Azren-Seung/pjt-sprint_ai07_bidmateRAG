@@ -4,207 +4,180 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Top-K = 5, 비용과 정확도의 변곡점</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;display=swap" rel="stylesheet"/>
+<title>Cross-Encoder를 본 경로에서 분리한 3가지 이유</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;family=Nanum+Gothic+Coding:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
 </head>
 <body style="margin: 0; padding: 0; overflow: hidden; background: #FAFAFA;">
 <div class="slide-container" style="position: relative; width: 1280px; height: 720px; overflow: hidden; background: #FAFAFA;">
 <!-- Header Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 400px; z-index: 10;">
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 500px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #607196; letter-spacing: 0.5px; margin: 0;">
-<span style="color: #FF7B9C;">★ 임팩트</span> · 검색 최적화
-    </p>
+<span style="color: #FF7B9C;">★ 임팩트</span> · 섹션 ④ · 반전 의사결정
+</p>
 </div>
 <!-- Header Right -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 800px; width: 400px; text-align: right; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 500; color: #607196; letter-spacing: 0.5px; margin: 0;">
-        슬라이드 20
-    </p>
+슬라이드 20
+</p>
 </div>
 <!-- Top Divider -->
 <div data-object="true" data-object-type="shape" style="position: absolute; top: 75px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
 <!-- Main Title -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 105px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
-<p style="font-family: 'Black Han Sans', sans-serif; font-size: 44px; color: #1F2937; letter-spacing: -1.5px; margin: 0; line-height: 1.2;">
-        Top-K = 5, 비용과 정확도의 변곡점
-    </p>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 98px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
+<p style="font-family: 'Black Han Sans', sans-serif; font-size: 40px; color: #1F2937; letter-spacing: -1.3px; margin: 0; line-height: 1.15;">
+Cross-Encoder를 본 경로에서 분리한 3가지 이유
+</p>
 </div>
-<!-- Hook Box Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 180px; left: 80px; width: 1120px; height: 70px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #FF7B9C; border-radius: 4px; z-index: 1;"></div>
-<!-- Hook Box Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 202px; left: 104px; width: 1072px; height: 35px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 20px; font-weight: 500; color: #1F2937; margin: 0; line-height: 1.5;">
-        "<span style="color: #FF7B9C; font-weight: 700;">더 많이 가져오는 것이 항상 더 좋은 것은 아니다</span>"
-    </p>
+<!-- Subtitle Hook -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 150px; left: 80px; width: 1120px; height: 30px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500; color: #607196; margin: 0; font-style: italic;">
+"더 많은 모델이 항상 더 좋은 결과를 주지 않는다"
+</p>
 </div>
-<!-- Chart Area Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 280px; left: 80px; width: 780px; height: 380px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
-<!-- Legend -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 300px; left: 100px; width: 740px; height: 30px; z-index: 10;">
-<div style="display: flex; justify-content: flex-end; align-items: center; gap: 16px; font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 700; color: #607196;">
-<div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; background: #607196; border-radius: 2px;"></div>MRR</div>
-<div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; background: #FF7B9C; border-radius: 2px;"></div>Faithfulness</div>
-<div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; background: #FFC759; border-radius: 2px;"></div>Cost (USD)</div>
+<!-- ============ REASON 1: VRAM 제약 ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 195px; left: 80px; width: 360px; height: 255px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 4px solid #FF7B9C; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 215px; left: 100px; width: 320px; z-index: 10;">
+<div style="display: flex; align-items: center;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF7B9C; padding: 4px 10px; border-radius: 12px;">이유 ①</span>
+</div>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: 700; color: #1F2937; margin: 10px 0 0 0;">
+운영 환경 제약
+</p>
+</div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 282px; left: 100px; width: 320px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; color: #1F2937; margin: 0 0 14px 0; line-height: 1.55;">
+시나리오 A의 L4 <span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700;">24GB VRAM</span>에서 로컬 LLM + CE 동시 로드 <span style="font-weight: 700;">불가</span>
+</p>
+</div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 355px; left: 100px; width: 320px; height: 82px; background: #FDF5F7; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 368px; left: 114px; width: 292px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">VRAM 할당 ·</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937; margin: 0; line-height: 1.55;">
+Gemma-4-E4B (INT4) ≈ 10GB<br/>
++ CE model ≈ 2GB + KV cache → <span style="color: #DC2626; font-weight: 700;">24GB 초과</span>
+</p>
+</div>
+<!-- ============ REASON 2: 기여도 미미 ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 195px; left: 460px; width: 360px; height: 255px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 4px solid #FF7B9C; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 215px; left: 480px; width: 320px; z-index: 10;">
+<div style="display: flex; align-items: center;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF7B9C; padding: 4px 10px; border-radius: 12px;">이유 ②</span>
+</div>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: 700; color: #1F2937; margin: 10px 0 0 0;">
+기여도 미미
+</p>
+</div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 282px; left: 480px; width: 320px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; color: #1F2937; margin: 0 0 14px 0; line-height: 1.55;">
+<span style="font-weight: 700;">Hybrid(Dense+BM25+RRF)</span> 이후 CE 추가 재정렬의 개선 폭이 작음
+</p>
+</div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 355px; left: 480px; width: 320px; height: 82px; background: #FDF5F7; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 368px; left: 494px; width: 292px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">역설 ·</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #1F2937; margin: 0; line-height: 1.55;">
+CE OFF로 오히려 <span style="font-weight: 700; color: #10B981;">Faithfulness +4.4% / Recall +5.6%</span> — 본 경로에서 CE의 한계 효용이 음수
+</p>
+</div>
+<!-- ============ REASON 3: 공정한 A/B ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 195px; left: 840px; width: 360px; height: 255px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 4px solid #FF7B9C; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 215px; left: 860px; width: 320px; z-index: 10;">
+<div style="display: flex; align-items: center;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF7B9C; padding: 4px 10px; border-radius: 12px;">이유 ③</span>
+</div>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: 700; color: #1F2937; margin: 10px 0 0 0;">
+공정한 A/B 비교
+</p>
+</div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 282px; left: 860px; width: 320px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; color: #1F2937; margin: 0 0 14px 0; line-height: 1.55;">
+검색단을 통제 않고 B에만 CE를 얹으면 <span style="font-weight: 700;">LLM 효과 + CE 효과</span>가 뒤섞임
+</p>
+</div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 355px; left: 860px; width: 320px; height: 82px; background: #FDF5F7; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 368px; left: 874px; width: 292px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">설계 원칙 ·</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #1F2937; margin: 0; line-height: 1.55;">
+<span style="font-weight: 700;">검색단은 A/B 공통</span> → LLM(gpt-5-mini vs Gemma-4-E4B)만 교체해 순수 비교
+</p>
+</div>
+<!-- ============ Apr 15 Comparison Table ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 470px; left: 80px; width: 780px; height: 192px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
+<!-- Table Title -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 485px; left: 100px; width: 740px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
+📊 근거 · Apr 15 실측 비교 (eval_batch_35 80문항, bench-1dc90326)
+</p>
+</div>
+<!-- Table Header -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 515px; left: 100px; width: 740px; z-index: 10;">
+<div style="display: flex; border-bottom: 2px solid #607196; padding-bottom: 6px; font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 700; color: #607196;">
+<div style="flex: 4;">구분</div>
+<div style="flex: 2; text-align: center;">MRR</div>
+<div style="flex: 2; text-align: center;">Hit@5</div>
+<div style="flex: 2.5; text-align: center;">Faithfulness</div>
+<div style="flex: 2.5; text-align: center;">Context Recall</div>
 </div>
 </div>
-<!-- Chart Canvas -->
-<div data-object="true" data-object-type="chart" style="position: absolute; top: 330px; left: 100px; width: 740px; height: 310px; z-index: 10;">
-<canvas id="topkLineChart"></canvas>
-</div>
-<!-- Decision Box 1 Background (K=3) -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 280px; left: 890px; width: 310px; height: 110px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #BABFD1; border-radius: 6px; z-index: 1;"></div>
-<!-- Decision Box 1 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 295px; left: 914px; width: 266px; height: 80px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #BABFD1; margin: 0 0 6px 0;">① K=3</p>
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; font-weight: 700; color: #1F2937; margin: 0; line-height: 1.4;">검색 범위 부족<br/>Faithfulness <span style="color: #607196;">0.5969</span></p>
-</div>
-<!-- Decision Box 2 Background (K=5) -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 415px; left: 890px; width: 310px; height: 110px; background: #FFFDF5; border: 1px solid #FFC759; border-left: 4px solid #FF7B9C; border-radius: 6px; box-shadow: 0 4px 6px rgba(255, 123, 156, 0.05); z-index: 1;"></div>
-<!-- Decision Box 2 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 430px; left: 914px; width: 266px; height: 80px; z-index: 10;">
-<div style="display: flex; justify-content: space-between; align-items: flex-start; font-family: 'Noto Sans KR', sans-serif;">
-<div>
-<p style="font-size: 14px; font-weight: 700; color: #FF7B9C; margin: 0 0 6px 0;">② K=5</p>
-<p style="font-size: 16px; font-weight: 700; color: #1F2937; margin: 0; line-height: 1.4;">Faithfulness 피크 <span style="color: #FF7B9C; font-weight: 900;">0.6094</span><br/>Latency <span style="color: #607196;">14.3s</span></p>
-</div>
-<span style="background: #FFC759; color: #1F2937; font-size: 13px; font-weight: 700; padding: 4px 8px; border-radius: 4px;">채택</span>
+<!-- Row 1: Before -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 548px; left: 100px; width: 740px; z-index: 10;">
+<div style="display: flex; align-items: center; border-bottom: 1px solid #E8E9ED; padding: 8px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px; color: #1F2937;">
+<div style="flex: 4;">직전 (부스팅 + CE)</div>
+<div style="flex: 2; text-align: center; font-family: 'Nanum Gothic Coding', monospace;">0.9700</div>
+<div style="flex: 2; text-align: center; font-family: 'Nanum Gothic Coding', monospace;">0.9867</div>
+<div style="flex: 2.5; text-align: center; font-family: 'Nanum Gothic Coding', monospace;">0.7094</div>
+<div style="flex: 2.5; text-align: center; font-family: 'Nanum Gothic Coding', monospace;">0.7000</div>
 </div>
 </div>
-<!-- Decision Box 3 Background (K=10) -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 550px; left: 890px; width: 310px; height: 110px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #BABFD1; border-radius: 6px; z-index: 1;"></div>
-<!-- Decision Box 3 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 565px; left: 914px; width: 266px; height: 80px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #BABFD1; margin: 0 0 6px 0;">③ K=10</p>
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; font-weight: 700; color: #1F2937; margin: 0; line-height: 1.4;">Cost <span style="color: #FFC759;">+30%</span><br/>Faithfulness <span style="color: #BABFD1;">역전 하락</span></p>
+<!-- Row 2: After (Adopted) -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 586px; left: 100px; width: 740px; z-index: 10;">
+<div style="display: flex; align-items: center; padding: 8px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px; color: #1F2937;">
+<div style="flex: 4; font-weight: 700;">채택 (Hybrid, CE OFF)</div>
+<div style="flex: 2; text-align: center; font-family: 'Nanum Gothic Coding', monospace; color: #607196;">0.9644 <span style="font-size: 10.5px;">(-0.006)</span></div>
+<div style="flex: 2; text-align: center; font-family: 'Nanum Gothic Coding', monospace;">0.9867 <span style="font-size: 10.5px; color: #607196;">(=)</span></div>
+<div style="flex: 2.5; text-align: center; font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #10B981;">0.7531 <span style="font-size: 10.5px;">(+4.4%)</span></div>
+<div style="flex: 2.5; text-align: center; font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #10B981;">0.7562 <span style="font-size: 10.5px;">(+5.6%)</span></div>
+</div>
+</div>
+<!-- Table interpretation -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 628px; left: 100px; width: 740px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #607196; margin: 0; line-height: 1.5;">
+MRR은 0.006 소폭 하락했지만, <span style="color: #10B981; font-weight: 700;">Grounding 품질 지표(Faithfulness·Recall)</span>는 유의미하게 개선 → <span style="font-weight: 700;">CE OFF가 더 나은 선택</span>
+</p>
+</div>
+<!-- ============ Conclusion Box (Right) ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 470px; left: 880px; width: 320px; height: 192px; background: #1F2937; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 488px; left: 900px; width: 280px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #FFC759; margin: 0 0 8px 0;">
+🎯 결론
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; color: #FFFFFF; margin: 0 0 12px 0; line-height: 1.55;">
+CE는 <span style="font-weight: 700;">실험용·비교용 경로</span>로만 유지. 본 파이프라인은 <span style="color: #FFC759; font-weight: 700;">Hybrid + Soft Boost</span> 중심.
+</p>
+</div>
+<!-- Code Evidence -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 575px; left: 900px; width: 280px; height: 76px; background: #0F1419; border-radius: 4px; z-index: 2;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 585px; left: 914px; width: 252px; z-index: 10;">
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #9CA3AF; margin: 0 0 4px 0;">
+# configs/retrieval.yaml
+</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 12px; color: #FFC759; margin: 0; line-height: 1.45;">
+reranker_model: <span style="color: #FF7B9C; font-weight: 700;">null</span>
+</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 10px; color: #6B7280; margin: 4px 0 0 0;">
+→ 기본값, 실제 구현에 반영됨
+</p>
 </div>
 <!-- Bottom Divider -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 685px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
-<!-- Footer Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 695px; left: 80px; width: 600px; height: 20px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 400; color: #BABFD1; margin: 0;">
-        bench-3905e4ce · Scenario B · 80문항 full · 2026-04-19
-    </p>
-</div>
-<!-- Footer Right -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 695px; left: 680px; width: 520px; height: 20px; text-align: right; z-index: 10;">
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 680px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
+<!-- Footer -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 693px; left: 80px; width: 1120px; height: 20px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500; color: #607196; margin: 0;">
-        ★ 임팩트 · 검색 최적화
-    </p>
+run_id bench-1dc90326 · 2026-04-15 · eval_batch_35 80문항 full · 시나리오 B
+</p>
 </div>
-<script>
-    const ctx = document.getElementById('topkLineChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['K=3', 'K=5', 'K=10'],
-            datasets: [
-                {
-                    label: 'MRR',
-                    data: [0.9578, 0.9578, 0.9578],
-                    borderColor: '#607196',
-                    backgroundColor: 'rgba(96, 113, 150, 0.1)',
-                    borderWidth: 3,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#607196',
-                    fill: false,
-                    tension: 0,
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Faithfulness',
-                    data: [0.5969, 0.6094, 0.5750],
-                    borderColor: '#FF7B9C',
-                    backgroundColor: 'rgba(255, 123, 156, 0.1)',
-                    borderWidth: 3,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#FFFFFF',
-                    pointBorderColor: '#FF7B9C',
-                    pointBorderWidth: 2,
-                    fill: false,
-                    tension: 0.3,
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Cost (USD)',
-                    data: [0.2036, 0.2218, 0.2657],
-                    borderColor: '#FFC759',
-                    backgroundColor: 'rgba(255, 199, 89, 0.1)',
-                    borderWidth: 3,
-                    borderDash: [5, 5],
-                    pointRadius: 6,
-                    pointBackgroundColor: '#FFC759',
-                    fill: false,
-                    tension: 0.1,
-                    yAxisID: 'y1'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#FFFFFF',
-                    titleColor: '#1F2937',
-                    bodyColor: '#607196',
-                    borderColor: '#E8E9ED',
-                    borderWidth: 1,
-                    padding: 10,
-                    cornerRadius: 4,
-                    titleFont: { family: "'Noto Sans KR', sans-serif", size: 13, weight: 'bold' },
-                    bodyFont: { family: "'Noto Sans KR', sans-serif", size: 12 }
-                },
-                annotation: {
-                    annotations: {
-                        line1: {
-                            type: 'line',
-                            xMin: 1,
-                            xMax: 1,
-                            borderColor: '#FF7B9C',
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            label: {
-                                content: '채택',
-                                display: true,
-                                position: 'start',
-                                color: '#1F2937',
-                                backgroundColor: '#FFC759',
-                                borderRadius: 4,
-                                font: { family: "'Noto Sans KR', sans-serif", size: 12, weight: 'bold' },
-                                padding: { top: 4, bottom: 4, left: 8, right: 8 }
-                            }
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false,
-                    min: 0.5,
-                    max: 1.1,
-                    grid: { color: '#E8E9ED', drawBorder: false },
-                    ticks: { color: '#BABFD1', font: { family: "'Noto Sans KR', sans-serif", size: 12 } },
-                    title: { display: true, text: 'MRR / Faithfulness', color: '#607196', font: { family: "'Noto Sans KR', sans-serif", size: 12, weight: 'bold' } }
-                },
-                y1: {
-                    position: 'right',
-                    beginAtZero: true,
-                    max: 0.35,
-                    grid: { display: false },
-                    ticks: { color: '#FFC759', font: { family: "'Noto Sans KR', sans-serif", size: 12 } },
-                    title: { display: true, text: 'Cost (USD)', color: '#FFC759', font: { family: "'Noto Sans KR', sans-serif", size: 12, weight: 'bold' } }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#1F2937', font: { family: "'Noto Sans KR', sans-serif", size: 14, weight: 'bold' }, padding: 10 }
-                }
-            }
-        }
-    });
-</script>
 </div>
 </body>
 </html>
