@@ -287,13 +287,16 @@
     });
 
     // Responsive scaling: fit 1280×720 inside available viewport
+    // - Fullscreen: scale to fill (can exceed 1.0, up to whatever the screen supports)
+    // - Windowed: cap at 1.0 to avoid ugly upscaling on oversized windows
     function updateScale() {
       const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      const padding = isFullscreen ? 0 : 32; // 16px × 2
+      const padding = isFullscreen ? 0 : 32;
       const navHeight = isFullscreen ? 0 : 56;
       const availableW = window.innerWidth - padding;
       const availableH = window.innerHeight - navHeight - padding;
-      const scale = Math.min(availableW / 1280, availableH / 720, 1);
+      const fitScale = Math.min(availableW / 1280, availableH / 720);
+      const scale = isFullscreen ? fitScale : Math.min(fitScale, 1);
       document.documentElement.style.setProperty('--scale', scale);
     }
 
