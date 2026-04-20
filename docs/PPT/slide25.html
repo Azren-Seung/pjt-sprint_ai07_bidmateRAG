@@ -2,6 +2,7 @@
 
 <html lang="ko">
 <head>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>5-Tier 프롬프트 설계 공간 + 대표 8개 파일럿</title>
@@ -12,37 +13,35 @@
 <div class="slide-container" style="position: relative; width: 1280px; height: 720px; overflow: hidden; background: #FAFAFA;">
 <!-- Header Left -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 500px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #607196; letter-spacing: 0.5px; margin: 0;">
-<span style="color: #FFC759;">아키텍처</span> · 섹션 ⑤ · 프롬프트 공간
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #64748B; letter-spacing: 0.5px; margin: 0;">
+<span style="color: #FFC759;">시나리오 A</span> · 설계 공간 · 5-Tier 프롬프트
 </p>
 </div>
 <!-- Header Right -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 800px; width: 400px; text-align: right; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 500; color: #607196; letter-spacing: 0.5px; margin: 0;">
-슬라이드 25
-</p>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 500; color: #64748B; letter-spacing: 0.5px; margin: 0;"><span style="font-weight: 700; color: #475569;">25</span><span style="font-weight: 500; color: #94A3B8;">/31</span></p>
 </div>
 <!-- Top Divider -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 75px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 75px; left: 80px; width: 1120px; height: 1px; background: #E2E8F0; z-index: 1;"></div>
 <!-- Main Title -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 98px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
-<p style="font-family: 'Black Han Sans', sans-serif; font-size: 40px; color: #1F2937; letter-spacing: -1.3px; margin: 0; line-height: 1.15;">
+<p style="font-family: 'Black Han Sans', sans-serif; font-size: 44px; color: #111827; letter-spacing: -2px; margin: 0; line-height: 1.2; line-height: 1.2;">
 5-Tier 프롬프트 설계 공간 + 대표 8개 파일럿
 </p>
 </div>
 <!-- Subtitle -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 150px; left: 80px; width: 1120px; height: 30px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500; color: #607196; margin: 0;">
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700;">P × C × F × S × T</span> 조합으로 만들어진 5,400 YAML 설계 공간 — 전수 실험 대신 <span style="font-weight: 700; color: #1F2937;">대표 샘플링</span>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500; color: #64748B; margin: 0;">
+시나리오 A(로컬 Gemma-4-E4B) 대상 프롬프트 엔지니어링 — <span style="font-family: 'Pretendard', monospace; font-weight: 700;">P × C × F × S × T</span> 5,400 YAML 설계 공간에서 <span style="font-weight: 700; color: #1F2937;">대표 8개 파일럿</span> 샘플링
 </p>
 </div>
 <!-- ============ 5-Tier Stack Diagram (Left) ============ -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 80px; width: 620px; height: 320px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 80px; width: 620px; height: 320px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); z-index: 1;"></div>
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 215px; left: 100px; width: 580px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0;">
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0;">
 🏗️ 5-Tier 구조
 </p>
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; color: #607196; margin: 4px 0 0 0;">
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px; color: #64748B; margin: 4px 0 0 0;">
 각 Tier 변경이 어떤 성능 변화를 야기하는지 <span style="font-weight: 700;">통제 변인 실험</span> 가능
 </p>
 </div>
@@ -52,11 +51,11 @@
 <div style="display: flex; align-items: center; height: 40px; gap: 12px;">
 <span style="font-family: 'Black Han Sans', sans-serif; font-size: 22px; color: #FF7B9C; width: 30px;">P</span>
 <div style="flex: 1;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
-Persona <span style="color: #607196; font-weight: 500;">— 전문가 역할·톤</span>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
+Persona <span style="color: #64748B; font-weight: 500;">— 전문가 역할·톤</span>
 </p>
 </div>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #607196;">5가지 버전</span>
+<span style="font-family: 'Pretendard', monospace; font-size: 11px; color: #64748B;">5가지 버전</span>
 </div>
 </div>
 <!-- Tier C -->
@@ -65,11 +64,11 @@ Persona <span style="color: #607196; font-weight: 500;">— 전문가 역할·�
 <div style="display: flex; align-items: center; height: 40px; gap: 12px;">
 <span style="font-family: 'Black Han Sans', sans-serif; font-size: 22px; color: #FF7B9C; width: 30px;">C</span>
 <div style="flex: 1;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
-Constraints <span style="color: #607196; font-weight: 500;">— 금지·거절·정중 등</span>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
+Constraints <span style="color: #64748B; font-weight: 500;">— 금지·거절·정중 등</span>
 </p>
 </div>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #607196;">5가지 버전</span>
+<span style="font-family: 'Pretendard', monospace; font-size: 11px; color: #64748B;">5가지 버전</span>
 </div>
 </div>
 <!-- Tier F -->
@@ -78,11 +77,11 @@ Constraints <span style="color: #607196; font-weight: 500;">— 금지·거절·
 <div style="display: flex; align-items: center; height: 40px; gap: 12px;">
 <span style="font-family: 'Black Han Sans', sans-serif; font-size: 22px; color: #FF7B9C; width: 30px;">F</span>
 <div style="flex: 1;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
-Format <span style="color: #607196; font-weight: 500;">— 핵심/근거/없음 섹션 구조</span>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
+Format <span style="color: #64748B; font-weight: 500;">— 핵심/근거/없음 섹션 구조</span>
 </p>
 </div>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #607196;">6가지 버전</span>
+<span style="font-family: 'Pretendard', monospace; font-size: 11px; color: #64748B;">6가지 버전</span>
 </div>
 </div>
 <!-- Tier S -->
@@ -91,11 +90,11 @@ Format <span style="color: #607196; font-weight: 500;">— 핵심/근거/없음 
 <div style="display: flex; align-items: center; height: 40px; gap: 12px;">
 <span style="font-family: 'Black Han Sans', sans-serif; font-size: 22px; color: #FF7B9C; width: 30px;">S</span>
 <div style="flex: 1;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
-Shot <span style="color: #607196; font-weight: 500;">— few-shot 예시 개수·구성</span>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
+Shot <span style="color: #64748B; font-weight: 500;">— few-shot 예시 개수·구성</span>
 </p>
 </div>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #607196;">6가지 버전</span>
+<span style="font-family: 'Pretendard', monospace; font-size: 11px; color: #64748B;">6가지 버전</span>
 </div>
 </div>
 <!-- Tier T -->
@@ -104,23 +103,23 @@ Shot <span style="color: #607196; font-weight: 500;">— few-shot 예시 개수�
 <div style="display: flex; align-items: center; height: 40px; gap: 12px;">
 <span style="font-family: 'Black Han Sans', sans-serif; font-size: 22px; color: #FF7B9C; width: 30px;">T</span>
 <div style="flex: 1;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
-Thought <span style="color: #607196; font-weight: 500;">— CoT 유무·스타일</span>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: #1F2937; margin: 0;">
+Thought <span style="color: #64748B; font-weight: 500;">— CoT 유무·스타일</span>
 </p>
 </div>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #607196;">6가지 버전</span>
+<span style="font-family: 'Pretendard', monospace; font-size: 11px; color: #64748B;">6가지 버전</span>
 </div>
 </div>
 <!-- Multiplication Result -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 495px; left: 100px; width: 580px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; color: #607196; margin: 0; text-align: center;">
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700;">5 × 5 × 6 × 6 × 6</span> = <span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #FF7B9C; font-size: 16px;">5,400</span> 조합
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 13px; color: #64748B; margin: 0; text-align: center;">
+<span style="font-family: 'Pretendard', monospace; font-weight: 700;">5 × 5 × 6 × 6 × 6</span> = <span style="font-family: 'Pretendard', monospace; font-weight: 700; color: #FF7B9C; font-size: 16px;">5,400</span> 조합
 </p>
 </div>
 <!-- ============ 5,400 Counter + Sampling (Right top) ============ -->
 <div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 720px; width: 480px; height: 155px; background: #1F2937; border-radius: 6px; z-index: 1;"></div>
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 215px; left: 740px; width: 440px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 700; color: #FFC759; margin: 0;">
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 700; color: #FFC759; margin: 0;">
 설계 공간 (Design Space)
 </p>
 </div>
@@ -130,76 +129,76 @@ Thought <span style="color: #607196; font-weight: 500;">— CoT 유무·스타�
 </p>
 </div>
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 320px; left: 740px; width: 440px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px; color: #FFFFFF; margin: 0; line-height: 1.55;">
-YAML 파일이 <span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #FFC759;">configs/experiments/generated2/</span>에 생성됨 — 전수 실행 불가, 대표 샘플링
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12.5px; color: #FFFFFF; margin: 0; line-height: 1.55;">
+YAML 파일이 <span style="font-family: 'Pretendard', monospace; font-weight: 700; color: #FFC759;">configs/experiments/generated2/</span>에 생성됨 — 전수 실행 불가, 대표 샘플링
 </p>
 </div>
 <!-- ============ Pilot Setup (Right bottom) ============ -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 375px; left: 720px; width: 480px; height: 145px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 4px solid #FFC759; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 375px; left: 720px; width: 480px; height: 145px; background: #FFFFFF; border: 1px solid #E2E8F0; border-top: 4px solid #FFC759; border-radius: 6px; z-index: 1;"></div>
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 390px; left: 740px; width: 440px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0;">
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0;">
 🧪 파일럿 실험 설정
 </p>
 </div>
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 420px; left: 740px; width: 440px; z-index: 10;">
-<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12px; border-bottom: 1px solid #F3F4F6;">
-<span style="color: #607196;">생성 모델</span>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">Gemma-4-E4B</span>
+<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px; border-bottom: 1px solid #F3F4F6;">
+<span style="color: #64748B;">생성 모델</span>
+<span style="font-family: 'Pretendard', monospace; font-weight: 700; color: #1F2937;">Gemma-4-E4B</span>
 </div>
-<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12px; border-bottom: 1px solid #F3F4F6;">
-<span style="color: #607196;">임베딩</span>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">BAAI/bge-m3</span>
+<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px; border-bottom: 1px solid #F3F4F6;">
+<span style="color: #64748B;">임베딩</span>
+<span style="font-family: 'Pretendard', monospace; font-weight: 700; color: #1F2937;">BAAI/bge-m3</span>
 </div>
-<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12px; border-bottom: 1px solid #F3F4F6;">
-<span style="color: #607196;">평가셋</span>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">eval_batch_45 · 20문항</span>
+<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px; border-bottom: 1px solid #F3F4F6;">
+<span style="color: #64748B;">평가셋</span>
+<span style="font-family: 'Pretendard', monospace; font-weight: 700; color: #1F2937;">eval_batch_45 · 20문항</span>
 </div>
-<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12px;">
-<span style="color: #607196;">조합 수</span>
-<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #FF7B9C;">대표 8개 샘플링</span>
+<div style="display: flex; justify-content: space-between; padding: 4px 0; font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px;">
+<span style="color: #64748B;">조합 수</span>
+<span style="font-family: 'Pretendard', monospace; font-weight: 700; color: #FF7B9C;">대표 8개 샘플링</span>
 </div>
 </div>
 <!-- ============ Prompt ID Examples (Bottom) ============ -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 540px; left: 80px; width: 1120px; height: 125px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #FFC759; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 540px; left: 80px; width: 1120px; height: 125px; background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 6px solid #FFC759; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); z-index: 1;"></div>
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 555px; left: 104px; width: 1080px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #1F2937; margin: 0;">
-🏷️ 프롬프트 ID 체계 — <span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700;">P{n}_C{n}_F{n}_S{n}_T{n}</span>
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #1F2937; margin: 0;">
+🏷️ 프롬프트 ID 체계 — <span style="font-family: 'Pretendard', monospace; font-weight: 700;">P{n}_C{n}_F{n}_S{n}_T{n}</span>
 </p>
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; color: #607196; margin: 4px 0 10px 0;">
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px; color: #64748B; margin: 4px 0 10px 0;">
 어떤 Tier 변경이 어떤 성능 차이를 야기했는지 <span style="font-weight: 700;">역추적 가능</span>
 </p>
 </div>
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 610px; left: 104px; width: 1080px; z-index: 10;">
 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937;">
-<span style="color: #FF7B9C; font-weight: 700;">P1_C1_F1_S1_T1</span> <span style="color: #607196;">(baseline)</span>
+<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Pretendard', monospace; font-size: 11.5px; color: #1F2937;">
+<span style="color: #FF7B9C; font-weight: 700;">P1_C1_F1_S1_T1</span> <span style="color: #64748B;">(baseline)</span>
 </div>
-<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937;">
+<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Pretendard', monospace; font-size: 11.5px; color: #1F2937;">
 <span style="color: #FF7B9C; font-weight: 700;">P2_C2_F2_S2_T2</span>
 </div>
-<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937;">
-<span style="color: #FF7B9C; font-weight: 700;">P4_C2_F5_S3_T5</span> <span style="color: #10B981; font-weight: 700;">← 파일럿 최고</span>
+<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Pretendard', monospace; font-size: 11.5px; color: #1F2937;">
+<span style="color: #FF7B9C; font-weight: 700;">P4_C2_F5_S3_T5</span> <span style="color: #10B981; font-weight: 700;">← 20종 최고 (0.8875)</span>
 </div>
-<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937;">
+<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Pretendard', monospace; font-size: 11.5px; color: #1F2937;">
 <span style="color: #FF7B9C; font-weight: 700;">P3_C3_F3_S3_T3</span>
 </div>
-<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937;">
+<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Pretendard', monospace; font-size: 11.5px; color: #1F2937;">
 <span style="color: #FF7B9C; font-weight: 700;">P3_C3_F3_S3_T5</span>
 </div>
-<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937;">
+<div style="padding: 6px 10px; background: #FDF5F7; border-radius: 4px; font-family: 'Pretendard', monospace; font-size: 11.5px; color: #1F2937;">
 <span style="color: #FF7B9C; font-weight: 700;">P4_C4_F4_S4_T4</span>
 </div>
-<div style="padding: 6px 10px; background: #EAECEF; border-radius: 4px; font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #607196;">
+<div style="padding: 6px 10px; background: #EAECEF; border-radius: 4px; font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #64748B;">
 <i class="fa-solid fa-ellipsis" style="margin-right: 4px;"></i> +2조합 (나머지 5,394 미실행)
 </div>
 </div>
 </div>
 <!-- Bottom Divider -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 680px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 680px; left: 80px; width: 1120px; height: 1px; background: #E2E8F0; z-index: 1;"></div>
 <!-- Footer -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 693px; left: 80px; width: 1120px; height: 20px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500; color: #607196; margin: 0;">
-시나리오 A 프롬프트 연구 · 파일럿 결과는 슬라이드 26에서 발표 (★ 전략적 재정렬) · configs/experiments/generated2/
+<p style="font-family: 'Pretendard', 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500; color: #64748B; margin: 0;">
+시나리오 A 프롬프트 연구 · 파일럿 8개 → 20종 확장 완료 · <span style="font-weight: 700; color: #1F2937;">P4_C2_F5_S3_T5 = 0.8438 (v1) / 0.8875 (v2) 최고 달성</span> → 슬라이드 26 참조
 </p>
 </div>
 </div>
