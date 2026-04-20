@@ -4,183 +4,204 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>MRR 0.50 → 1.00, 단계별 누적 상승</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;display=swap" rel="stylesheet"/>
+<title>의사결정: 왜 chunk_size=1000인가</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;family=Nanum+Gothic+Coding:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
 </head>
 <body style="margin: 0; padding: 0; overflow: hidden; background: #FAFAFA;">
 <div class="slide-container" style="position: relative; width: 1280px; height: 720px; overflow: hidden; background: #FAFAFA;">
 <!-- Header Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 400px; z-index: 10;">
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 500px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #607196; letter-spacing: 0.5px; margin: 0;">
-<span style="color: #FF7B9C;">★ 임팩트</span> · 청킹 · 메타데이터
-        </p>
+<span style="color: #FF7B9C;">★ 의사결정</span> · 섹션 ③ · 청킹 파라미터
+</p>
 </div>
 <!-- Header Right -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 800px; width: 400px; text-align: right; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 500; color: #607196; letter-spacing: 0.5px; margin: 0;">
-            슬라이드 15
-        </p>
+슬라이드 15
+</p>
 </div>
 <!-- Top Divider -->
 <div data-object="true" data-object-type="shape" style="position: absolute; top: 75px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
 <!-- Main Title -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 105px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 98px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
 <p style="font-family: 'Black Han Sans', sans-serif; font-size: 44px; color: #1F2937; letter-spacing: -1.5px; margin: 0; line-height: 1.2;">
-            MRR 0.50 → 1.00, 단계별 누적 상승
-        </p>
+왜 chunk_size = 1000인가
+</p>
 </div>
-<!-- Hook Box Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 180px; left: 80px; width: 1120px; height: 70px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #FF7B9C; border-radius: 4px; z-index: 1;"></div>
-<!-- Hook Box Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 202px; left: 104px; width: 1072px; height: 35px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 20px; font-weight: 500; color: #1F2937; margin: 0; line-height: 1.5;">
-            "<span style="color: #FF7B9C; font-weight: 700;">데이터 품질 + 단락 청킹 + 메타데이터 필터</span>의 3단 콤보"
-        </p>
+<!-- Subtitle -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 158px; left: 80px; width: 1120px; height: 30px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500; color: #607196; margin: 0;">
+<span style="font-weight: 700; color: #FF7B9C;">하이브리드 청킹</span>(단락 + 고정크기)에서 RFP 세부 요구사항 1~2개를 온전히 담는 <span style="font-weight: 700; color: #1F2937;">황금비율</span>
+</p>
 </div>
-<!-- Chart Area Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 280px; left: 80px; width: 740px; height: 380px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
-<!-- Chart Canvas -->
-<div data-object="true" data-object-type="chart" style="position: absolute; top: 310px; left: 100px; width: 700px; height: 320px; z-index: 10;">
-<canvas id="mrrCumulativeChart"></canvas>
+<!-- ============ 3열 프리셋 비교 카드 ============ -->
+<!-- Preset 1: small -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 80px; width: 360px; height: 280px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
+<!-- Preset label -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 80px; width: 360px; height: 40px; background: #EAECEF; border-radius: 6px 6px 0 0; z-index: 2;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 200px; left: 80px; width: 360px; height: 40px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0; line-height: 40px; text-align: center;">
+small
+</p>
 </div>
-<!-- HTML Badge on Chart for final bar: Increased height to fix overflow detected -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 300px; left: 635px; width: 140px; height: 40px; text-align: center; z-index: 20;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #1F2937; background: #FFC759; margin: 0; padding: 6px 12px; border-radius: 20px; display: inline-block; box-shadow: 0 4px 6px rgba(255, 199, 89, 0.3);">
-            +0.50 (100% ↑)
-        </p>
+<!-- small params -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 255px; left: 100px; width: 320px; z-index: 10;">
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">chunk_size</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">500</span>
 </div>
-<!-- Insight Card 1 Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 280px; left: 860px; width: 340px; height: 110px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #BABFD1; border-radius: 6px; z-index: 1;"></div>
-<!-- Insight Card 1 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 300px; left: 884px; width: 296px; height: 70px; z-index: 10;">
-<div style="display: flex; justify-content: space-between; align-items: flex-start; font-family: 'Noto Sans KR', sans-serif;">
-<div style="flex: 1;">
-<p style="font-size: 14px; font-weight: 700; color: #BABFD1; margin: 0 0 6px 0;">① 베이스라인 → 데이터 정제</p>
-<p style="font-size: 16px; font-weight: 700; color: #1F2937; margin: 0;">가장 큰 한 방</p>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">overlap</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">100</span>
 </div>
-<div style="text-align: right; min-width: 60px;">
-<p style="font-size: 24px; font-weight: 900; color: #607196; margin: 0;">+0.28</p>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">min_section</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">300</span>
 </div>
-</div>
-</div>
-<!-- Insight Card 2 Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 415px; left: 860px; width: 340px; height: 110px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #8B99B6; border-radius: 6px; z-index: 1;"></div>
-<!-- Insight Card 2 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 435px; left: 884px; width: 296px; height: 70px; z-index: 10;">
-<div style="display: flex; justify-content: space-between; align-items: flex-start; font-family: 'Noto Sans KR', sans-serif;">
-<div style="flex: 1;">
-<p style="font-size: 14px; font-weight: 700; color: #8B99B6; margin: 0 0 6px 0;">② 데이터 정제 → 단락 청킹</p>
-<p style="font-size: 16px; font-weight: 700; color: #1F2937; margin: 0;">예상외의 기여</p>
-</div>
-<div style="text-align: right; min-width: 60px;">
-<p style="font-size: 24px; font-weight: 900; color: #607196; margin: 0;">+0.14</p>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">max_table</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">1,000</span>
 </div>
 </div>
+<!-- small use case -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 400px; left: 100px; width: 320px; height: 60px; background: #FEF2F2; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 412px; left: 114px; width: 292px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">적합 ·</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; color: #1F2937; margin: 0; line-height: 1.4;">
+팩토이드 단답형 (예: "예산 얼마?")
+</p>
 </div>
-<!-- Insight Card 3 Background -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 550px; left: 860px; width: 340px; height: 110px; background: #FFFDF5; border: 1px solid #FFC759; border-left: 4px solid #FFC759; border-radius: 6px; z-index: 1;"></div>
-<!-- Insight Card 3 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 570px; left: 884px; width: 296px; height: 70px; z-index: 10;">
-<div style="display: flex; justify-content: space-between; align-items: flex-start; font-family: 'Noto Sans KR', sans-serif;">
-<div style="flex: 1;">
-<p style="font-size: 14px; font-weight: 700; color: #D49B25; margin: 0 0 6px 0;">③ 단락 청킹 → 메타데이터</p>
-<p style="font-size: 16px; font-weight: 700; color: #1F2937; margin: 0;">최종 1.00 달성 (완성)</p>
+<!-- Preset 2: medium (채택) -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 460px; width: 360px; height: 280px; background: #FFFFFF; border: 2px solid #FF7B9C; border-radius: 6px; z-index: 1;"></div>
+<!-- Preset label with accent -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 460px; width: 360px; height: 40px; background: #FF7B9C; border-radius: 4px 4px 0 0; z-index: 2;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 200px; left: 460px; width: 360px; height: 40px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #FFFFFF; margin: 0; line-height: 40px; text-align: center;">
+★ medium — 채택 (단락 + 고정 하이브리드)
+</p>
 </div>
-<div style="text-align: right; min-width: 60px;">
-<p style="font-size: 24px; font-weight: 900; color: #FFC759; margin: 0;">+0.08</p>
+<!-- medium params -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 255px; left: 480px; width: 320px; z-index: 10;">
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">chunk_size</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #FF7B9C; font-size: 14px;">1,000</span>
+</div>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">overlap</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #FF7B9C; font-size: 14px;">150</span>
+</div>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">min_section</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">500</span>
+</div>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">max_table</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">1,500</span>
+</div>
+</div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 400px; left: 480px; width: 320px; height: 60px; background: #FDF5F7; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 412px; left: 494px; width: 292px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #FF7B9C; margin: 0 0 4px 0; font-weight: 700;">적합 · 범용</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; color: #1F2937; margin: 0; line-height: 1.4;">
+요구사항·비교·분석 모두 안정적으로 커버
+</p>
+</div>
+<!-- Preset 3: large -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 840px; width: 360px; height: 280px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 840px; width: 360px; height: 40px; background: #EAECEF; border-radius: 6px 6px 0 0; z-index: 2;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 200px; left: 840px; width: 360px; height: 40px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0; line-height: 40px; text-align: center;">
+large
+</p>
+</div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 255px; left: 860px; width: 320px; z-index: 10;">
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">chunk_size</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">1,500</span>
+</div>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">overlap</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">200</span>
+</div>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F3F4F6; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">min_section</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">700</span>
+</div>
+<div style="display: flex; justify-content: space-between; padding: 6px 0; font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px;">
+<span style="color: #607196;">max_table</span>
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #1F2937;">2,000</span>
+</div>
+</div>
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 400px; left: 860px; width: 320px; height: 60px; background: #FEF2F2; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 412px; left: 874px; width: 292px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">적합 ·</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; color: #1F2937; margin: 0; line-height: 1.4;">
+분석·비교형 (예: "A·B 사업 배점 비교")
+</p>
+</div>
+<!-- ============ Header Carry-over 도식 (하단) ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 500px; left: 80px; width: 1120px; height: 160px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #FFC759; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 515px; left: 104px; width: 1080px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0;">
+📋 Header Carry-over — 표(Table) 분할 시 헤더 반복 삽입
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px; color: #607196; margin: 4px 0 0 0;">
+max_table 초과 시 <span style="font-weight: 700;">각 분할 청크의 맨 앞에 헤더 행을 다시 삽입</span> → 독립 해석 가능
+</p>
+</div>
+<!-- Header Carry-over visualization -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 566px; left: 104px; width: 1080px; z-index: 10;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<!-- Original table -->
+<div style="flex: 3.5; background: #F3F4F6; border-radius: 4px; padding: 10px 12px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0 0 6px 0; font-weight: 700;">원본 표 (max_table 초과)</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 10.5px; color: #1F2937; margin: 0; line-height: 1.55;">
+<span style="background: #FFC759; padding: 1px 4px; border-radius: 2px;">| 구분 | 점수 | 설명 |</span><br/>
+| 기술 | 80 | ... |<br/>
+| 가격 | 20 | ... |<br/>
+| 품질 | 15 | ... |<br/>
+| 일정 | 10 | ... |<br/>
+| 품질 | 5 | ... |
+</p>
+</div>
+<i class="fa-solid fa-arrow-right" style="color: #FF7B9C; font-size: 20px;"></i>
+<!-- Split chunks with header repeated -->
+<div style="flex: 4;">
+<div style="background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 4px; padding: 8px 12px; margin-bottom: 6px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">청크 A</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 10.5px; color: #1F2937; margin: 0; line-height: 1.5;">
+<span style="background: #FFC759; padding: 1px 4px; border-radius: 2px;">| 구분 | 점수 | 설명 |</span> <span style="color: #FF7B9C; font-weight: 700;">← 헤더</span><br/>
+| 기술 | 80 | ... |<br/>
+| 가격 | 20 | ... |
+</p>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 4px; padding: 8px 12px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #607196; margin: 0 0 4px 0; font-weight: 700;">청크 B</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 10.5px; color: #1F2937; margin: 0; line-height: 1.5;">
+<span style="background: #FFC759; padding: 1px 4px; border-radius: 2px;">| 구분 | 점수 | 설명 |</span> <span style="color: #FF7B9C; font-weight: 700;">← 헤더 재주입</span><br/>
+| 품질 | 15 | ... |<br/>
+| 일정 | 10 | ... |
+</p>
+</div>
+</div>
+<!-- Result note -->
+<div style="flex: 2.3; padding: 0 8px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11.5px; color: #1F2937; margin: 0; line-height: 1.5;">
+<span style="font-weight: 700; color: #10B981;">✅ 효과:</span> 각 청크가 <span style="font-weight: 700;">열 이름을 알고 있음</span> → 검색 결과 단독으로도 "점수·설명" 컬럼 의미 해석 가능
+</p>
 </div>
 </div>
 </div>
 <!-- Bottom Divider -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 685px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
-<!-- Footer Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 695px; left: 80px; width: 500px; height: 20px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 400; color: #BABFD1; margin: 0;">
-            bench-3905e4ce · Scenario B · 2026-04-19
-        </p>
-</div>
-<!-- Footer Right -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 695px; left: 700px; width: 500px; height: 20px; text-align: right; z-index: 10;">
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 680px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
+<!-- Footer -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 693px; left: 80px; width: 1120px; height: 20px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500; color: #607196; margin: 0;">
-            단계별 누적 상승 추이
-        </p>
+configs/chunking/chunking_1000_150.yaml (채택) · small/medium/large 3종 전부 실측 → medium이 Faithfulness 최고 (슬라이드 17에서 공개)
+</p>
 </div>
-<script>
-        const ctx = document.getElementById('mrrCumulativeChart').getContext('2d');
-        
-        const dataLabelsPlugin = {
-            id: 'dataLabels',
-            afterDatasetsDraw(chart, args, pluginOptions) {
-                const { ctx, data } = chart;
-                ctx.save();
-                ctx.font = "bold 16px 'Noto Sans KR', sans-serif";
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'bottom';
-                
-                chart.getDatasetMeta(0).data.forEach((bar, index) => {
-                    const value = data.datasets[0].data[index];
-                    ctx.fillStyle = index === 3 ? '#FFC759' : '#607196'; 
-                    ctx.fillText(value.toFixed(2), bar.x, bar.y - 10);
-                });
-                ctx.restore();
-            }
-        };
-
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['베이스라인', '+데이터 정제', '+단락 청킹', '+메타데이터 필터'],
-                datasets: [{
-                    label: 'MRR',
-                    data: [0.50, 0.78, 0.92, 1.00],
-                    backgroundColor: [
-                        '#BABFD1', 
-                        '#8B99B6', 
-                        '#607196', 
-                        '#FFC759'  
-                    ],
-                    borderRadius: 6,
-                    barPercentage: 0.5,
-                    categoryPercentage: 0.8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: {
-                    padding: { top: 30 }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        enabled: true
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 1.1,
-                        grid: { color: '#E8E9ED', drawBorder: false },
-                        ticks: { 
-                            color: '#9BA1A6', 
-                            font: { family: "'Noto Sans KR', sans-serif", size: 12 },
-                            stepSize: 0.2
-                        }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { 
-                            color: '#1F2937', 
-                            font: { family: "'Noto Sans KR', sans-serif", size: 14, weight: 'bold' },
-                            padding: 10
-                        }
-                    }
-                }
-            },
-            plugins: [dataLabelsPlugin]
-        });
-    </script>
 </div>
 </body>
 </html>
