@@ -4,141 +4,185 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Dense vs Hybrid 임베딩 실험 플로우차트</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;display=swap" rel="stylesheet"/>
+<title>메타데이터 워터마크 — 청크에 "주소" 새기기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;family=Nanum+Gothic+Coding:wght@400;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
 </head>
 <body style="margin: 0; padding: 0; overflow: hidden; background: #FAFAFA;">
 <div class="slide-container" style="position: relative; width: 1280px; height: 720px; overflow: hidden; background: #FAFAFA;">
 <!-- Header Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 400px; z-index: 10;">
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 500px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #607196; letter-spacing: 0.5px; margin: 0;">
-        기술표 · 임베딩 실험
-    </p>
+<span style="color: #FFC759;">핵심 기법</span> · 섹션 ③ · 메타데이터
+</p>
 </div>
 <!-- Header Right -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 800px; width: 400px; text-align: right; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 500; color: #607196; letter-spacing: 0.5px; margin: 0;">
-        슬라이드 16
-    </p>
+슬라이드 16
+</p>
 </div>
 <!-- Top Divider -->
 <div data-object="true" data-object-type="shape" style="position: absolute; top: 75px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
 <!-- Main Title -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 105px; left: 80px; width: 680px; height: 60px; z-index: 10;">
-<p style="font-family: 'Black Han Sans', sans-serif; font-size: 44px; color: #1F2937; letter-spacing: -1.5px; margin: 0; line-height: 60px;">
-        Dense 단독 채택, 왜?
-    </p>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 98px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
+<p style="font-family: 'Black Han Sans', sans-serif; font-size: 40px; color: #1F2937; letter-spacing: -1.3px; margin: 0; line-height: 1.15;">
+메타데이터 워터마크 — 청크에 "주소" 새기기
+</p>
 </div>
-<!-- Conclusion Box Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 105px; left: 780px; width: 420px; height: 60px; background: #F3F4F6; border: 1px solid #BABFD1; border-radius: 6px; z-index: 1;"></div>
-<!-- Conclusion Box Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 115px; left: 800px; width: 380px; height: 42px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0; line-height: 1.4; text-align: center;">
-        "한국어 특화 Dense 임베딩이 이미 충분<br/>
-<span style="color: #FF7B9C;">Sparse는 RFP에서 오히려 노이즈</span>"
-    </p>
+<!-- Subtitle -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 150px; left: 80px; width: 1120px; height: 30px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500; color: #607196; margin: 0;">
+잘린 청크가 <span style="font-weight: 700; color: #1F2937;">어느 기관·어느 사업</span>의 내용인지 본문 앞에 접두사로 주입 → 임베딩·검색 공간에 함께 인코딩
+</p>
 </div>
-<!-- Step 1 (가설) Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 205px; left: 240px; width: 800px; height: 75px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 6px solid #607196; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); z-index: 1;"></div>
-<!-- Step 1 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 218px; left: 265px; width: 750px; height: 50px; z-index: 10;">
-<div style="display: flex; align-items: center; font-family: 'Noto Sans KR', sans-serif;">
-<div style="width: 80px; font-size: 16px; font-weight: 900; color: #607196;">① 가설</div>
-<div style="flex: 1;">
-<p style="font-size: 18px; font-weight: 700; color: #1F2937; margin: 0 0 2px 0;">BM25 하이브리드가 도메인 용어에 강할 것</p>
-<p style="font-size: 13px; font-weight: 500; color: #BABFD1; margin: 0;">전제: RFP에 전문 용어 다수 포진</p>
+<!-- ============ Before / After Code Blocks ============ -->
+<!-- Before Card -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 80px; width: 360px; height: 220px; background: #FFFFFF; border: 1px solid #E8E9ED; border-top: 4px solid #BABFD1; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 218px; left: 100px; width: 320px; z-index: 10;">
+<div style="display: flex; align-items: center;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; font-weight: 700; color: #FFFFFF; background: #607196; padding: 3px 8px; border-radius: 10px;">BEFORE</span>
+<span style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin-left: 8px;">순수 본문</span>
 </div>
 </div>
+<!-- Before code block -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 255px; left: 100px; width: 320px; height: 150px; background: #F3F4F6; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 268px; left: 114px; width: 292px; z-index: 10;">
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11.5px; color: #1F2937; margin: 0; line-height: 1.6;">
+제안업체는 <span style="color: #FF7B9C;">1,000TPS</span> 이상의<br/>
+처리 성능을 보장해야 하며,<br/>
+24시간 무중단 운영이 가능한<br/>
+아키텍처를 설계해야 한다.
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #DC2626; margin: 14px 0 0 0; font-weight: 700;">
+❌ 어느 기관의 어느 사업인지 알 수 없음
+</p>
 </div>
-<!-- Arrow 1 -->
-<div data-object="true" data-object-type="icon" style="position: absolute; top: 280px; left: 630px; width: 20px; height: 25px; z-index: 10; text-align: center;">
-<i class="fas fa-arrow-down" style="color: #BABFD1; font-size: 16px; line-height: 25px;"></i>
+<!-- Arrow between -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 290px; left: 445px; width: 30px; z-index: 10;">
+<i class="fa-solid fa-arrow-right" style="color: #FF7B9C; font-size: 22px;"></i>
 </div>
-<!-- Step 2 (실험) Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 305px; left: 240px; width: 800px; height: 75px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 6px solid #607196; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); z-index: 1;"></div>
-<!-- Step 2 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 318px; left: 265px; width: 750px; height: 50px; z-index: 10;">
-<div style="display: flex; align-items: center; font-family: 'Noto Sans KR', sans-serif;">
-<div style="width: 80px; font-size: 16px; font-weight: 900; color: #607196;">② 실험</div>
-<div style="flex: 1;">
-<p style="font-size: 18px; font-weight: 700; color: #1F2937; margin: 0 0 2px 0;">임베딩 3종 실측 비교 — KURE-v1 / KURE-v1+BM25 / BGE-M3</p>
-<p style="font-size: 13px; font-weight: 500; color: #BABFD1; margin: 0;">80문항 full · Top-5 · 동일 청킹 적용</p>
-</div>
-</div>
-</div>
-<!-- Arrow 2 -->
-<div data-object="true" data-object-type="icon" style="position: absolute; top: 380px; left: 630px; width: 20px; height: 25px; z-index: 10; text-align: center;">
-<i class="fas fa-arrow-down" style="color: #BABFD1; font-size: 16px; line-height: 25px;"></i>
-</div>
-<!-- Step 3 (결과) Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 405px; left: 240px; width: 800px; height: 160px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 6px solid #607196; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); z-index: 1;"></div>
-<!-- Step 3 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 415px; left: 265px; width: 750px; height: 140px; z-index: 10;">
-<div style="display: flex; align-items: flex-start; font-family: 'Noto Sans KR', sans-serif; height: 100%;">
-<div style="width: 80px; font-size: 16px; font-weight: 900; color: #607196; padding-top: 5px;">③ 결과</div>
-<div style="flex: 1; display: flex; flex-direction: column;">
-<table style="width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;">
-<thead>
-<tr style="border-bottom: 2px solid #E8E9ED; color: #607196;">
-<th style="padding: 4px 8px; font-weight: 700; width: 40%;">모델</th>
-<th style="padding: 4px 8px; font-weight: 700; width: 30%;">MRR</th>
-<th style="padding: 4px 8px; font-weight: 700; width: 30%;">Faithfulness</th>
-</tr>
-</thead>
-<tbody>
-<tr style="border-bottom: 1px solid #F3F4F6;">
-<td style="padding: 8px 8px; font-weight: 700; color: #1F2937;">KURE-v1 단독</td>
-<td style="padding: 8px 8px; font-weight: 700; color: #1F2937;">0.9733</td>
-<td style="padding: 8px 8px; font-weight: 700; color: #1F2937;">0.6094</td>
-</tr>
-<tr style="border-bottom: 1px solid #F3F4F6;">
-<td style="padding: 8px 8px; color: #607196;">KURE-v1 + BM25</td>
-<td style="padding: 8px 8px; color: #607196;">0.9708 <span style="font-size: 12px; color: #FF7B9C;">(↓ 미미)</span></td>
-<td style="padding: 8px 8px; color: #607196;">0.6012</td>
-</tr>
-<tr>
-<td style="padding: 8px 8px; color: #BABFD1;">BGE-M3</td>
-<td style="padding: 8px 8px; color: #BABFD1;">0.9542</td>
-<td style="padding: 8px 8px; color: #BABFD1;">0.5823</td>
-</tr>
-</tbody>
-</table>
+<!-- After Card -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 490px; width: 380px; height: 220px; background: #FFFFFF; border: 2px solid #FF7B9C; border-top: 4px solid #FF7B9C; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 218px; left: 510px; width: 340px; z-index: 10;">
+<div style="display: flex; align-items: center;">
+<span style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; font-weight: 700; color: #FFFFFF; background: #FF7B9C; padding: 3px 8px; border-radius: 10px;">AFTER</span>
+<span style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin-left: 8px;">메타 접두사 주입</span>
 </div>
 </div>
+<!-- After code block -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 255px; left: 510px; width: 340px; height: 150px; background: #1F2937; border-radius: 4px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 268px; left: 524px; width: 312px; z-index: 10;">
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #FFC759; margin: 0 0 6px 0; line-height: 1.5;">
+[발주기관: 국민연금공단 | 사업명:<br/>
+이러닝 시스템 구축]
+</p>
+<p style="font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #FFFFFF; margin: 0; line-height: 1.5;">
+제안업체는 <span style="color: #FF7B9C;">1,000TPS</span> 이상의<br/>
+처리 성능을 보장해야 하며...
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #10B981; margin: 12px 0 0 0; font-weight: 700;">
+✅ 출처 정보가 벡터 공간에 함께 인코딩
+</p>
 </div>
-<!-- Arrow 3 -->
-<div data-object="true" data-object-type="icon" style="position: absolute; top: 565px; left: 630px; width: 20px; height: 25px; z-index: 10; text-align: center;">
-<i class="fas fa-arrow-down" style="color: #BABFD1; font-size: 16px; line-height: 25px;"></i>
+<!-- text_with_meta field card (Right) -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 200px; left: 900px; width: 300px; height: 220px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 218px; left: 918px; width: 264px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #1F2937; margin: 0 0 8px 0;">
+💡 핵심 메커니즘
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12.5px; color: #607196; margin: 0; line-height: 1.55;">
+접두사 포함 텍스트(<span style="font-family: 'Nanum Gothic Coding', monospace; font-weight: 700; color: #FF7B9C;">text_with_meta</span>)를 <span style="font-weight: 700; color: #1F2937;">임베딩 입력</span>으로 사용
+</p>
 </div>
-<!-- Step 4 (채택) Shape -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 590px; left: 240px; width: 800px; height: 80px; background: #FFF5F7; border: 1px solid #FF7B9C; border-left: 6px solid #FF7B9C; border-radius: 6px; box-shadow: 0 4px 6px rgba(255,123,156,0.1); z-index: 1;"></div>
-<!-- Step 4 Text -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 605px; left: 265px; width: 750px; height: 50px; z-index: 10;">
-<div style="display: flex; align-items: center; font-family: 'Noto Sans KR', sans-serif;">
-<div style="width: 80px; font-size: 16px; font-weight: 900; color: #FF7B9C;">④ 결론</div>
-<div style="flex: 1; display: flex; align-items: center; gap: 12px;">
-<span style="background: #FFC759; color: #1F2937; font-size: 14px; font-weight: 700; padding: 4px 10px; border-radius: 4px;">채택</span>
-<div>
-<p style="font-size: 18px; font-weight: 700; color: #1F2937; margin: 0 0 2px 0;">KURE-v1 단독</p>
-<p style="font-size: 14px; font-weight: 500; color: #607196; margin: 0;">하이브리드 이득 미미, 파이프라인 복잡도만 증가</p>
+<!-- Inline flow -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 305px; left: 918px; width: 264px; z-index: 10;">
+<div style="padding: 10px 12px; background: #FDF5F7; border-radius: 4px; font-family: 'Nanum Gothic Coding', monospace; font-size: 11px; color: #1F2937; line-height: 1.7;">
+text_with_meta<br/>
+&nbsp;&nbsp;<span style="color: #FF7B9C;">↓ bge-m3</span><br/>
+embedding vector<br/>
+&nbsp;&nbsp;<span style="color: #FF7B9C;">↓ ChromaDB</span><br/>
+<span style="font-weight: 700;">기관·사업 의미 포함</span>
 </div>
 </div>
+<!-- ============ 12 Metadata Fields Grid ============ -->
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 445px; left: 80px; width: 1120px; height: 220px; background: #FFFFFF; border: 1px solid #E8E9ED; border-radius: 6px; z-index: 1;"></div>
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 460px; left: 104px; width: 1080px; z-index: 10;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; color: #1F2937; margin: 0;">
+🏷️ 자동 분류·부착되는 12개 메타데이터 필드
+</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; color: #607196; margin: 4px 0 0 0;">
+Where Clause 하드 필터링(섹션 ④ 깔때기 ①단) + 텍스트 임베딩(text_with_meta) 양쪽에 활용
+</p>
+</div>
+<!-- 12 Fields 4-col × 3-row -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 505px; left: 104px; width: 1080px; z-index: 10;">
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+<div style="padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-folder" style="color: #FF7B9C; margin-right: 4px;"></i>사업명</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">CSV 원본</p>
+</div>
+<div style="padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-building" style="color: #FF7B9C; margin-right: 4px;"></i>발주 기관</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">Alias 매핑 적용</p>
+</div>
+<div style="padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-hashtag" style="color: #FF7B9C; margin-right: 4px;"></i>공고 번호</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">CSV 원본</p>
+</div>
+<div style="padding: 8px 12px; background: #FDF5F7; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-won-sign" style="color: #FF7B9C; margin-right: 4px;"></i>사업 금액</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">금액 범위 필터</p>
+</div>
+<div style="padding: 8px 12px; background: #EAECEF; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-sitemap" style="color: #607196; margin-right: 4px;"></i>기관 유형</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">규칙 기반 자동</p>
+</div>
+<div style="padding: 8px 12px; background: #EAECEF; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-tags" style="color: #607196; margin-right: 4px;"></i>사업 도메인</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">키워드 분석 자동</p>
+</div>
+<div style="padding: 8px 12px; background: #EAECEF; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-microchip" style="color: #607196; margin-right: 4px;"></i>기술 스택</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">본문 자동 추출</p>
+</div>
+<div style="padding: 8px 12px; background: #EAECEF; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-calendar" style="color: #607196; margin-right: 4px;"></i>공개 연도</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">일자 → 연도 변환</p>
+</div>
+<div style="padding: 8px 12px; background: #F0FDF4; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-bookmark" style="color: #10B981; margin-right: 4px;"></i>section</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">청킹 시 헤딩 보존</p>
+</div>
+<div style="padding: 8px 12px; background: #F0FDF4; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-table-cells" style="color: #10B981; margin-right: 4px;"></i>content_type</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">table / text 구분</p>
+</div>
+<div style="padding: 8px 12px; background: #F0FDF4; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-water" style="color: #10B981; margin-right: 4px;"></i>text_with_meta</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">접두사 + 본문</p>
+</div>
+<div style="padding: 8px 12px; background: #F0FDF4; border-radius: 4px;">
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #607196; margin: 0; font-weight: 700;"><i class="fa-solid fa-check" style="color: #10B981; margin-right: 4px;"></i>resolved_agency</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #1F2937; margin: 2px 0 0 0;">보정된 기관명</p>
+</div>
+</div>
+</div>
+<!-- Legend -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 640px; left: 104px; width: 1080px; z-index: 10;">
+<div style="display: flex; gap: 20px; font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; color: #607196;">
+<div><span style="display: inline-block; width: 10px; height: 10px; background: #FDF5F7; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>CSV 원본 (4)</div>
+<div><span style="display: inline-block; width: 10px; height: 10px; background: #EAECEF; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>자동 분류 (4)</div>
+<div><span style="display: inline-block; width: 10px; height: 10px; background: #F0FDF4; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>파이프라인 부착 (4)</div>
 </div>
 </div>
 <!-- Bottom Divider -->
-<div data-object="true" data-object-type="shape" style="position: absolute; top: 685px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
-<!-- Footer Left -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 695px; left: 80px; width: 600px; height: 20px; z-index: 10;">
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 400; color: #BABFD1; margin: 0;">
-        emb_bench_0416.csv · KURE-v1 8191 dim
-    </p>
-</div>
-<!-- Footer Right -->
-<div data-object="true" data-object-type="textbox" style="position: absolute; top: 695px; left: 680px; width: 520px; height: 20px; text-align: right; z-index: 10;">
+<div data-object="true" data-object-type="shape" style="position: absolute; top: 680px; left: 80px; width: 1120px; height: 1px; background: #E8E9ED; z-index: 1;"></div>
+<!-- Footer -->
+<div data-object="true" data-object-type="textbox" style="position: absolute; top: 693px; left: 80px; width: 1120px; height: 20px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 12px; font-weight: 500; color: #607196; margin: 0;">
-        기술표 · 임베딩 실험
-    </p>
+chunker.py `_meta_prefix` 함수 · 모든 청크가 자신의 출처·맥락을 "기억"하는 컨텍스트 인식형 데이터 유닛
+</p>
 </div>
 </div>
 </body>
