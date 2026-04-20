@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Top-K 실측 + 가설 회수</title>
+<title>Top-K 실측과 가설 검토</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;family=Black+Han+Sans&amp;display=swap" rel="stylesheet"/>
@@ -14,7 +14,7 @@
 <!-- Header Left -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 40px; left: 80px; width: 400px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #607196; letter-spacing: 0.5px; margin: 0;">
-<span style="color: #FF7B9C;">★★ 클라이맥스</span> · 섹션 ⑤ · 가설 회수
+<span style="color: #FF7B9C;">주요 결과</span> · 섹션 ⑤ · 종합 검토
 </p>
 </div>
 <!-- Header Right -->
@@ -28,7 +28,7 @@
 <!-- Main Title -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 100px; left: 80px; width: 1120px; height: 60px; z-index: 10;">
 <p style="font-family: 'Black Han Sans', sans-serif; font-size: 52px; color: #1F2937; letter-spacing: -1.5px; margin: 0; line-height: 1;">
-        Top-K 실측 + 가설 회수
+        Top-K 실측과 가설 검토
     </p>
 </div>
 <!-- Hook Box Background -->
@@ -36,7 +36,7 @@
 <!-- Hook Box Text -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 202px; left: 104px; width: 1072px; height: 35px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 20px; font-weight: 500; color: #1F2937; margin: 0; line-height: 1.5;">
-        "병목은 <span style="color: #FF7B9C; font-weight: 700;">시나리오마다 다르다</span> — 검색은 만점이어도, 모델이 병목이 될 수 있다"
+        실측 결과, 병목은 시나리오별로 다르게 나타났으며 검색 성능만으로 전체 품질을 설명하기는 어려웠습니다.
     </p>
 </div>
 <!-- Left Chart Area Shape - Increased height to match column balance -->
@@ -64,9 +64,9 @@
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 295px; left: 804px; width: 380px; height: 105px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #607196; margin: 0 0 12px 0;">시나리오 B</p>
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; font-weight: 700; color: #1F2937; line-height: 1.5; margin: 0 0 8px 0;">
-        "병목은 <span style="color: #607196;">문서·해석단</span> (Retrieval 천장 넘어)"
+        병목은 <span style="color: #607196;">문서 해석 단계</span>에서 관찰됨
     </p>
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; color: #BABFD1; margin: 0;">환각 극소수 → 병목은 해석</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; color: #BABFD1; margin: 0;">검색 성능이 높아진 이후에는 해석 품질이 주요 변수가 되었습니다.</p>
 </div>
 <!-- Scenario A Callout Shape -->
 <div data-object="true" data-object-type="shape" style="position: absolute; top: 435px; left: 780px; width: 420px; height: 145px; background: #FFFFFF; border: 1px solid #E8E9ED; border-left: 4px solid #FF7B9C; border-radius: 6px; z-index: 1;"></div>
@@ -74,9 +74,9 @@
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 455px; left: 804px; width: 380px; height: 105px; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700; color: #FF7B9C; margin: 0 0 12px 0;">시나리오 A</p>
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; font-weight: 700; color: #1F2937; line-height: 1.5; margin: 0 0 8px 0;">
-        "병목은 <span style="color: #FF7B9C;">소형 모델 자체</span> (프롬프트로 못 넘는 벽)"
+        병목은 <span style="color: #FF7B9C;">소형 모델 제약</span>에서 관찰됨
     </p>
-<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; color: #BABFD1; margin: 0;">검색 만점이어도 프롬프트 한계</p>
+<p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; color: #BABFD1; margin: 0;">검색 성능이 높아도 생성 모델 제약이 품질을 제한했습니다.</p>
 </div>
 <!-- Core Message Banner Shape - Positioned lower to fill tail strip -->
 <div data-object="true" data-object-type="shape" style="position: absolute; top: 600px; left: 80px; width: 1120px; height: 75px; background: #F3F4F6; border: 1px solid #E8E9ED; border-left: 4px solid #FF7B9C; border-radius: 6px; z-index: 1;"></div>
@@ -84,8 +84,8 @@
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 615px; left: 104px; width: 1072px; height: 50px; z-index: 10;">
 <div style="display: flex; justify-content: space-between; align-items: center; font-family: 'Noto Sans KR', sans-serif;">
 <div>
-<p style="font-size: 18px; font-weight: 900; color: #1F2937; margin: 0 0 4px 0;">RAG 병목은 LLM이 아니다</p>
-<p style="font-size: 14px; font-weight: 500; color: #607196; margin: 0;">시나리오 B에서 확고, A는 새로운 병목 드러냄</p>
+<p style="font-size: 18px; font-weight: 900; color: #1F2937; margin: 0 0 4px 0;">병목은 시나리오별로 다르게 나타났다</p>
+<p style="font-size: 14px; font-weight: 500; color: #607196; margin: 0;">시나리오 B에서는 검색 이후의 해석 단계가, 시나리오 A에서는 모델 제약이 더 크게 작용했습니다.</p>
 </div>
 <div style="text-align: right;">
 <p style="font-size: 13px; font-weight: 500; color: #BABFD1; margin: 0 0 4px 0;">Top-K = 5 (채택)</p>
@@ -102,7 +102,7 @@
 <!-- Footer Right -->
 <div data-object="true" data-object-type="textbox" style="position: absolute; top: 690px; left: 600px; width: 600px; height: 20px; text-align: right; z-index: 10;">
 <p style="font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; color: #607196; margin: 0;">
-        가설 회수 완료   ·   클라이맥스
+        가설 검토 완료   ·   종합 결과
     </p>
 </div>
 <script>
