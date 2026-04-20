@@ -8,12 +8,20 @@ from __future__ import annotations
 
 import re
 
-from bidmate_rag.retrieval.filters import is_comparison_query, should_boost_tables
+from bidmate_rag.retrieval.filters import (
+    extract_numeric_anchors,
+    is_comparison_query,
+    should_boost_tables,
+)
 
 # 부스팅 기본 상수 (boost_config 미지정 시 폴백용)
 SECTION_BOOST = 0.20
 TABLE_BOOST = 0.08
 METADATA_BOOST = 0.12
+# 숫자 앵커는 exact-match 신호라 의미 부스트와 다른 축으로 본다.
+# 기본적으로 max_total 캡 밖에 더해져서 "본문에 동일 금액/연도가 등장하는 청크"를
+# 강하게 끌어올린다.
+NUMERIC_BOOST = 0.30
 MAX_TOTAL_BOOST = 0.25
 MIN_MATCH_LEN = 3  # 정규화된 텍스트 최소 매칭 길이
 SECTION_HINT_MIN_MATCH_LEN = 2
@@ -88,18 +96,26 @@ def build_reranker_text(result) -> str:
     return result.chunk.text
 
 
-def cross_encoder_rerank(reranker, query: str, results: list, top_k: int) -> list:
+def cross_encoder_rerank(
+    reranker, query: str, results: list, top_k: int | None = None
+) -> list:
     """Cross-Encoder 모델로 질문-청크 쌍의 관련성을 판단하여 재정렬한다.
 
     Args:
         reranker: Cross-Encoder 모델 인스턴스.
         query: 사용자 질의 문자열.
         results: 벡터 검색으로 가져온 후보 청크 리스트.
-        top_k: 최종 반환할 청크 수.
+        top_k: 유지할 청크 수. None이면 풀 전체를 유지해 downstream boost가
+            전체 후보에 대해 재정렬하도록 한다.
 
     Returns:
-        관련성 높은 순으로 정렬된 상위 top_k개 RetrievedChunk 리스트.
+        관련성 높은 순으로 정렬된 RetrievedChunk 리스트.
         reranker가 None이면 입력 그대로 반환.
+
+    Note:
+        CE 점수를 ``result.score``와 ``result.rerank_score`` 양쪽에 기록한다.
+        이후 ``rerank_with_boost``가 CE 점수에 섹션/테이블 가산점을 더해
+        일관된 기준으로 재정렬하기 위함이다.
     """
     if not reranker or not results:
         return results
@@ -108,9 +124,12 @@ def cross_encoder_rerank(reranker, query: str, results: list, top_k: int) -> lis
     scores = reranker.predict(pairs)
 
     scored = sorted(zip(results, scores), key=lambda x: x[1], reverse=True)
+    limit = len(scored) if top_k is None else top_k
     reranked = []
-    for rank, (result, ce_score) in enumerate(scored[:top_k], start=1):
-        result.rerank_score = float(ce_score)
+    for rank, (result, ce_score) in enumerate(scored[:limit], start=1):
+        ce_value = float(ce_score)
+        result.rerank_score = ce_value
+        result.score = ce_value
         result.rank = rank
         reranked.append(result)
 
@@ -148,13 +167,21 @@ def rerank_with_boost(
     section_weight = cfg.get("section", SECTION_BOOST)
     table_weight = cfg.get("table", TABLE_BOOST)
     metadata_weight = cfg.get("metadata", METADATA_BOOST)
+    numeric_weight = cfg.get("numeric", NUMERIC_BOOST)
     max_total = cfg.get("max_total", MAX_TOTAL_BOOST)
 
     query_norm = _normalize_text(query)
     table_boost = should_boost_tables(query)
     metadata_boost_enabled = not is_comparison_query(query)
-    if not section_hint and not table_boost and not any(
-        metadata_boost_enabled and _metadata_matches_query(query_norm, result) for result in results
+    numeric_anchors = extract_numeric_anchors(query)
+    if (
+        not section_hint
+        and not table_boost
+        and not numeric_anchors
+        and not any(
+            metadata_boost_enabled and _metadata_matches_query(query_norm, result)
+            for result in results
+        )
     ):
         return _assign_ranks(results)
 
@@ -167,6 +194,11 @@ def rerank_with_boost(
         if metadata_boost_enabled and _metadata_matches_query(query_norm, result):
             bonus += metadata_weight
         bonus = min(bonus, max_total)
+        # 숫자 앵커는 exact-match이라 별도 축으로 max_total 밖에서 가산한다.
+        if numeric_anchors and any(
+            anchor in result.chunk.text for anchor in numeric_anchors
+        ):
+            bonus += numeric_weight
         return result.score + bonus
 
     ordered = sorted(

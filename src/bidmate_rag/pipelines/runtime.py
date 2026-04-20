@@ -13,22 +13,24 @@ from pathlib import Path
 import pandas as pd
 
 from bidmate_rag.config.settings import RuntimeConfig, load_runtime_config
+from bidmate_rag.generation.calculation_engine import CalculationEngine
 from bidmate_rag.pipelines.chat import RAGChatPipeline
 from bidmate_rag.providers.llm.registry import build_embedding_provider, build_llm_provider
 from bidmate_rag.retrieval.memory import ConversationMemory
 from bidmate_rag.retrieval.retriever import RAGRetriever
 from bidmate_rag.retrieval.sparse_store import BM25SparseStore
 from bidmate_rag.retrieval.vector_store import ChromaVectorStore
+from bidmate_rag.storage.calculation_store import CalculationStore
 from bidmate_rag.storage.metadata_store import MetadataStore
 
 logger = logging.getLogger(__name__)
 
 
 def _load_reranker(model_name: str | None):
-    """Cross-Encoder 리랭킹 모델을 로드한다.
+    """선택적 실험용 Cross-Encoder 리랭킹 모델을 로드한다.
 
     Args:
-        model_name: HuggingFace 모델명. None이면 리랭커를 사용하지 않는다.
+        model_name: HuggingFace 모델명. None이면 기본 운영 경로를 사용한다.
 
     Returns:
         CrossEncoder 모델 인스턴스. model_name이 None이거나 로드 실패 시 None.
@@ -38,12 +40,12 @@ def _load_reranker(model_name: str | None):
     try:
         from sentence_transformers import CrossEncoder
 
-        logger.info("Cross-Encoder 리랭킹 모델 로딩: %s", model_name)
+        logger.info("실험용 Cross-Encoder 리랭킹 모델 로딩: %s", model_name)
         model = CrossEncoder(model_name)
-        logger.info("Cross-Encoder 로딩 완료")
+        logger.info("실험용 Cross-Encoder 로딩 완료")
         return model
     except Exception as e:
-        logger.warning("Cross-Encoder 로딩 실패 (부스팅만 사용): %s", e)
+        logger.warning("실험용 Cross-Encoder 로딩 실패 (기본 운영 경로 계속 사용): %s", e)
         return None
 
 
@@ -207,6 +209,11 @@ def build_runtime_pipeline(
         if resolved_path.exists()
         else MetadataStore(pd.DataFrame())
     )
+    calculation_engine = None
+    if resolved_path.exists():
+        calculation_engine = CalculationEngine(
+            CalculationStore.from_parquet(resolved_path, db_path=":memory:")
+        )
 
     sparse_store = None
     if runtime.retrieval.hybrid.enabled and resolved_chunks_path.exists():
@@ -242,6 +249,7 @@ def build_runtime_pipeline(
         llm=llm,
         memory=memory,
         debug_trace_enabled=runtime.retrieval.debug_trace.enabled,
+        calculation_engine=calculation_engine,
     )
 
     return pipeline, runtime, embedder, llm

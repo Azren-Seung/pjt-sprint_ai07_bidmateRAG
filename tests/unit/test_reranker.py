@@ -82,9 +82,24 @@ def test_cross_encoder_rerank_sorts_by_score_and_trims() -> None:
     results = cross_encoder_rerank(reranker, "질문", chunks, top_k=2)
 
     assert [r.chunk.chunk_id for r in results] == ["c2", "c3"]
-    assert [r.score for r in results] == [0.4, 0.3]
+    # CE 점수가 score에 반영돼 후속 boost가 CE 기준으로 재정렬한다.
+    assert [r.score for r in results] == [0.9, 0.5]
     assert [r.rerank_score for r in results] == [0.9, 0.5]
     assert [r.rank for r in results] == [1, 2]
+
+
+def test_cross_encoder_rerank_keeps_full_pool_when_top_k_is_none() -> None:
+    chunks = [
+        _make_chunk("c1", 0.5),
+        _make_chunk("c2", 0.4),
+        _make_chunk("c3", 0.3),
+    ]
+    reranker = FakeReranker([0.1, 0.9, 0.5])
+
+    results = cross_encoder_rerank(reranker, "질문", chunks, top_k=None)
+
+    assert [r.chunk.chunk_id for r in results] == ["c2", "c3", "c1"]
+    assert [r.score for r in results] == [0.9, 0.5, 0.1]
 
 
 def test_cross_encoder_rerank_returns_as_is_when_no_reranker() -> None:
@@ -184,6 +199,31 @@ def test_rerank_with_boost_promotes_metadata_match() -> None:
     )
 
     assert results[0].chunk.chunk_id == "target"
+    assert results[0].rank == 1
+
+
+def test_rerank_with_boost_numeric_anchor_promotes_exact_amount_match() -> None:
+    """본문에 질의의 금액 앵커가 정확히 등장하는 청크를 상위로 끌어올린다."""
+    chunks = [
+        _make_chunk(
+            "near",
+            0.92,
+            section="예산",
+            text="본 사업 예산은 11억원 규모로 책정되어 있다.",
+        ),
+        _make_chunk(
+            "exact",
+            0.80,
+            section="예산",
+            text="본 사업 총 예산은 12억원이다.",
+        ),
+    ]
+
+    results = rerank_with_boost(
+        chunks, query="12억원 사업 예산 알려줘", section_hint=None
+    )
+
+    assert results[0].chunk.chunk_id == "exact"
     assert results[0].rank == 1
 
 

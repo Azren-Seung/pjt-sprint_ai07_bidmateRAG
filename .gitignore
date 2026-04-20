@@ -260,8 +260,14 @@ study2A.md
 app/finetuning_ui.py
 artifacts/chroma_db_semantic/
 artifacts/training/
+.local_backup/
+artifacts/chroma/
+artifacts/sql/
 reports/
 scripts/build_project_report.py
 scripts/prepare_sft_data.py
 skills-lock.json
 experiments/notebooks/
+
+# Scenario A research files
+research/scenario_a/

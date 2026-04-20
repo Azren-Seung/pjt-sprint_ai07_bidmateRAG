@@ -14,6 +14,7 @@ from bidmate_rag.evaluation.dataset import (
     normalize_metadata_filter,
 )
 from bidmate_rag.tracking.markdown_report import load_report_data, write_report
+from bidmate_rag.tracking.pricing import load_pricing, normalize_run_costs
 
 # 평가셋은 ``data/eval/eval_v1/``, ``eval_v2/`` 등 버전 디렉토리에 둡니다.
 # UI는 가장 높은 버전을 자동으로 사용 (새 버전 만들면 코드 수정 없이 반영됨).
@@ -306,15 +307,23 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
         if selected_prompt_config:
             selected_prompt = _yaml.safe_load(selected_prompt_config.read_text()).get("system_prompt")
 
-    opt_col1, opt_col2 = st.columns(2)
+    opt_col1, opt_col2, opt_col3 = st.columns(3)
     with opt_col1:
         skip_judge = st.checkbox(
-            "Judge 끄기 (faithfulness 등)",
+            "Judge 끄기",
             value=False,
             key="run_skip_judge",
-            help="LLM judge는 추가 API 호출이라 비용/시간이 늘어납니다. 빠른 실행에 사용",
+            help="LLM judge는 추가 API 호출이라 비용/시간이 늘어납니다.",
         )
     with opt_col2:
+        judge_v2 = st.checkbox(
+            "Judge V2 사용",
+            value=True,
+            disabled=skip_judge,
+            key="run_judge_v2",
+            help="증거 기반의 더 정교한 평가 모델을 사용합니다.",
+        )
+    with opt_col3:
         judge_model = st.selectbox(
             "Judge 모델",
             ["gpt-4o-mini", "gpt-5-mini"],
@@ -337,6 +346,7 @@ def _render_run_tab(st, eval_set, run_live_query, list_provider_configs, list_ch
             experiment_config_path=chunking,  # 청킹 전략 전달
             skip_judge=skip_judge,
             judge_model=judge_model,
+            judge_v2=judge_v2,
             top_k=top_k,  # 검색할 top_k 전달
             progress_callback=_on_progress,
             embedding_config_path=selected_embedding,  # 시나리오 A 임베딩 전달,
@@ -377,10 +387,23 @@ def _render_run_artifacts(st, artifacts) -> None:
     metrics = artifacts.metrics or {}
     ops_metrics = artifacts.ops_metrics or {}
     results = artifacts.benchmark.results
+    pricing = load_pricing()
+    llm_model = results[0].llm_model if results else ""
 
     # 비용/토큰/지연 집계
-    generation_cost = float(ops_metrics.get("generation_cost_usd", 0.0) or 0.0)
-    judge_cost = float(ops_metrics.get("judge_cost_usd", artifacts.judge_total_cost_usd) or 0.0)
+    normalized_costs = normalize_run_costs(
+        llm_model=llm_model,
+        pricing=pricing,
+        generation_cost_usd=float(ops_metrics.get("generation_cost_usd", 0.0) or 0.0),
+        rewrite_cost_usd=float(ops_metrics.get("rewrite_cost_usd", 0.0) or 0.0),
+        prompt_tokens=int(ops_metrics.get("prompt_tokens", 0) or 0),
+        completion_tokens=int(ops_metrics.get("completion_tokens", 0) or 0),
+        rewrite_prompt_tokens=int(ops_metrics.get("rewrite_prompt_tokens", 0) or 0),
+        rewrite_completion_tokens=int(ops_metrics.get("rewrite_completion_tokens", 0) or 0),
+        judge_cost_usd=float(ops_metrics.get("judge_cost_usd", artifacts.judge_total_cost_usd) or 0.0),
+    )
+    generation_cost = float(normalized_costs["generation_cost_usd"])
+    judge_cost = float(normalized_costs["judge_cost_usd"])
     total_tokens = int(ops_metrics.get("total_tokens", 0) or 0)
     avg_latency_s = float(ops_metrics.get("avg_latency_ms", 0.0) or 0.0) / 1000
 

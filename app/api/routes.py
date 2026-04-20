@@ -301,7 +301,7 @@ def run_benchmark_experiment(
     run_id: str | None = None,
     skip_judge: bool = False,
     judge_model: str = "gpt-4o-mini",
-    judge_v2: bool = False,
+    judge_v2: bool = True,
     progress_callback=None,
     embedding_config_path: str | Path | None = None, # 시나리오 A 임베딩 설정 경로 (선택)
     llm_config_path: str | Path | None = None, # 시나리오
