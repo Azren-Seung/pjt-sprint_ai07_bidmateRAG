@@ -299,7 +299,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--judge-v1",
-        action="store_true",
+        dest="judge_v2",
+        action="store_false",
+        default=True,
         help="Use legacy judge v1 (keeps v2 as default).",
     )
     parser.add_argument(
