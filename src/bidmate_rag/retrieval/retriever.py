@@ -15,6 +15,7 @@ from __future__ import annotations
 from bidmate_rag.retrieval.filters import (
     extract_matched_agencies,
     extract_metadata_filters,
+    extract_numeric_anchors,
     extract_project_clues,
     extract_range_filters,
     extract_where_document_anchor,
@@ -142,6 +143,20 @@ class RAGRetriever:
         collect(prefer_new_docs=False)
         return _assign_ranks(merged)
 
+    def _select_auxiliary_anchor(self, query: str) -> str | None:
+        """fact형 보조 검색에 쓸 anchor 하나를 고른다.
+
+        직접 구문(`사업기간`, `지체상금률` 등)이 있으면 우선 채택한다.
+        직접 구문은 섹션 특정력이 강하고 false-positive가 적다. 없으면 단위 붙은
+        숫자(`12억원`) 중 첫 번째를 쓴다. ChromaDB `$contains`가 단일 문자열만
+        받으므로 복수 앵커 fan-out은 하지 않는다.
+        """
+        direct = extract_where_document_anchor(query)
+        if direct:
+            return direct
+        numeric_anchors = extract_numeric_anchors(query)
+        return numeric_anchors[0] if numeric_anchors else None
+
     def _merge_query_variant_results(self, primary_results: list, secondary_results: list) -> list:
         """원 질문/재작성 질문 결과를 합쳐 unique chunk 기준으로 정렬한다."""
         if not secondary_results:
@@ -159,6 +174,30 @@ class RAGRetriever:
             key=lambda result: float(result.score),
             reverse=True,
         )
+
+    def _scope_identity(self, result, where: dict | None) -> str:
+        metadata = getattr(result.chunk, "metadata", {}) or {}
+        if self._has_doc_level_constraint(where):
+            return self._doc_identity(result)
+        return str(metadata.get("발주 기관") or self._doc_identity(result))
+
+    def _promote_doc_diversity(self, results: list, top_k: int, where: dict | None) -> list:
+        """비교형 질문은 스코프(기관/문서)별 대표 청크를 먼저 확보한다."""
+        grouped_by_scope: dict[str, list] = {}
+        scope_order: list[str] = []
+
+        for item in results:
+            scope_id = self._scope_identity(item, where)
+            if scope_id not in grouped_by_scope:
+                grouped_by_scope[scope_id] = []
+                scope_order.append(scope_id)
+            grouped_by_scope[scope_id].append(item)
+
+        if len(grouped_by_scope) <= 1:
+            return _assign_ranks(results[:top_k])
+
+        grouped_results = [grouped_by_scope[scope_id] for scope_id in scope_order]
+        return self._merge_round_robin(grouped_results, top_k)
 
     def _has_doc_level_constraint(self, where: dict | None) -> bool:
         if not where:
@@ -424,10 +463,6 @@ class RAGRetriever:
             section_hint,
             force_scoped=force_scoped,
         )
-        if where_document is None and not force_scoped and where:
-            dynamic_where_document_anchor = extract_where_document_anchor(resolved_query)
-            if dynamic_where_document_anchor:
-                where_document = {"$contains": dynamic_where_document_anchor}
         query_embedding = self.embedder.embed_query(resolved_query)
 
         results = self._query_vector_store(
@@ -440,6 +475,28 @@ class RAGRetriever:
             where_document=where_document,
             force_scoped=force_scoped,
         )
+
+        # fact형 질의 보조 경로: 일반 하이브리드 결과는 유지하면서
+        # anchor가 본문에 포함된 청크를 추가로 끌어와 merge한다.
+        # where_document 전면 ON은 recall을 망가뜨리므로 anchor 있을 때만 한 번 더 돈다.
+        if (
+            (self.hybrid_config or {}).get("anchor_auxiliary", True)
+            and not force_scoped
+            and where_document is None
+        ):
+            auxiliary_anchor = self._select_auxiliary_anchor(resolved_query)
+            if auxiliary_anchor:
+                auxiliary_results = self._query_vector_store(
+                    query_embedding=query_embedding,
+                    query=resolved_query,
+                    top_k=final_top_k,
+                    dense_pool_k=dense_pool_k,
+                    sparse_pool_k=sparse_pool_k,
+                    where=where,
+                    where_document={"$contains": auxiliary_anchor},
+                    force_scoped=force_scoped,
+                )
+                results = self._merge_query_variant_results(results, auxiliary_results)
 
         if rewrite_trace.get("rewrite_applied") and resolved_query != query:
             original_query_embedding = self.embedder.embed_query(query)
@@ -494,15 +551,29 @@ class RAGRetriever:
                 force_scoped=force_scoped,
             )
 
+        scoped_mode = self._should_run_scoped_queries(
+            resolved_query,
+            where,
+            force_scoped=force_scoped,
+        )
+        rerank_top_k = (
+            min(len(results), max(final_top_k * 2, 6))
+            if scoped_mode
+            else final_top_k
+        )
+
         before_rerank = list(results)
-        results = self._apply_experimental_rerank(resolved_query, results, final_top_k)
+        results = self._apply_experimental_rerank(resolved_query, results, rerank_top_k)
         reranked = rerank_with_boost(
             results,
             query=resolved_query,
             section_hint=section_hint,
             boost_config=self.boost_config,
         )
-        final_results = _assign_ranks(reranked[:final_top_k])
+        if scoped_mode:
+            final_results = self._promote_doc_diversity(reranked, final_top_k, where)
+        else:
+            final_results = _assign_ranks(reranked[:final_top_k])
         if self.debug_trace_enabled:
             self._last_debug = {
                 **rewrite_trace,
